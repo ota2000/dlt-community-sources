@@ -29,28 +29,11 @@ uv add dlt-community-sources[app-store-connect]
 
 ## Quick start
 
-### App Store Connect
+See each source's README for usage examples:
 
-```python
-import dlt
-from dlt_community_sources.app_store_connect import app_store_connect_source
-
-pipeline = dlt.pipeline(
-    pipeline_name="app_store_connect",
-    destination="bigquery",  # or any dlt destination
-    dataset_name="source_app_store_connect",
-)
-
-source = app_store_connect_source(
-    key_id="YOUR_KEY_ID",
-    issuer_id="YOUR_ISSUER_ID",
-    private_key=open("AuthKey_XXXXX.p8").read(),
-    vendor_number="YOUR_VENDOR_NUMBER",
-)
-
-load_info = pipeline.run(source)
-print(load_info)
-```
+- [App Store Connect](dlt_community_sources/app_store_connect/)
+- [Twilio](dlt_community_sources/twilio/)
+- [NextDNS](dlt_community_sources/nextdns/)
 
 ## Features
 

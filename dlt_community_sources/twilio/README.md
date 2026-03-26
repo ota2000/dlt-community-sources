@@ -22,7 +22,8 @@ pipeline = dlt.pipeline(
 
 source = twilio_source(
     account_sid="YOUR_ACCOUNT_SID",
-    auth_token="YOUR_AUTH_TOKEN",
+    api_key_sid="YOUR_API_KEY_SID",
+    api_key_secret="YOUR_API_KEY_SECRET",
 )
 
 load_info = pipeline.run(source)
@@ -33,7 +34,8 @@ load_info = pipeline.run(source)
 ```python
 source = twilio_source(
     account_sid="YOUR_ACCOUNT_SID",
-    auth_token="YOUR_AUTH_TOKEN",
+    api_key_sid="YOUR_API_KEY_SID",
+    api_key_secret="YOUR_API_KEY_SECRET",
     resources=["messages", "calls", "usage_records"],
 )
 ```
