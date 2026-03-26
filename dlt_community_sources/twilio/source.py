@@ -72,11 +72,10 @@ def calls(
 @dlt.resource(name="accounts", write_disposition="merge", primary_key="sid")
 def accounts(client: TwilioClient):
     """Twilio accounts and subaccounts."""
-    data = client.get(".")
-    if "accounts" in data:
-        yield from data["accounts"]
-    else:
-        yield data
+    from .client import BASE_URL
+
+    resp = client._request("GET", f"{BASE_URL}/Accounts/{client.account_sid}.json")
+    yield resp.json()
 
 
 @dlt.resource(name="usage_records", write_disposition="append")
