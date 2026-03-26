@@ -1,12 +1,13 @@
 """Tests for dlt source definition."""
 
+from unittest.mock import MagicMock, patch
+
 from dlt_community_sources.app_store_connect import source as mod
 from dlt_community_sources.app_store_connect.source import app_store_connect_source
 
 
 def test_source_has_all_resources():
     """Verify all expected resources are defined."""
-
     expected = [
         "apps",
         "app_store_versions",
@@ -24,16 +25,12 @@ def test_source_has_all_resources():
         "finance_reports",
         "analytics_reports",
     ]
-
-    # Check that all resource functions exist
     for name in expected:
         assert hasattr(mod, name), f"Missing resource function: {name}"
 
 
 def test_resource_filtering():
     """Verify resource filtering by name works."""
-    from unittest.mock import MagicMock, patch
-
     with patch(
         "dlt_community_sources.app_store_connect.source.AppStoreConnectClient"
     ) as MockClient:
@@ -51,3 +48,47 @@ def test_resource_filtering():
         assert "apps" in resource_names
         assert "builds" in resource_names
         assert "users" not in resource_names
+
+
+def test_apps_resource():
+    mock_client = MagicMock()
+    mock_client.get_paginated.return_value = iter(
+        [{"id": "1", "type": "apps", "attributes": {"name": "Test"}}]
+    )
+    result = list(mod.apps(mock_client))
+    assert len(result) == 1
+    assert result[0]["id"] == "1"
+
+
+def test_app_store_versions_resource():
+    mock_client = MagicMock()
+    mock_client.get_paginated.side_effect = [
+        iter([{"id": "app1"}]),
+        iter([{"id": "v1", "attributes": {"versionString": "1.0"}}]),
+    ]
+    result = list(mod.app_store_versions(mock_client))
+    assert len(result) == 1
+    assert result[0]["id"] == "v1"
+
+
+def test_users_resource():
+    mock_client = MagicMock()
+    mock_client.get_paginated.return_value = iter(
+        [{"id": "u1", "attributes": {"username": "test"}}]
+    )
+    result = list(mod.users(mock_client))
+    assert len(result) == 1
+
+
+def test_sales_reports_skips_without_vendor():
+    mock_client = MagicMock()
+    result = list(mod.sales_reports(mock_client, vendor_number=""))
+    assert result == []
+    mock_client.download_tsv.assert_not_called()
+
+
+def test_finance_reports_skips_without_vendor():
+    mock_client = MagicMock()
+    result = list(mod.finance_reports(mock_client, vendor_number=""))
+    assert result == []
+    mock_client.download_tsv.assert_not_called()
