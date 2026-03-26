@@ -1,0 +1,75 @@
+# App Store Connect
+
+A dlt source for [Apple App Store Connect API](https://developer.apple.com/documentation/appstoreconnectapi).
+
+## Installation
+
+```bash
+pip install dlt-community-sources[app-store-connect]
+```
+
+## Usage
+
+```python
+import dlt
+from dlt_community_sources.app_store_connect import app_store_connect_source
+
+pipeline = dlt.pipeline(
+    pipeline_name="app_store_connect",
+    destination="bigquery",
+    dataset_name="source_app_store_connect",
+)
+
+source = app_store_connect_source(
+    key_id="YOUR_KEY_ID",
+    issuer_id="YOUR_ISSUER_ID",
+    private_key=open("AuthKey_XXXXX.p8").read(),
+    vendor_number="YOUR_VENDOR_NUMBER",
+)
+
+load_info = pipeline.run(source)
+```
+
+### Load specific resources
+
+```python
+source = app_store_connect_source(
+    key_id="YOUR_KEY_ID",
+    issuer_id="YOUR_ISSUER_ID",
+    private_key=open("AuthKey_XXXXX.p8").read(),
+    resources=["apps", "builds", "sales_reports"],
+)
+```
+
+## Resources
+
+| Resource | Write Disposition | Incremental | Description |
+|---|---|---|---|
+| `apps` | merge | - | App metadata |
+| `app_store_versions` | merge | - | App Store version history |
+| `builds` | merge | - | Build information |
+| `beta_testers` | merge | - | TestFlight testers |
+| `beta_groups` | merge | - | TestFlight groups |
+| `bundle_ids` | merge | - | Bundle identifiers |
+| `certificates` | merge | - | Signing certificates |
+| `devices` | merge | - | Registered devices |
+| `in_app_purchases` | merge | - | In-app purchase products |
+| `subscriptions` | merge | - | Subscription products |
+| `subscription_groups` | merge | - | Subscription groups |
+| `users` | merge | - | Team members |
+| `sales_reports` | append | daily | Sales and trends reports |
+| `finance_reports` | append | monthly | Financial reports |
+| `analytics_reports` | append | by processing date | Analytics reports |
+
+`sales_reports` and `finance_reports` require `vendor_number`.
+
+## Authentication
+
+You need an API key from [App Store Connect](https://appstoreconnect.apple.com/access/integrations/api).
+
+| Parameter | Description |
+|---|---|
+| `key_id` | The identifier for your API key |
+| `issuer_id` | Your team's issuer ID |
+| `private_key` | Contents of the `.p8` file downloaded when creating the key |
+| `vendor_number` | Your vendor number (required for sales/finance reports) |

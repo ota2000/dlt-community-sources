@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+.env
+.dlt/pipelines/
+*.duckdb
+*.duckdb.wal
+*.duckdb.tmp/
+.ruff_cache/
+.pytest_cache/
