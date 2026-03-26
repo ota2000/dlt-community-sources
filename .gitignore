@@ -14,3 +14,4 @@ build/
 *.duckdb.tmp/
 .ruff_cache/
 .pytest_cache/
+.coverage
