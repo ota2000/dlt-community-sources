@@ -49,12 +49,22 @@ uv run ruff format .
 3. Add a test
 4. Update the resource table in the source's `README.md`
 
+## AI rules
+
+AI assistant rules are managed in `.ai/` as a single source of truth. Do not edit `CLAUDE.md`, `.cursor/rules/`, `.github/copilot-instructions.md`, `.clinerules/`, or `.continue/rules/` directly. Edit `.ai/rules.md` or `.ai/skills/*.md`, then run:
+
+```bash
+bash scripts/sync-ai-rules.sh
+```
+
+CI will fail if the generated files are out of sync.
+
 ## Pull requests
 
 - Open a PR from your fork to `main`
 - One feature/fix per PR
 - Include tests for new functionality
-- Make sure CI passes (`ruff check`, `ruff format --check`, `pytest`)
+- Make sure CI passes (`ruff check`, `ruff format --check`, `pytest`, AI rules sync)
 
 ## Releases
 
