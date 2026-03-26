@@ -33,7 +33,7 @@ load_info = pipeline.run(source)
 
 ### With sales/finance reports
 
-`vendor_number` is required for sales_reports and finance_reports. Other resources work without it.
+`vendor_number` is only needed for `sales_reports` and `finance_reports`. Without it, those two resources are silently skipped and all other resources load normally.
 
 ```python
 source = app_store_connect_source(
