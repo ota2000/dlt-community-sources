@@ -65,7 +65,8 @@ All sources share these common features:
 ## Development
 
 ```bash
-git clone https://github.com/ota2000/dlt-community-sources.git
+# Fork the repository first, then:
+git clone https://github.com/YOUR_USERNAME/dlt-community-sources.git
 cd dlt-community-sources
 uv sync --group dev
 uv run pytest -v
