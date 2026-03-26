@@ -1,6 +1,7 @@
 """dlt source for Twilio API."""
 
 import logging
+from email.utils import parsedate_to_datetime
 from typing import Optional, Sequence
 
 import dlt
@@ -49,24 +50,36 @@ def twilio_source(
     return all_resources
 
 
+def _rfc2822_to_iso(value: str) -> str:
+    """Convert RFC 2822 date to ISO 8601 for correct string comparison."""
+    try:
+        return parsedate_to_datetime(value).strftime("%Y-%m-%dT%H:%M:%S%z")
+    except Exception:
+        return value
+
+
 @dlt.resource(name="messages", write_disposition="append", primary_key="sid")
 def messages(
     client: TwilioClient,
-    last_date=dlt.sources.incremental("date_sent", initial_value="2020-01-01"),
+    last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """SMS/MMS messages."""
     params = {"DateSent>": last_date.last_value}
-    yield from client.get_paginated("Messages", "messages", params=params)
+    for item in client.get_paginated("Messages", "messages", params=params):
+        item["_cursor"] = _rfc2822_to_iso(item.get("date_sent", ""))
+        yield item
 
 
 @dlt.resource(name="calls", write_disposition="append", primary_key="sid")
 def calls(
     client: TwilioClient,
-    last_date=dlt.sources.incremental("start_time", initial_value="2020-01-01"),
+    last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """Voice calls."""
     params = {"StartTime>": last_date.last_value}
-    yield from client.get_paginated("Calls", "calls", params=params)
+    for item in client.get_paginated("Calls", "calls", params=params):
+        item["_cursor"] = _rfc2822_to_iso(item.get("start_time", ""))
+        yield item
 
 
 @dlt.resource(name="accounts", write_disposition="merge", primary_key="sid")
@@ -91,11 +104,13 @@ def usage_records(
 @dlt.resource(name="recordings", write_disposition="append", primary_key="sid")
 def recordings(
     client: TwilioClient,
-    last_date=dlt.sources.incremental("date_created", initial_value="2020-01-01"),
+    last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """Call recordings."""
     params = {"DateCreated>": last_date.last_value}
-    yield from client.get_paginated("Recordings", "recordings", params=params)
+    for item in client.get_paginated("Recordings", "recordings", params=params):
+        item["_cursor"] = _rfc2822_to_iso(item.get("date_created", ""))
+        yield item
 
 
 @dlt.resource(name="transcriptions", write_disposition="append", primary_key="sid")
@@ -107,11 +122,13 @@ def transcriptions(client: TwilioClient):
 @dlt.resource(name="conferences", write_disposition="append", primary_key="sid")
 def conferences(
     client: TwilioClient,
-    last_date=dlt.sources.incremental("date_created", initial_value="2020-01-01"),
+    last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """Conference calls."""
     params = {"DateCreated>": last_date.last_value}
-    yield from client.get_paginated("Conferences", "conferences", params=params)
+    for item in client.get_paginated("Conferences", "conferences", params=params):
+        item["_cursor"] = _rfc2822_to_iso(item.get("date_created", ""))
+        yield item
 
 
 @dlt.resource(name="queues", write_disposition="merge", primary_key="sid")
