@@ -57,6 +57,18 @@ source = app_store_connect_source(
 | `subscriptions` | merge | - | Subscription products |
 | `subscription_groups` | merge | - | Subscription groups |
 | `users` | merge | - | Team members |
+| `user_invitations` | merge | - | Pending user invitations |
+| `app_categories` | replace | - | App Store categories |
+| `territories` | replace | - | Available territories |
+| `pre_release_versions` | merge | - | TestFlight pre-release versions |
+| `beta_app_review_submissions` | merge | - | Beta app review submissions |
+| `beta_build_localizations` | merge | - | Beta build localizations |
+| `beta_app_localizations` | merge | - | Beta app localizations |
+| `beta_license_agreements` | merge | - | Beta license agreements |
+| `build_beta_details` | merge | - | Build beta details |
+| `app_encryption_declarations` | merge | - | App encryption declarations |
+| `provisioning_profiles` | merge | - | Provisioning profiles |
+| `review_submissions` | merge | - | App review submissions |
 | `sales_reports` | append | daily | Sales and trends reports |
 | `finance_reports` | append | monthly | Financial reports |
 | `analytics_reports` | append | by processing date | Analytics reports |

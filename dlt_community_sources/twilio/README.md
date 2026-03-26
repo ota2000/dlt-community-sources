@@ -54,6 +54,13 @@ source = twilio_source(
 | `available_phone_numbers` | replace | - | Available phone numbers for purchase |
 | `addresses` | merge | - | Addresses on the account |
 | `keys` | merge | - | API keys |
+| `outgoing_caller_ids` | merge | - | Verified outgoing caller IDs |
+| `applications` | merge | - | TwiML applications |
+| `connect_apps` | merge | - | Connect apps |
+| `notifications` | append | by message_date | Log notifications |
+| `sip_domains` | merge | - | SIP domains |
+| `sip_ip_access_control_lists` | merge | - | SIP IP access control lists |
+| `sip_credential_lists` | merge | - | SIP credential lists |
 
 ## Authentication
 
