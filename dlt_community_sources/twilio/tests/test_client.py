@@ -67,8 +67,12 @@ def test_retry_on_429(mock_sleep, client):
 
 
 def test_rfc2822_to_iso_conversion():
-    assert _rfc2822_to_iso("Thu, 27 Mar 2026 15:30:00 +0000") == "2026-03-27T15:30:00+0000"
-    assert _rfc2822_to_iso("Mon, 01 Jan 2024 00:00:00 +0000") == "2024-01-01T00:00:00+0000"
+    assert (
+        _rfc2822_to_iso("Thu, 27 Mar 2026 15:30:00 +0000") == "2026-03-27T15:30:00+0000"
+    )
+    assert (
+        _rfc2822_to_iso("Mon, 01 Jan 2024 00:00:00 +0000") == "2024-01-01T00:00:00+0000"
+    )
 
 
 def test_rfc2822_to_iso_sorts_correctly():
