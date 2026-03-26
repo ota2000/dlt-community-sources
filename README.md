@@ -12,6 +12,7 @@ Community-maintained [dlt](https://dlthub.com/) sources for various APIs. Instal
 | Source | Extra | Description |
 |---|---|---|
 | [App Store Connect](docs/app_store_connect.md) | `app-store-connect` | Apple App Store Connect API (15 resources) |
+| [Twilio](docs/twilio.md) | `twilio` | Twilio SMS, Calls, Usage Records (12 resources) |
 
 ## Installation
 
