@@ -4,8 +4,11 @@ Contributions are welcome!
 
 ## Setup
 
+1. Fork the repository on GitHub
+2. Clone your fork:
+
 ```bash
-git clone https://github.com/ota2000/dlt-community-sources.git
+git clone https://github.com/YOUR_USERNAME/dlt-community-sources.git
 cd dlt-community-sources
 uv sync --group dev
 ```
@@ -48,14 +51,11 @@ uv run ruff format .
 
 ## Pull requests
 
+- Open a PR from your fork to `main`
 - One feature/fix per PR
 - Include tests for new functionality
 - Make sure CI passes (`ruff check`, `ruff format --check`, `pytest`)
 
 ## Releases
 
-Releases are automated via GitHub Actions. To publish a new version:
-
-1. Create a tag: `git tag v0.1.0`
-2. Push the tag: `git push origin v0.1.0`
-3. The `publish.yaml` workflow will build and publish to PyPI
+Releases are managed by maintainers via GitHub Actions.
