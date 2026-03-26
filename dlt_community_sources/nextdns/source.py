@@ -65,6 +65,15 @@ def profiles(client: NextDNSClient):
     yield from client.get_paginated("profiles")
 
 
+def _iso_to_unix_ms(iso_timestamp: str) -> int:
+    """Convert ISO 8601 timestamp to Unix milliseconds."""
+    try:
+        dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+        return int(dt.timestamp() * 1000)
+    except (ValueError, AttributeError):
+        return 0
+
+
 @dlt.resource(name="logs", write_disposition="append")
 def logs(
     client: NextDNSClient,
@@ -74,13 +83,7 @@ def logs(
     ),
 ):
     """DNS query logs."""
-    # Convert ISO timestamp to Unix ms for NextDNS API 'from' parameter
-    last_value = last_timestamp.last_value
-    try:
-        dt = datetime.fromisoformat(last_value.replace("Z", "+00:00"))
-        from_ts = int(dt.timestamp() * 1000)
-    except (ValueError, AttributeError):
-        from_ts = 0
+    from_ts = _iso_to_unix_ms(last_timestamp.last_value)
 
     for pid in profile_ids or []:
         for item in client.get_paginated(

@@ -104,15 +104,19 @@ def test_analytics_destinations_passes_type_param():
     )
 
 
-def test_logs_from_timestamp_conversion():
-    """Verify ISO timestamp is converted to Unix ms for the API."""
-    from datetime import datetime
+def test_iso_to_unix_ms():
+    result = mod._iso_to_unix_ms("2026-03-27T00:00:00.000Z")
+    assert isinstance(result, int)
+    assert result > 0
+    # Verify round-trip
+    result2 = mod._iso_to_unix_ms("2020-01-01T00:00:00.000Z")
+    assert result2 > 0
+    assert result > result2  # 2026 > 2020
 
-    last_value = "2026-03-27T00:00:00.000Z"
-    dt = datetime.fromisoformat(last_value.replace("Z", "+00:00"))
-    from_ts = int(dt.timestamp() * 1000)
-    assert from_ts > 0
-    assert isinstance(from_ts, int)
+
+def test_iso_to_unix_ms_invalid():
+    assert mod._iso_to_unix_ms("not-a-date") == 0
+    assert mod._iso_to_unix_ms("") == 0
 
 
 def test_empty_profile_ids():
