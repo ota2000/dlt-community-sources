@@ -99,3 +99,9 @@ You need an API key from [App Store Connect](https://appstoreconnect.apple.com/a
 | `issuer_id` | Your team's issuer ID |
 | `private_key` | Contents of the `.p8` file downloaded when creating the key |
 | `vendor_number` | Your vendor number (required for sales/finance reports) |
+
+## Notes
+
+- **Permission errors**: Resources that return 403 (e.g., due to API key role restrictions) are silently skipped. The pipeline continues with accessible resources.
+- **Analytics reports**: Requires an existing `ONGOING` or `ONE_TIME_SNAPSHOT` analytics report request to be created in App Store Connect. Without it, `analytics_reports` returns empty.
+- **vendor_number**: Without it, `sales_reports` and `finance_reports` are silently skipped. All other resources load normally.

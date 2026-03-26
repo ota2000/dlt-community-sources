@@ -70,3 +70,10 @@ Get your API key from [NextDNS Account](https://my.nextdns.io/account).
 |---|---|
 | `api_key` | NextDNS API key |
 | `profile_id` | Optional. Profile ID to load. Loads all profiles if omitted. |
+
+## Notes
+
+- **profile_id**: If omitted, all profiles on the account are automatically discovered and loaded.
+- **Empty data**: Resources with no data return empty tables without errors. This is normal for new accounts or profiles with no DNS queries yet.
+- **Time-series resources** (`*_series`): Fetch the last 30 days of data by default.
+- **Permission errors**: Resources that return 403 or 404 are silently skipped.
