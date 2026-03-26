@@ -97,6 +97,26 @@ def test_rfc2822_to_iso_fallback():
     assert _rfc2822_to_iso("") == ""
 
 
+def test_api_key_auth():
+    client = TwilioClient(
+        account_sid="AC_TEST",
+        api_key_sid="SK_TEST",
+        api_key_secret="SECRET",
+    )
+    assert client._session.auth == ("SK_TEST", "SECRET")
+    assert client.account_sid == "AC_TEST"
+
+
+def test_auth_token_auth():
+    client = TwilioClient(account_sid="AC_TEST", auth_token="TOKEN")
+    assert client._session.auth == ("AC_TEST", "TOKEN")
+
+
+def test_no_credentials_raises():
+    with pytest.raises(ValueError, match="Provide either"):
+        TwilioClient(account_sid="AC_TEST")
+
+
 def test_403_graceful_skip(client):
     error_resp = MagicMock()
     error_resp.status_code = 403

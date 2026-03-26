@@ -15,20 +15,31 @@ logger = logging.getLogger(__name__)
 @dlt.source(name="twilio")
 def twilio_source(
     account_sid: str = dlt.secrets.value,
-    auth_token: str = dlt.secrets.value,
+    auth_token: Optional[str] = None,
+    api_key_sid: Optional[str] = None,
+    api_key_secret: Optional[str] = None,
     resources: Optional[Sequence[str]] = None,
 ) -> list[DltResource]:
     """A dlt source for Twilio API.
 
+    Authenticate with either auth_token or API key pair.
+
     Args:
         account_sid: Twilio Account SID.
-        auth_token: Twilio Auth Token.
+        auth_token: Twilio Auth Token (account-level auth).
+        api_key_sid: Twilio API Key SID (scoped auth, recommended for production).
+        api_key_secret: Twilio API Key Secret.
         resources: List of resource names to load. None for all.
 
     Returns:
         List of dlt resources.
     """
-    client = TwilioClient(account_sid, auth_token)
+    client = TwilioClient(
+        account_sid,
+        auth_token=auth_token,
+        api_key_sid=api_key_sid,
+        api_key_secret=api_key_secret,
+    )
 
     all_resources = [
         messages(client),

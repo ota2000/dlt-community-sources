@@ -17,10 +17,23 @@ INITIAL_BACKOFF = 1.0
 class TwilioClient:
     """Client for Twilio API with Basic Auth and rate limit handling."""
 
-    def __init__(self, account_sid: str, auth_token: str) -> None:
+    def __init__(
+        self,
+        account_sid: str,
+        auth_token: Optional[str] = None,
+        api_key_sid: Optional[str] = None,
+        api_key_secret: Optional[str] = None,
+    ) -> None:
         self.account_sid = account_sid
         self._session = requests.Session()
-        self._session.auth = (account_sid, auth_token)
+        if api_key_sid and api_key_secret:
+            self._session.auth = (api_key_sid, api_key_secret)
+        elif auth_token:
+            self._session.auth = (account_sid, auth_token)
+        else:
+            raise ValueError(
+                "Provide either auth_token or both api_key_sid and api_key_secret"
+            )
         self._session.headers.update({"Accept": "application/json"})
 
     def _request(self, method: str, url: str, **kwargs: Any) -> requests.Response:

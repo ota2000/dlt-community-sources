@@ -57,9 +57,38 @@ source = twilio_source(
 
 ## Authentication
 
-You need your Twilio credentials from the [Twilio Console](https://console.twilio.com/).
+Two authentication methods are supported.
+
+### Auth Token (simple)
+
+```python
+source = twilio_source(
+    account_sid="YOUR_ACCOUNT_SID",
+    auth_token="YOUR_AUTH_TOKEN",
+)
+```
 
 | Parameter | Description |
 |---|---|
 | `account_sid` | Your Twilio Account SID (starts with `AC`) |
 | `auth_token` | Your Twilio Auth Token |
+
+### API Key (recommended for production)
+
+API keys can be scoped to specific permissions and revoked independently.
+
+```python
+source = twilio_source(
+    account_sid="YOUR_ACCOUNT_SID",
+    api_key_sid="YOUR_API_KEY_SID",
+    api_key_secret="YOUR_API_KEY_SECRET",
+)
+```
+
+| Parameter | Description |
+|---|---|
+| `account_sid` | Your Twilio Account SID (starts with `AC`) |
+| `api_key_sid` | API Key SID (starts with `SK`) |
+| `api_key_secret` | API Key Secret |
+
+Create API keys at [Twilio Console > API keys & tokens](https://console.twilio.com/us1/account/keys-credentials/api-keys).
