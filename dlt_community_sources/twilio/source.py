@@ -54,6 +54,10 @@ def twilio_source(
         available_phone_numbers(client),
         addresses(client),
         keys(client),
+        outgoing_caller_ids(client),
+        applications(client),
+        connect_apps(client),
+        notifications(client),
     ]
 
     if resources:
@@ -173,3 +177,33 @@ def addresses(client: TwilioClient):
 def keys(client: TwilioClient):
     """API keys."""
     yield from client.get_paginated("Keys", "keys")
+
+
+@dlt.resource(name="outgoing_caller_ids", write_disposition="merge", primary_key="sid")
+def outgoing_caller_ids(client: TwilioClient):
+    """Verified outgoing caller IDs."""
+    yield from client.get_paginated("OutgoingCallerIds", "outgoing_caller_ids")
+
+
+@dlt.resource(name="applications", write_disposition="merge", primary_key="sid")
+def applications(client: TwilioClient):
+    """TwiML applications."""
+    yield from client.get_paginated("Applications", "applications")
+
+
+@dlt.resource(name="connect_apps", write_disposition="merge", primary_key="sid")
+def connect_apps(client: TwilioClient):
+    """Connect apps."""
+    yield from client.get_paginated("ConnectApps", "connect_apps")
+
+
+@dlt.resource(name="notifications", write_disposition="append", primary_key="sid")
+def notifications(
+    client: TwilioClient,
+    last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
+):
+    """Log notifications."""
+    params = {"MessageDate>": last_date.last_value}
+    for item in client.get_paginated("Notifications", "notifications", params=params):
+        item["_cursor"] = _rfc2822_to_iso(item.get("message_date", ""))
+        yield item

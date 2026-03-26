@@ -17,6 +17,10 @@ def test_source_has_all_resources():
         "available_phone_numbers",
         "addresses",
         "keys",
+        "outgoing_caller_ids",
+        "applications",
+        "connect_apps",
+        "notifications",
     ]
     for name in expected:
         assert hasattr(mod, name), f"Missing resource function: {name}"

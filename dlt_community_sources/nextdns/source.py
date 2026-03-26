@@ -47,6 +47,11 @@ def nextdns_source(
         analytics_devices(client, profile_ids=profile_ids),
         analytics_protocols(client, profile_ids=profile_ids),
         analytics_destinations(client, profile_ids=profile_ids),
+        analytics_ips(client, profile_ids=profile_ids),
+        analytics_query_types(client, profile_ids=profile_ids),
+        analytics_ip_versions(client, profile_ids=profile_ids),
+        analytics_dnssec(client, profile_ids=profile_ids),
+        analytics_encryption(client, profile_ids=profile_ids),
     ]
 
     if resources:
@@ -152,5 +157,56 @@ def analytics_destinations(
         for item in client.get_paginated(
             f"profiles/{pid}/analytics/destinations", params={"type": "countries"}
         ):
+            item["_profile_id"] = pid
+            yield item
+
+
+@dlt.resource(name="analytics_ips", write_disposition="replace")
+def analytics_ips(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
+    """Query count by client IP."""
+    for pid in profile_ids or []:
+        for item in client.get_paginated(f"profiles/{pid}/analytics/ips"):
+            item["_profile_id"] = pid
+            yield item
+
+
+@dlt.resource(name="analytics_query_types", write_disposition="replace")
+def analytics_query_types(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by DNS query type (A, AAAA, MX, etc.)."""
+    for pid in profile_ids or []:
+        for item in client.get_paginated(f"profiles/{pid}/analytics/queryTypes"):
+            item["_profile_id"] = pid
+            yield item
+
+
+@dlt.resource(name="analytics_ip_versions", write_disposition="replace")
+def analytics_ip_versions(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by IP version (IPv4 vs IPv6)."""
+    for pid in profile_ids or []:
+        for item in client.get_paginated(f"profiles/{pid}/analytics/ipVersions"):
+            item["_profile_id"] = pid
+            yield item
+
+
+@dlt.resource(name="analytics_dnssec", write_disposition="replace")
+def analytics_dnssec(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
+    """Query count by DNSSEC validation status."""
+    for pid in profile_ids or []:
+        for item in client.get_paginated(f"profiles/{pid}/analytics/dnssec"):
+            item["_profile_id"] = pid
+            yield item
+
+
+@dlt.resource(name="analytics_encryption", write_disposition="replace")
+def analytics_encryption(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by encryption status."""
+    for pid in profile_ids or []:
+        for item in client.get_paginated(f"profiles/{pid}/analytics/encryption"):
             item["_profile_id"] = pid
             yield item

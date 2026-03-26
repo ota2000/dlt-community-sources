@@ -14,6 +14,11 @@ def test_source_has_all_resources():
         "analytics_devices",
         "analytics_protocols",
         "analytics_destinations",
+        "analytics_ips",
+        "analytics_query_types",
+        "analytics_ip_versions",
+        "analytics_dnssec",
+        "analytics_encryption",
     ]
     for name in expected:
         assert hasattr(mod, name), f"Missing resource function: {name}"

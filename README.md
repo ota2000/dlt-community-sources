@@ -12,8 +12,8 @@ Community-maintained [dlt](https://dlthub.com/) sources for various APIs. Instal
 | Source | Extra | Description |
 |---|---|---|
 | [App Store Connect](dlt_community_sources/app_store_connect/) | `app-store-connect` | Apple App Store Connect API (15 resources) |
-| [Twilio](dlt_community_sources/twilio/) | `twilio` | Twilio SMS, Calls, Usage Records (12 resources) |
-| [NextDNS](dlt_community_sources/nextdns/) | `nextdns` | NextDNS logs and analytics (9 resources) |
+| [Twilio](dlt_community_sources/twilio/) | `twilio` | Twilio SMS, Calls, Usage Records (16 resources) |
+| [NextDNS](dlt_community_sources/nextdns/) | `nextdns` | NextDNS logs and analytics (14 resources) |
 
 ## Installation
 
