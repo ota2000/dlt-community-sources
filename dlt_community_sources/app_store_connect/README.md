@@ -11,6 +11,8 @@ pip install dlt-community-sources[app-store-connect]
 ## Usage
 
 ```python
+from pathlib import Path
+
 import dlt
 from dlt_community_sources.app_store_connect import app_store_connect_source
 
@@ -23,7 +25,7 @@ pipeline = dlt.pipeline(
 source = app_store_connect_source(
     key_id="YOUR_KEY_ID",
     issuer_id="YOUR_ISSUER_ID",
-    private_key=open("AuthKey_XXXXX.p8").read(),
+    private_key=Path("AuthKey_XXXXX.p8").read_text(),
 )
 
 load_info = pipeline.run(source)
@@ -37,7 +39,7 @@ load_info = pipeline.run(source)
 source = app_store_connect_source(
     key_id="YOUR_KEY_ID",
     issuer_id="YOUR_ISSUER_ID",
-    private_key=open("AuthKey_XXXXX.p8").read(),
+    private_key=Path("AuthKey_XXXXX.p8").read_text(),
     vendor_number="YOUR_VENDOR_NUMBER",
 )
 ```
@@ -48,7 +50,7 @@ source = app_store_connect_source(
 source = app_store_connect_source(
     key_id="YOUR_KEY_ID",
     issuer_id="YOUR_ISSUER_ID",
-    private_key=open("AuthKey_XXXXX.p8").read(),
+    private_key=Path("AuthKey_XXXXX.p8").read_text(),
     resources=["apps", "builds", "users"],
 )
 ```
