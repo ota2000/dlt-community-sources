@@ -24,10 +24,22 @@ source = app_store_connect_source(
     key_id="YOUR_KEY_ID",
     issuer_id="YOUR_ISSUER_ID",
     private_key=open("AuthKey_XXXXX.p8").read(),
-    vendor_number="YOUR_VENDOR_NUMBER",
 )
 
 load_info = pipeline.run(source)
+```
+
+### With sales/finance reports
+
+`vendor_number` is required for sales_reports and finance_reports. Other resources work without it.
+
+```python
+source = app_store_connect_source(
+    key_id="YOUR_KEY_ID",
+    issuer_id="YOUR_ISSUER_ID",
+    private_key=open("AuthKey_XXXXX.p8").read(),
+    vendor_number="YOUR_VENDOR_NUMBER",
+)
 ```
 
 ### Load specific resources
@@ -37,7 +49,7 @@ source = app_store_connect_source(
     key_id="YOUR_KEY_ID",
     issuer_id="YOUR_ISSUER_ID",
     private_key=open("AuthKey_XXXXX.p8").read(),
-    resources=["apps", "builds", "sales_reports"],
+    resources=["apps", "builds", "users"],
 )
 ```
 
