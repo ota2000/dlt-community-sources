@@ -56,6 +56,21 @@ uv run pytest -v
 uv run ruff check .
 ```
 
+## AI-assisted development
+
+This repository is set up for AI coding assistants. Rules and skills are managed in [`.ai/`](.ai/) as a single source of truth and synced to tool-specific locations via [`scripts/sync-ai-rules.sh`](scripts/sync-ai-rules.sh).
+
+| File | Tool |
+|---|---|
+| `.ai/rules.md` | Source of truth |
+| `CLAUDE.md` | Claude Code |
+| `.cursor/rules.md` | Cursor |
+| `.github/copilot-instructions.md` | GitHub Copilot |
+| `.windsurfrules` | Windsurf |
+| `.ai/skills/*.md` → `.claude/skills/` | Claude Code skills |
+
+Edit `.ai/` only, then run `bash scripts/sync-ai-rules.sh`. CI checks that files are in sync.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
