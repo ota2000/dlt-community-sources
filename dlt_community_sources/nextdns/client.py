@@ -77,4 +77,4 @@ class NextDNSClient:
             cursor = data.get("meta", {}).get("pagination", {}).get("cursor")
             if not cursor:
                 break
-            params = {"cursor": cursor}
+            params["cursor"] = cursor

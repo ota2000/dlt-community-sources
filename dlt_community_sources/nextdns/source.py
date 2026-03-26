@@ -1,6 +1,7 @@
 """dlt source for NextDNS API."""
 
 import logging
+from datetime import datetime
 from typing import Optional, Sequence
 
 import dlt
@@ -64,12 +65,22 @@ def logs(
     client: NextDNSClient,
     profile_ids: Optional[list[str]] = None,
     last_timestamp=dlt.sources.incremental(
-        "timestamp", initial_value="2020-01-01T00:00:00Z"
+        "timestamp", initial_value="2020-01-01T00:00:00.000Z"
     ),
 ):
     """DNS query logs."""
+    # Convert ISO timestamp to Unix ms for NextDNS API 'from' parameter
+    last_value = last_timestamp.last_value
+    try:
+        dt = datetime.fromisoformat(last_value.replace("Z", "+00:00"))
+        from_ts = int(dt.timestamp() * 1000)
+    except (ValueError, AttributeError):
+        from_ts = 0
+
     for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/logs"):
+        for item in client.get_paginated(
+            f"profiles/{pid}/logs", params={"from": from_ts}
+        ):
             item["_profile_id"] = pid
             yield item
 
