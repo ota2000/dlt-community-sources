@@ -7,6 +7,10 @@ on:
         description: "Version to release (e.g., 0.1.0)"
         required: true
         type: string
+      notes:
+        description: "Release notes (optional, auto-generated if empty)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -38,8 +42,14 @@ jobs:
 
       - name: Create GitHub Release
         run: |
-          gh release create "v${{ inputs.version }}" \
-            --title "v${{ inputs.version }}" \
-            --generate-notes
+          if [ -n "${{ inputs.notes }}" ]; then
+            gh release create "v${{ inputs.version }}" \
+              --title "v${{ inputs.version }}" \
+              --notes "${{ inputs.notes }}"
+          else
+            gh release create "v${{ inputs.version }}" \
+              --title "v${{ inputs.version }}" \
+              --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ github.token }}

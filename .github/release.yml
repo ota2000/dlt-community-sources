@@ -1,0 +1,19 @@
+changelog:
+  categories:
+    - title: New Sources
+      labels:
+        - new-source
+    - title: New Resources
+      labels:
+        - enhancement
+    - title: Bug Fixes
+      labels:
+        - bug
+    - title: Other Changes
+      labels:
+        - "*"
+      exclude:
+        labels:
+          - new-source
+          - enhancement
+          - bug
