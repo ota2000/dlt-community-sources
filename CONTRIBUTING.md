@@ -58,4 +58,11 @@ uv run ruff format .
 
 ## Releases
 
-Releases are managed by maintainers via GitHub Actions.
+Releases are managed by maintainers via GitHub Actions. We follow [semver](https://semver.org/):
+
+| Change | Version bump | Example |
+|---|---|---|
+| Bug fix | patch | 0.5.0 → 0.5.1 |
+| New resources to existing source | patch | 0.5.1 → 0.5.2 |
+| New source | minor | 0.5.2 → 0.6.0 |
+| Breaking change | major | 0.6.0 → 1.0.0 |
