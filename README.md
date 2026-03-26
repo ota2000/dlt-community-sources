@@ -64,9 +64,8 @@ This repository is set up for AI coding assistants. Rules and skills are managed
 |---|---|
 | `.ai/rules.md` | Source of truth |
 | `CLAUDE.md` | Claude Code |
-| `.cursor/rules.md` | Cursor |
+| `.cursorrules` | Cursor |
 | `.github/copilot-instructions.md` | GitHub Copilot |
-| `.windsurfrules` | Windsurf |
 | `.ai/skills/*.md` → `.claude/skills/` | Claude Code skills |
 
 Edit `.ai/` only, then run `bash scripts/sync-ai-rules.sh`. CI checks that files are in sync.

@@ -18,17 +18,12 @@ cp "$RULES" CLAUDE.md
 echo "✓ CLAUDE.md"
 
 # Cursor
-mkdir -p .cursor
-cp "$RULES" .cursor/rules.md
-echo "✓ .cursor/rules.md"
+cp "$RULES" .cursorrules
+echo "✓ .cursorrules"
 
 # GitHub Copilot
 cp "$RULES" .github/copilot-instructions.md
 echo "✓ .github/copilot-instructions.md"
-
-# Windsurf
-cp "$RULES" .windsurfrules
-echo "✓ .windsurfrules"
 
 # --- Skills ---
 
