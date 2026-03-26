@@ -44,9 +44,7 @@ dlt_community_sources/
 ### Incremental Loading
 
 - Use `dlt.sources.incremental` with a cursor field that sorts correctly as strings
-- Cursor must be ISO 8601 format — never RFC 2822
-- Twilio dates are RFC 2822 — convert via `_rfc2822_to_iso` before using as cursor
-- NextDNS logs use Unix ms `from` parameter — convert via `_iso_to_unix_ms`
+- Cursor must be ISO 8601 format — if the API returns a different format, convert before using as cursor
 
 ### Write Dispositions
 
@@ -56,8 +54,7 @@ dlt_community_sources/
 
 ### Code Organization
 
-- Resource functions are thin — business logic goes in helpers
-- Helpers: `_flatten_series`, `_iso_to_unix_ms`, `_rfc2822_to_iso`, `_date_range`, `_month_range`
+- Resource functions are thin — extract reusable logic into helper functions
 - Each source has its own client class with `_request`, `get`, `get_paginated`
 
 ### Testing
