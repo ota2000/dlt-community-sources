@@ -58,6 +58,9 @@ def twilio_source(
         applications(client),
         connect_apps(client),
         notifications(client),
+        sip_domains(client),
+        sip_ip_access_control_lists(client),
+        sip_credential_lists(client),
     ]
 
     if resources:
@@ -207,3 +210,27 @@ def notifications(
     for item in client.get_paginated("Notifications", "notifications", params=params):
         item["_cursor"] = _rfc2822_to_iso(item.get("message_date", ""))
         yield item
+
+
+@dlt.resource(name="sip_domains", write_disposition="merge", primary_key="sid")
+def sip_domains(client: TwilioClient):
+    """SIP domains."""
+    yield from client.get_paginated("SIP/Domains", "domains")
+
+
+@dlt.resource(
+    name="sip_ip_access_control_lists",
+    write_disposition="merge",
+    primary_key="sid",
+)
+def sip_ip_access_control_lists(client: TwilioClient):
+    """SIP IP access control lists."""
+    yield from client.get_paginated(
+        "SIP/IpAccessControlLists", "ip_access_control_lists"
+    )
+
+
+@dlt.resource(name="sip_credential_lists", write_disposition="merge", primary_key="sid")
+def sip_credential_lists(client: TwilioClient):
+    """SIP credential lists."""
+    yield from client.get_paginated("SIP/CredentialLists", "credential_lists")

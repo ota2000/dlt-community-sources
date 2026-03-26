@@ -21,6 +21,18 @@ def test_source_has_all_resources():
         "subscriptions",
         "subscription_groups",
         "users",
+        "user_invitations",
+        "app_categories",
+        "territories",
+        "pre_release_versions",
+        "beta_app_review_submissions",
+        "beta_build_localizations",
+        "beta_app_localizations",
+        "beta_license_agreements",
+        "build_beta_details",
+        "app_encryption_declarations",
+        "provisioning_profiles",
+        "review_submissions",
         "sales_reports",
         "finance_reports",
         "analytics_reports",
@@ -92,3 +104,38 @@ def test_finance_reports_skips_without_vendor():
     result = list(mod.finance_reports(mock_client, vendor_number=""))
     assert result == []
     mock_client.download_tsv.assert_not_called()
+
+
+def test_date_range():
+    dates = list(mod._date_range("2026-03-25", "2026-03-27"))
+    assert dates == ["2026-03-25", "2026-03-26", "2026-03-27"]
+
+
+def test_date_range_single_day():
+    dates = list(mod._date_range("2026-03-27", "2026-03-27"))
+    assert dates == ["2026-03-27"]
+
+
+def test_date_range_empty():
+    dates = list(mod._date_range("2026-03-28", "2026-03-27"))
+    assert dates == []
+
+
+def test_month_range():
+    months = list(mod._month_range("2026-01", "2026-03"))
+    assert months == ["2026-01", "2026-02", "2026-03"]
+
+
+def test_month_range_year_boundary():
+    months = list(mod._month_range("2025-11", "2026-02"))
+    assert months == ["2025-11", "2025-12", "2026-01", "2026-02"]
+
+
+def test_month_range_single():
+    months = list(mod._month_range("2026-03", "2026-03"))
+    assert months == ["2026-03"]
+
+
+def test_month_range_empty():
+    months = list(mod._month_range("2026-04", "2026-03"))
+    assert months == []

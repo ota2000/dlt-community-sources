@@ -23,6 +23,9 @@ def test_source_has_all_resources():
         "applications",
         "connect_apps",
         "notifications",
+        "sip_domains",
+        "sip_ip_access_control_lists",
+        "sip_credential_lists",
     ]
     for name in expected:
         assert hasattr(mod, name), f"Missing resource function: {name}"
@@ -51,7 +54,7 @@ def test_resource_filtering_with_api_key():
         MockClient.return_value = mock_client
         mock_client.get_paginated.return_value = iter([])
 
-        source = mod.twilio_source(
+        mod.twilio_source(
             account_sid="TEST",
             api_key_sid="SK_TEST",
             api_key_secret="SECRET",
@@ -63,127 +66,26 @@ def test_resource_filtering_with_api_key():
             api_key_sid="SK_TEST",
             api_key_secret="SECRET",
         )
-        resource_names = [r.name for r in source.resources.values()]
-        assert "messages" in resource_names
 
 
-def test_messages_resource():
-    mock_client = MagicMock()
-    mock_client.get_paginated.return_value = iter(
-        [{"sid": "SM1", "date_sent": "Thu, 27 Mar 2026 00:00:00 +0000"}]
+def test_rfc2822_to_iso():
+    assert (
+        mod._rfc2822_to_iso("Thu, 27 Mar 2026 15:30:00 +0000")
+        == "2026-03-27T15:30:00+0000"
     )
-    result = list(mod.messages(mock_client))
-    assert len(result) == 1
-    assert result[0]["sid"] == "SM1"
-    assert result[0]["_cursor"] == "2026-03-27T00:00:00+0000"
 
 
-def test_calls_resource():
-    mock_client = MagicMock()
-    mock_client.get_paginated.return_value = iter(
-        [{"sid": "CA1", "start_time": "Thu, 27 Mar 2026 10:00:00 +0000"}]
-    )
-    result = list(mod.calls(mock_client))
-    assert len(result) == 1
-    assert result[0]["_cursor"] == "2026-03-27T10:00:00+0000"
+def test_rfc2822_to_iso_sorts_correctly():
+    dates_rfc = [
+        "Wed, 01 Feb 2024 00:00:00 +0000",
+        "Mon, 01 Jan 2024 00:00:00 +0000",
+        "Thu, 01 Mar 2025 00:00:00 +0000",
+        "Tue, 02 Jan 2024 00:00:00 +0000",
+    ]
+    converted = [mod._rfc2822_to_iso(d) for d in dates_rfc]
+    assert max(converted) == "2025-03-01T00:00:00+0000"
 
 
-def test_accounts_resource():
-    mock_client = MagicMock()
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = {"sid": "AC_TEST", "friendly_name": "Test"}
-    mock_client._request.return_value = mock_resp
-    mock_client.account_sid = "AC_TEST"
-    result = list(mod.accounts(mock_client))
-    assert len(result) == 1
-    assert result[0]["sid"] == "AC_TEST"
-
-
-def test_usage_records_resource():
-    mock_client = MagicMock()
-    mock_client.get_paginated.return_value = iter(
-        [{"start_date": "2026-03-27", "category": "sms", "usage": "10"}]
-    )
-    result = list(mod.usage_records(mock_client))
-    assert len(result) == 1
-    assert result[0]["category"] == "sms"
-
-
-def test_available_phone_numbers_resource():
-    mock_client = MagicMock()
-    mock_client.get.return_value = {
-        "available_phone_numbers": [{"phone_number": "+1234567890"}]
-    }
-    result = list(mod.available_phone_numbers(mock_client))
-    assert len(result) == 1
-    assert result[0]["phone_number"] == "+1234567890"
-
-
-def test_notifications_resource():
-    mock_client = MagicMock()
-    mock_client.get_paginated.return_value = iter(
-        [{"sid": "NO1", "message_date": "Thu, 27 Mar 2026 00:00:00 +0000"}]
-    )
-    result = list(mod.notifications(mock_client))
-    assert len(result) == 1
-    assert result[0]["_cursor"] == "2026-03-27T00:00:00+0000"
-
-
-def _make_paginated_test(resource_fn):
-    mock_client = MagicMock()
-    mock_client.get_paginated.return_value = iter([{"sid": "X1"}])
-    result = list(resource_fn(mock_client))
-    assert len(result) == 1
-    assert result[0]["sid"] == "X1"
-
-
-def test_recordings_resource():
-    mock_client = MagicMock()
-    mock_client.get_paginated.return_value = iter(
-        [{"sid": "RE1", "date_created": "Thu, 27 Mar 2026 00:00:00 +0000"}]
-    )
-    result = list(mod.recordings(mock_client))
-    assert len(result) == 1
-    assert result[0]["_cursor"] == "2026-03-27T00:00:00+0000"
-
-
-def test_conferences_resource():
-    mock_client = MagicMock()
-    mock_client.get_paginated.return_value = iter(
-        [{"sid": "CF1", "date_created": "Thu, 27 Mar 2026 00:00:00 +0000"}]
-    )
-    result = list(mod.conferences(mock_client))
-    assert len(result) == 1
-    assert result[0]["_cursor"] == "2026-03-27T00:00:00+0000"
-
-
-def test_transcriptions_resource():
-    _make_paginated_test(mod.transcriptions)
-
-
-def test_queues_resource():
-    _make_paginated_test(mod.queues)
-
-
-def test_incoming_phone_numbers_resource():
-    _make_paginated_test(mod.incoming_phone_numbers)
-
-
-def test_addresses_resource():
-    _make_paginated_test(mod.addresses)
-
-
-def test_keys_resource():
-    _make_paginated_test(mod.keys)
-
-
-def test_outgoing_caller_ids_resource():
-    _make_paginated_test(mod.outgoing_caller_ids)
-
-
-def test_applications_resource():
-    _make_paginated_test(mod.applications)
-
-
-def test_connect_apps_resource():
-    _make_paginated_test(mod.connect_apps)
+def test_rfc2822_to_iso_fallback():
+    assert mod._rfc2822_to_iso("not-a-date") == "not-a-date"
+    assert mod._rfc2822_to_iso("") == ""

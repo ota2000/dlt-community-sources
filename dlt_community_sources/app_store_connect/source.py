@@ -47,6 +47,18 @@ def app_store_connect_source(
         subscriptions(client),
         subscription_groups(client),
         users(client),
+        user_invitations(client),
+        app_categories(client),
+        territories(client),
+        pre_release_versions(client),
+        beta_app_review_submissions(client),
+        beta_build_localizations(client),
+        beta_app_localizations(client),
+        beta_license_agreements(client),
+        build_beta_details(client),
+        app_encryption_declarations(client),
+        provisioning_profiles(client),
+        review_submissions(client),
         sales_reports(client, vendor_number=vendor_number or ""),
         finance_reports(client, vendor_number=vendor_number or ""),
         analytics_reports(client),
@@ -130,6 +142,76 @@ def subscription_groups(client: AppStoreConnectClient):
 @dlt.resource(name="users", write_disposition="merge", primary_key="id")
 def users(client: AppStoreConnectClient):
     yield from client.get_paginated("users")
+
+
+@dlt.resource(name="user_invitations", write_disposition="merge", primary_key="id")
+def user_invitations(client: AppStoreConnectClient):
+    yield from client.get_paginated("userInvitations")
+
+
+@dlt.resource(name="app_categories", write_disposition="replace", primary_key="id")
+def app_categories(client: AppStoreConnectClient):
+    yield from client.get_paginated("appCategories")
+
+
+@dlt.resource(name="territories", write_disposition="replace", primary_key="id")
+def territories(client: AppStoreConnectClient):
+    yield from client.get_paginated("territories")
+
+
+@dlt.resource(name="pre_release_versions", write_disposition="merge", primary_key="id")
+def pre_release_versions(client: AppStoreConnectClient):
+    yield from client.get_paginated("preReleaseVersions")
+
+
+@dlt.resource(
+    name="beta_app_review_submissions", write_disposition="merge", primary_key="id"
+)
+def beta_app_review_submissions(client: AppStoreConnectClient):
+    yield from client.get_paginated("betaAppReviewSubmissions")
+
+
+@dlt.resource(
+    name="beta_build_localizations", write_disposition="merge", primary_key="id"
+)
+def beta_build_localizations(client: AppStoreConnectClient):
+    yield from client.get_paginated("betaBuildLocalizations")
+
+
+@dlt.resource(
+    name="beta_app_localizations", write_disposition="merge", primary_key="id"
+)
+def beta_app_localizations(client: AppStoreConnectClient):
+    yield from client.get_paginated("betaAppLocalizations")
+
+
+@dlt.resource(
+    name="beta_license_agreements", write_disposition="merge", primary_key="id"
+)
+def beta_license_agreements(client: AppStoreConnectClient):
+    yield from client.get_paginated("betaLicenseAgreements")
+
+
+@dlt.resource(name="build_beta_details", write_disposition="merge", primary_key="id")
+def build_beta_details(client: AppStoreConnectClient):
+    yield from client.get_paginated("buildBetaDetails")
+
+
+@dlt.resource(
+    name="app_encryption_declarations", write_disposition="merge", primary_key="id"
+)
+def app_encryption_declarations(client: AppStoreConnectClient):
+    yield from client.get_paginated("appEncryptionDeclarations")
+
+
+@dlt.resource(name="provisioning_profiles", write_disposition="merge", primary_key="id")
+def provisioning_profiles(client: AppStoreConnectClient):
+    yield from client.get_paginated("profiles")
+
+
+@dlt.resource(name="review_submissions", write_disposition="merge", primary_key="id")
+def review_submissions(client: AppStoreConnectClient):
+    yield from client.get_paginated("reviewSubmissions")
 
 
 # --- Sales & Finance Reports (with incremental loading) ---
