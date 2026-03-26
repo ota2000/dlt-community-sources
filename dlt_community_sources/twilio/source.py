@@ -6,7 +6,7 @@ from typing import Optional, Sequence
 import dlt
 from dlt.sources import DltResource
 
-from .client import TwilioClient
+from .client import BASE_URL, TwilioClient
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +72,6 @@ def calls(
 @dlt.resource(name="accounts", write_disposition="merge", primary_key="sid")
 def accounts(client: TwilioClient):
     """Twilio accounts and subaccounts."""
-    from .client import BASE_URL
-
     resp = client._request("GET", f"{BASE_URL}/Accounts/{client.account_sid}.json")
     yield resp.json()
 

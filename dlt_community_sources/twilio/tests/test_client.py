@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from dlt_community_sources.twilio.client import TwilioClient
 
@@ -67,9 +68,9 @@ def test_retry_on_429(mock_sleep, client):
 def test_403_graceful_skip(client):
     error_resp = MagicMock()
     error_resp.status_code = 403
-    error_resp.raise_for_status.side_effect = __import__(
-        "requests"
-    ).exceptions.HTTPError(response=error_resp)
+    error_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=error_resp
+    )
 
     client._session.request = MagicMock(return_value=error_resp)
 
