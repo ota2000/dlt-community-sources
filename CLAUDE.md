@@ -1,6 +1,6 @@
 # dlt-community-sources AI Rules
 
-This is the single source of truth for AI coding assistants. All tool-specific rule files (`CLAUDE.md`, `.cursor/rules/`, `.github/copilot-instructions.md`, `.clinerules/`, `.continue/rules/`) are generated from this file. **Do not edit those files directly.** Edit `.ai/rules.md` or `.ai/skills/*.md`, then run `bash scripts/sync-ai-rules.sh`.
+The source of truth is `.ai/rules.md`. This content is copied to `CLAUDE.md`, `.cursor/rules/`, `.github/copilot-instructions.md`, `.clinerules/`, `.continue/rules/` by `scripts/sync-ai-rules.sh`. **Always edit `.ai/rules.md`, never edit the copies directly.**
 
 ## Project
 
