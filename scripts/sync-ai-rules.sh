@@ -1,32 +1,46 @@
 #!/bin/bash
-# Sync AI rules from single source of truth (.ai/rules.md) to all tool-specific files.
-# Run after editing .ai/rules.md
+# Sync AI rules and skills from .ai/ to all tool-specific locations.
+# Run after editing files under .ai/
 
 set -euo pipefail
 
-SOURCE=".ai/rules.md"
+RULES=".ai/rules.md"
 
-if [ ! -f "$SOURCE" ]; then
-  echo "Error: $SOURCE not found"
+if [ ! -f "$RULES" ]; then
+  echo "Error: $RULES not found"
   exit 1
 fi
 
+# --- Rules ---
+
 # Claude Code
-cp "$SOURCE" CLAUDE.md
+cp "$RULES" CLAUDE.md
 echo "✓ CLAUDE.md"
 
 # Cursor
 mkdir -p .cursor
-cp "$SOURCE" .cursor/rules.md
+cp "$RULES" .cursor/rules.md
 echo "✓ .cursor/rules.md"
 
 # GitHub Copilot
-mkdir -p .github
-cp "$SOURCE" .github/copilot-instructions.md
+cp "$RULES" .github/copilot-instructions.md
 echo "✓ .github/copilot-instructions.md"
 
 # Windsurf
-cp "$SOURCE" .windsurfrules
+cp "$RULES" .windsurfrules
 echo "✓ .windsurfrules"
 
-echo "Done. All AI rules synced from $SOURCE"
+# --- Skills ---
+
+if [ -d ".ai/skills" ]; then
+  # Claude Code skills
+  mkdir -p .claude/skills
+  for skill in .ai/skills/*.md; do
+    name=$(basename "$skill" .md)
+    mkdir -p ".claude/skills/$name"
+    cp "$skill" ".claude/skills/$name/SKILL.md"
+    echo "✓ .claude/skills/$name/SKILL.md"
+  done
+fi
+
+echo "Done. All AI rules and skills synced from .ai/"
