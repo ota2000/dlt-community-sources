@@ -39,7 +39,7 @@ uv run ruff format .
 2. Add `__init__.py`, `source.py`, `client.py`, and `auth.py` (if needed)
 3. Add tests under `dlt_community_sources/your_source/tests/`
 4. Add an extra in `pyproject.toml` under `[project.optional-dependencies]`
-5. Add documentation in `docs/your_source.md`
+5. Add a `README.md` in the source directory
 6. Update the source table in `README.md`
 
 ## Adding a resource to an existing source
@@ -47,7 +47,7 @@ uv run ruff format .
 1. Add the resource function in `dlt_community_sources/your_source/source.py`
 2. Add it to the `all_resources` list in the source function
 3. Add a test
-4. Update the resource table in `docs/your_source.md`
+4. Update the resource table in the source's `README.md`
 
 ## Pull requests
 
