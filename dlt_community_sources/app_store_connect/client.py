@@ -39,17 +39,14 @@ class AppStoreConnectClient:
         self._session.headers.update({"Authorization": f"Bearer {token}"})
 
     def _request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
+        token_refreshed = False
         for attempt in range(MAX_RETRIES):
             response = self._session.request(method, url, **kwargs)
 
-            if response.status_code == 401:
+            if response.status_code == 401 and not token_refreshed:
                 self._refresh_token()
-                response = self._session.request(method, url, **kwargs)
-                if response.status_code != 401:
-                    response.raise_for_status()
-                    return response
-                # Still 401 after refresh — raise
-                response.raise_for_status()
+                token_refreshed = True
+                continue
 
             if response.status_code == 429:
                 backoff = INITIAL_BACKOFF * (2**attempt)

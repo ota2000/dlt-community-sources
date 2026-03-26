@@ -1,11 +1,11 @@
 """Tests for dlt source definition."""
 
+from dlt_community_sources.app_store_connect import source as mod
 from dlt_community_sources.app_store_connect.source import app_store_connect_source
 
 
 def test_source_has_all_resources():
     """Verify all expected resources are defined."""
-    from dlt_community_sources.app_store_connect import source as mod
 
     expected = [
         "apps",
