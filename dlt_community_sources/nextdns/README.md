@@ -50,6 +50,17 @@ source = nextdns_source(
 | `analytics_devices` | replace | - | Query count by device |
 | `analytics_protocols` | replace | - | Query count by protocol |
 | `analytics_destinations` | replace | - | Query count by destination country |
+| `analytics_ips` | replace | - | Query count by client IP |
+| `analytics_query_types` | replace | - | Query count by DNS query type |
+| `analytics_ip_versions` | replace | - | Query count by IP version |
+| `analytics_dnssec` | replace | - | Query count by DNSSEC status |
+| `analytics_encryption` | replace | - | Query count by encryption status |
+| `analytics_status_series` | replace | - | Status over time (30d) |
+| `analytics_domains_series` | replace | - | Top domains over time (30d) |
+| `analytics_devices_series` | replace | - | Devices over time (30d) |
+| `analytics_protocols_series` | replace | - | Protocols over time (30d) |
+| `analytics_destinations_series` | replace | - | Destinations over time (30d) |
+| `analytics_encryption_series` | replace | - | Encryption over time (30d) |
 
 ## Authentication
 

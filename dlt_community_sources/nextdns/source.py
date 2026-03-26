@@ -52,11 +52,42 @@ def nextdns_source(
         analytics_ip_versions(client, profile_ids=profile_ids),
         analytics_dnssec(client, profile_ids=profile_ids),
         analytics_encryption(client, profile_ids=profile_ids),
+        analytics_status_series(client, profile_ids=profile_ids),
+        analytics_domains_series(client, profile_ids=profile_ids),
+        analytics_devices_series(client, profile_ids=profile_ids),
+        analytics_protocols_series(client, profile_ids=profile_ids),
+        analytics_destinations_series(client, profile_ids=profile_ids),
+        analytics_encryption_series(client, profile_ids=profile_ids),
     ]
 
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
+
+
+def _flatten_series(client: NextDNSClient, path: str, params: Optional[dict] = None):
+    """Fetch a ;series endpoint and flatten time-series data into rows.
+
+    The API returns:
+        data: [{"id": "x", "queries": [10, 20, ...]}]
+        meta.series.times: ["2026-01-01T...", "2026-01-02T...", ...]
+
+    This yields one row per (item, time) combination:
+        {"id": "x", "timestamp": "2026-01-01T...", "queries": 10}
+    """
+    if params is None:
+        params = {}
+    params.setdefault("from", "-30d")
+
+    data = client.get(path, params=params)
+    times = data.get("meta", {}).get("series", {}).get("times", [])
+    for item in data.get("data", []):
+        queries = item.get("queries", [])
+        for i, ts in enumerate(times):
+            row = {k: v for k, v in item.items() if k != "queries"}
+            row["timestamp"] = ts
+            row["queries"] = queries[i] if i < len(queries) else 0
+            yield row
 
 
 @dlt.resource(name="profiles", write_disposition="merge", primary_key="id")
@@ -213,3 +244,80 @@ def analytics_encryption(
         for item in client.get_paginated(f"profiles/{pid}/analytics/encryption"):
             item["_profile_id"] = pid
             yield item
+
+
+# --- Analytics Time Series ---
+
+
+@dlt.resource(name="analytics_status_series", write_disposition="replace")
+def analytics_status_series(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by status over time."""
+    for pid in profile_ids or []:
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/status;series"):
+            row["_profile_id"] = pid
+            yield row
+
+
+@dlt.resource(name="analytics_domains_series", write_disposition="replace")
+def analytics_domains_series(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Top queried domains over time."""
+    for pid in profile_ids or []:
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/domains;series"):
+            row["_profile_id"] = pid
+            yield row
+
+
+@dlt.resource(name="analytics_devices_series", write_disposition="replace")
+def analytics_devices_series(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by device over time."""
+    for pid in profile_ids or []:
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/devices;series"):
+            row["_profile_id"] = pid
+            yield row
+
+
+@dlt.resource(name="analytics_protocols_series", write_disposition="replace")
+def analytics_protocols_series(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by protocol over time."""
+    for pid in profile_ids or []:
+        for row in _flatten_series(
+            client, f"profiles/{pid}/analytics/protocols;series"
+        ):
+            row["_profile_id"] = pid
+            yield row
+
+
+@dlt.resource(name="analytics_destinations_series", write_disposition="replace")
+def analytics_destinations_series(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by destination country over time."""
+    for pid in profile_ids or []:
+        for row in _flatten_series(
+            client,
+            f"profiles/{pid}/analytics/destinations;series",
+            params={"type": "countries"},
+        ):
+            row["_profile_id"] = pid
+            yield row
+
+
+@dlt.resource(name="analytics_encryption_series", write_disposition="replace")
+def analytics_encryption_series(
+    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+):
+    """Query count by encryption status over time."""
+    for pid in profile_ids or []:
+        for row in _flatten_series(
+            client, f"profiles/{pid}/analytics/encryption;series"
+        ):
+            row["_profile_id"] = pid
+            yield row
