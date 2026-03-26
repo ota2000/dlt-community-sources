@@ -64,7 +64,7 @@ class NextDNSClient:
             try:
                 response = self._request("GET", url, params=params)
             except requests.exceptions.HTTPError as e:
-                if e.response is not None and e.response.status_code in (400, 403, 404):
+                if e.response is not None and e.response.status_code in (403, 404):
                     logger.warning(
                         "Request failed (%d) for %s. Skipping.",
                         e.response.status_code,

@@ -138,6 +138,8 @@ def analytics_destinations(
 ):
     """Query count by destination country."""
     for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/destinations"):
+        for item in client.get_paginated(
+            f"profiles/{pid}/analytics/destinations", params={"type": "countries"}
+        ):
             item["_profile_id"] = pid
             yield item

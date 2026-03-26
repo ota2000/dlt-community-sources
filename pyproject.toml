@@ -35,6 +35,7 @@ dev = [
     "dlt[duckdb]>=1.24.0",
     "PyJWT[crypto]>=2.8.0",
     "pytest>=8.0.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.8.0",
 ]
 
