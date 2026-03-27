@@ -36,6 +36,14 @@ mkdir -p .continue/rules
 cp "$RULES" .continue/rules/rules.md
 echo "✓ .continue/rules/rules.md"
 
+# OpenAI Codex CLI
+cp "$RULES" AGENTS.md
+echo "✓ AGENTS.md"
+
+# Gemini CLI
+cp "$RULES" GEMINI.md
+echo "✓ GEMINI.md"
+
 # --- Skills ---
 
 if [ -d ".ai/skills" ]; then
@@ -46,6 +54,15 @@ if [ -d ".ai/skills" ]; then
     mkdir -p ".claude/skills/$name"
     cp "$skill" ".claude/skills/$name/SKILL.md"
     echo "✓ .claude/skills/$name/SKILL.md"
+  done
+
+  # Gemini CLI skills
+  mkdir -p .gemini/skills
+  for skill in .ai/skills/*.md; do
+    name=$(basename "$skill" .md)
+    mkdir -p ".gemini/skills/$name"
+    cp "$skill" ".gemini/skills/$name/SKILL.md"
+    echo "✓ .gemini/skills/$name/SKILL.md"
   done
 fi
 

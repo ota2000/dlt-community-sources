@@ -16,7 +16,7 @@ repos:
         files: ^pyproject\.toml$
       - id: sync-ai-rules
         name: Check AI rules are in sync
-        entry: bash -c 'bash scripts/sync-ai-rules.sh && git diff --exit-code --quiet CLAUDE.md .cursor/ .github/copilot-instructions.md .clinerules/ .continue/ .claude/skills/'
+        entry: bash -c 'bash scripts/sync-ai-rules.sh && git diff --exit-code --quiet CLAUDE.md AGENTS.md GEMINI.md .cursor/ .github/copilot-instructions.md .clinerules/ .continue/ .claude/skills/ .gemini/skills/'
         language: system
         pass_filenames: false
         files: ^\.ai/
