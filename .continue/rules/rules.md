@@ -10,9 +10,10 @@ dlt-community-sources is a PyPI package providing community-maintained dlt sourc
 
 ```bash
 uv sync --group dev          # Install dependencies
-uv run pytest -v             # Run tests
+uv run pytest -v             # Run tests (includes coverage check, threshold 70%)
 uv run ruff check .          # Lint
 uv run ruff format --check . # Format check
+uv run pre-commit install    # Install pre-commit hooks (ruff, uv.lock, AI rules sync)
 ```
 
 ## Structure
@@ -63,6 +64,7 @@ dlt_community_sources/
 - Test structure: `test_source_has_all_resources` + `test_resource_filtering` for every source
 - Test helpers with unit tests (date conversion, series flattening, etc.)
 - Integration tests in `tests/test_integration.py` — skipped without env vars
+- Coverage threshold: 70% (enforced via `--cov-fail-under` in pyproject.toml)
 
 ### Documentation
 
@@ -78,6 +80,12 @@ All source READMEs must have:
 - patch: bug fix, new resources to existing source
 - minor: new source
 - major: breaking change
+
+### Releasing
+
+- Publish via `gh workflow run publish.yaml -f version=X.Y.Z` (without `v` prefix)
+- The workflow validates the version format and strips `v` if accidentally included
+- Always update release notes after publishing (`gh release edit`)
 
 ## Adding a New Source
 
