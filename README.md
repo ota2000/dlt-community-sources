@@ -41,7 +41,8 @@ pipeline = dlt.pipeline(
 
 source = twilio_source(
     account_sid="your_account_sid",
-    auth_token="your_auth_token",
+    api_key_sid="your_api_key_sid",
+    api_key_secret="your_api_key_secret",
     resources=["messages", "calls"],
 )
 
