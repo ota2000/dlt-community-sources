@@ -46,7 +46,7 @@ echo "✓ GEMINI.md"
 
 # --- Skills ---
 
-if [ -d ".ai/skills" ]; then
+if [ -d ".ai/skills" ] && compgen -G ".ai/skills/*.md" > /dev/null; then
   # Claude Code skills
   mkdir -p .claude/skills
   for skill in .ai/skills/*.md; do
