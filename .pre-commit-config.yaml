@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: uv-lock
+        name: Check uv.lock is up to date
+        entry: uv lock --check
+        language: system
+        pass_filenames: false
+        files: ^pyproject\.toml$
+      - id: sync-ai-rules
+        name: Check AI rules are in sync
+        entry: bash -c 'bash scripts/sync-ai-rules.sh && git diff --exit-code --quiet CLAUDE.md .cursor/ .github/copilot-instructions.md .clinerules/ .continue/ .claude/skills/'
+        language: system
+        pass_filenames: false
+        files: ^\.ai/

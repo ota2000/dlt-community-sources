@@ -11,6 +11,7 @@ Contributions are welcome!
 git clone https://github.com/YOUR_USERNAME/dlt-community-sources.git
 cd dlt-community-sources
 uv sync --group dev
+uv run pre-commit install
 ```
 
 ## Running tests

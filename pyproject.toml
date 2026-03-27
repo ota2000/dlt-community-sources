@@ -9,6 +9,7 @@ dynamic = ["version"]
 authors = [{ name = "ota2000" }]
 description = "Community-maintained dlt sources for various APIs"
 license = { text = "MIT" }
+keywords = ["dlt", "etl", "elt", "data-pipeline", "api", "data-loading"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -37,7 +38,11 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["dlt_community_sources", "tests"]
 
 [tool.ruff]
 lint.extend-select = ["I"]

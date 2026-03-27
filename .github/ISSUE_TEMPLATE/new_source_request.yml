@@ -1,0 +1,59 @@
+name: New Source Request
+description: Request a new API source
+labels: [new-source]
+body:
+  - type: input
+    id: api-name
+    attributes:
+      label: API / Service name
+      placeholder: "e.g., Stripe, GitHub, Shopify"
+    validations:
+      required: true
+
+  - type: input
+    id: api-docs
+    attributes:
+      label: API documentation URL
+      placeholder: "https://docs.example.com/api"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What data do you need and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: resources
+    attributes:
+      label: Desired resources / endpoints
+      description: Which API endpoints or data types would you like to load?
+      placeholder: |
+        - /users
+        - /orders
+        - /transactions
+    validations:
+      required: false
+
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Authentication method
+      options:
+        - API Key
+        - OAuth 2.0
+        - Bearer Token
+        - Basic Auth
+        - Other / Not sure
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to contribute this source

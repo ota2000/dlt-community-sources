@@ -1,0 +1,87 @@
+name: Bug Report
+description: Report a bug
+labels: [bug]
+body:
+  - type: dropdown
+    id: source
+    attributes:
+      label: Source
+      description: Which source is affected?
+      options:
+        - app_store_connect
+        - twilio
+        - nextdns
+        - Other / Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: To reproduce
+      description: Steps or minimal code to reproduce the behavior.
+      placeholder: |
+        import dlt
+        from dlt_community_sources.xxx import xxx_source
+
+        pipeline = dlt.pipeline(...)
+        pipeline.run(xxx_source(...))
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error logs / traceback
+      description: Paste any relevant error output here.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12"
+    validations:
+      required: true
+
+  - type: input
+    id: dlt-version
+    attributes:
+      label: dlt version
+      placeholder: "1.24.0"
+    validations:
+      required: true
+
+  - type: input
+    id: package-version
+    attributes:
+      label: dlt-community-sources version
+      placeholder: "0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: destination
+    attributes:
+      label: Destination
+      placeholder: "duckdb, bigquery, postgres, etc."
+    validations:
+      required: false
