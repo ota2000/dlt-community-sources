@@ -27,14 +27,6 @@ Or with uv:
 uv add dlt-community-sources[app-store-connect]
 ```
 
-## Quick start
-
-See each source's README for usage examples:
-
-- [App Store Connect](dlt_community_sources/app_store_connect/)
-- [Twilio](dlt_community_sources/twilio/)
-- [NextDNS](dlt_community_sources/nextdns/)
-
 ## Features
 
 All sources share these common features:
