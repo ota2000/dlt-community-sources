@@ -43,7 +43,7 @@ jobs:
           enable-cache: true
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --group dev --locked --python ${{ matrix.python-version }}
-      - run: uv run pytest -v --cov=dlt_community_sources --cov-report=term-missing
+      - run: uv run pytest -v
 
   build:
     runs-on: ubuntu-latest

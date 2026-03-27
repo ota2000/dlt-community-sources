@@ -43,6 +43,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["dlt_community_sources", "tests"]
+addopts = "--cov=dlt_community_sources --cov-report=term-missing --cov-fail-under=70"
 
 [tool.ruff]
 lint.extend-select = ["I"]
