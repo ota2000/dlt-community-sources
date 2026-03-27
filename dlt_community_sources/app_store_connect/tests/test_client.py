@@ -1,8 +1,10 @@
 """Tests for App Store Connect API client."""
 
+import gzip
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from dlt_community_sources.app_store_connect.client import AppStoreConnectClient
 
@@ -102,3 +104,60 @@ def test_retry_backoff_increases(mock_sleep, client):
     assert mock_sleep.call_count == 3
     calls = [c.args[0] for c in mock_sleep.call_args_list]
     assert calls == [1.0, 2.0, 4.0]
+
+
+def test_download_tsv_parses_tab_separated(client):
+    tsv_content = b"Provider\tSKU\tUnits\nAPPLE\tcom.example\t10\nAPPLE\tcom.other\t5\n"
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.content = tsv_content
+    resp.raise_for_status = MagicMock()
+    client._session.request = MagicMock(return_value=resp)
+
+    result = client.download_tsv("https://example.com/report.tsv")
+    assert len(result) == 2
+    assert result[0]["Provider"] == "APPLE"
+    assert result[0]["Units"] == "10"
+    assert result[1]["SKU"] == "com.other"
+
+
+def test_download_tsv_handles_gzip(client):
+    tsv_content = b"Provider\tSKU\nAPPLE\tcom.example\n"
+    compressed = gzip.compress(tsv_content)
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.content = compressed
+    resp.raise_for_status = MagicMock()
+    client._session.request = MagicMock(return_value=resp)
+
+    result = client.download_tsv("https://example.com/report.tsv.gz")
+    assert len(result) == 1
+    assert result[0]["Provider"] == "APPLE"
+
+
+def test_download_tsv_returns_empty_on_404(client):
+    error_resp = MagicMock()
+    error_resp.status_code = 404
+    exc = requests.exceptions.HTTPError(response=error_resp)
+    resp = MagicMock()
+    resp.raise_for_status.side_effect = exc
+    resp.status_code = 404
+    client._session.request = MagicMock(return_value=resp)
+
+    result = client.download_tsv("https://example.com/report.tsv")
+    assert result == []
+
+
+def test_download_gzip_tsv_parses_correctly(client):
+    tsv_content = b"Date\tAmount\n2026-01-01\t100\n"
+    compressed = gzip.compress(tsv_content)
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.content = compressed
+    resp.raise_for_status = MagicMock()
+    client._session.request = MagicMock(return_value=resp)
+
+    result = client.download_gzip_tsv("https://example.com/report.tsv.gz")
+    assert len(result) == 1
+    assert result[0]["Date"] == "2026-01-01"
+    assert result[0]["Amount"] == "100"

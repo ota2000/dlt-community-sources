@@ -102,6 +102,7 @@ def _iso_to_unix_ms(iso_timestamp: str) -> int:
         dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
         return int(dt.timestamp() * 1000)
     except (ValueError, AttributeError):
+        logger.warning("Failed to parse ISO timestamp: %s", iso_timestamp)
         return 0
 
 

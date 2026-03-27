@@ -27,6 +27,30 @@ Or with uv:
 uv add dlt-community-sources[app-store-connect]
 ```
 
+## Usage
+
+```python
+import dlt
+from dlt_community_sources.twilio import twilio_source
+
+pipeline = dlt.pipeline(
+    pipeline_name="twilio",
+    destination="duckdb",
+    dataset_name="twilio_data",
+)
+
+source = twilio_source(
+    account_sid="your_account_sid",
+    auth_token="your_auth_token",
+    resources=["messages", "calls"],
+)
+
+load_info = pipeline.run(source)
+print(load_info)
+```
+
+See each source's README for detailed usage and authentication options.
+
 ## Features
 
 All sources share these common features:

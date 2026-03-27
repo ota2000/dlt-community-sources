@@ -73,6 +73,7 @@ def _rfc2822_to_iso(value: str) -> str:
     try:
         return parsedate_to_datetime(value).strftime("%Y-%m-%dT%H:%M:%S%z")
     except Exception:
+        logger.warning("Failed to parse RFC 2822 date: %s", value)
         return value
 
 

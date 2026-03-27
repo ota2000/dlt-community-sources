@@ -117,6 +117,30 @@ def test_flatten_series_empty():
     assert rows == []
 
 
+def test_flatten_series_mismatched_lengths():
+    """When queries array is shorter than times array, missing values default to 0."""
+    mock_client = MagicMock()
+    mock_client.get.return_value = {
+        "data": [
+            {"id": "default", "queries": [10]},
+        ],
+        "meta": {
+            "series": {
+                "times": [
+                    "2026-03-25T00:00:00Z",
+                    "2026-03-26T00:00:00Z",
+                    "2026-03-27T00:00:00Z",
+                ],
+            },
+        },
+    }
+    rows = list(mod._flatten_series(mock_client, "profiles/p1/analytics/status;series"))
+    assert len(rows) == 3
+    assert rows[0]["queries"] == 10
+    assert rows[1]["queries"] == 0
+    assert rows[2]["queries"] == 0
+
+
 def test_iso_to_unix_ms_invalid():
     assert mod._iso_to_unix_ms("not-a-date") == 0
     assert mod._iso_to_unix_ms("") == 0
