@@ -8,29 +8,48 @@ description: "Add a new resource to an existing dlt source. MUST activate when: 
 ## 1. Check the API documentation
 
 - Confirm the endpoint path, HTTP method, and response structure
-- Check required parameters
-- Check pagination key name (e.g., `messages`, `data`, etc.)
+- Check required parameters and pagination
 
-## 2. Add the resource function in source.py
+## 2. Decide: declarative or custom
+
+**Declarative (preferred)** — standard REST endpoint with JSON response:
+Add an entry to `_rest_api_config()` in `source.py`.
+
+**Custom** — non-JSON response, complex incremental logic, or custom transformation:
+Add a `@dlt.resource` function in `source.py`.
+
+## 3a. Add declarative resource (rest_api config)
+
+Add to the `resources` list in `_rest_api_config()`:
+
+```python
+{
+    "name": "resource_name",
+    "endpoint": {"path": "endpoint/path"},
+    # Optional overrides:
+    # "write_disposition": "replace",
+    # "endpoint": {"params": {"status": "active"}},
+    # Parent-child: "endpoint": {"path": "parent/{resources.parent.id}/child"},
+    # "include_from_parent": ["id"],
+}
+```
+
+## 3b. Add custom resource
 
 ```python
 @dlt.resource(name="resource_name", write_disposition="merge", primary_key="id")
-def resource_name(client: XxxClient):
+def resource_name(auth, ...):
     """Description."""
-    yield from client.get_paginated("EndpointPath", "response_key")
+    client = _make_client(auth)
+    yield from _get_paginated(client, "endpoint/path", "response_key")
 ```
 
-- Choose correct `write_disposition`: merge / append / replace
-- Add `primary_key` for merge resources
-- Add incremental loading if the API supports date filtering
-- If dates are not ISO 8601, convert before using as cursor
-
-## 3. Add to `all_resources` list in the source function
+Add to the `custom_resources` list in the source function.
 
 ## 4. Add test
 
-- Add resource name to `test_source_has_all_resources` expected list
-- Add helper tests if new logic was introduced
+- Declarative: add name to `REST_API_RESOURCE_NAMES` list and verify in `test_rest_api_config_has_all_resources`
+- Custom: add name to `CUSTOM_RESOURCE_NAMES` list and add helper tests if new logic was introduced
 
 ## 5. Update README.md
 

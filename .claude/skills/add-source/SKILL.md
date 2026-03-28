@@ -19,45 +19,83 @@ When asked to add a new source, follow these steps exactly.
 ```
 dlt_community_sources/{name}/
 ├── __init__.py
-├── client.py
-├── source.py
+├── source.py        # Declarative rest_api config + custom @dlt.resource functions
+├── auth.py          # Custom auth class (if needed, e.g., JWT)
 ├── py.typed
 ├── README.md
 └── tests/
     ├── __init__.py
-    ├── test_client.py
-    └── test_source.py
+    ├── test_source.py  # Config + helper tests
+    └── test_auth.py    # Auth tests (if auth.py exists)
 ```
 
-## 3. Implement client.py
+## 3. Implement source.py
 
-- Class with `__init__`, `_request`, `get`, `get_paginated`
-- 429: exponential backoff retry (MAX_RETRIES=5)
-- 403/404: graceful skip in `get_paginated`
-- 400: raise (do not skip)
-- Use `requests.Session` for connection reuse
-- Pagination: follow the API's native pagination (cursor, next_page_uri, etc.)
-- On pagination, preserve original params (do not overwrite with cursor only)
+### Declarative REST API config (preferred for standard endpoints)
 
-## 4. Implement source.py
+```python
+from dlt.sources.rest_api import rest_api_resources
+from dlt.sources.rest_api.typing import RESTAPIConfig
 
-- `@dlt.source` function with `dlt.secrets.value` for credentials
-- `resources` parameter for filtering
-- `@dlt.resource` for each endpoint
-- `write_disposition`: merge for master data, append for logs, replace for analytics
-- `primary_key` required for merge resources
-- Incremental loading where the API supports date filtering
-- Cursor field must be ISO 8601 (convert if API returns different format)
-- Resource functions should be thin — extract helpers for logic
+def _rest_api_config(auth) -> RESTAPIConfig:
+    return {
+        "client": {
+            "base_url": "https://api.example.com/v1/",
+            "auth": auth,  # dict or AuthConfigBase instance
+            "paginator": {"type": "json_link", "next_url_path": "links.next"},
+        },
+        "resource_defaults": {
+            "primary_key": "id",
+            "write_disposition": "merge",
+            "endpoint": {
+                "data_selector": "data",
+                "response_actions": [
+                    {"status_code": 403, "action": "ignore"},
+                    {"status_code": 404, "action": "ignore"},
+                ],
+            },
+        },
+        "resources": [
+            {"name": "items", "endpoint": {"path": "items"}},
+            # Parent-child: {"name": "sub_items", "endpoint": {"path": "items/{resources.items.id}/sub"}},
+        ],
+    }
+```
 
-## 5. Implement tests
+### Custom resources (only when rest_api can't handle it)
 
-- `test_source.py`: `test_source_has_all_resources`, `test_resource_filtering`
-- `test_client.py`: pagination, 429 retry, 403 skip
-- Test all helper functions directly (date conversion, data transformation)
+Use custom `@dlt.resource` functions for: non-JSON responses (TSV/gzip), complex incremental logic, custom response transformation.
+
+```python
+from dlt.sources.helpers import requests as req
+
+def _make_client(auth) -> req.Client:
+    client = req.Client()  # Automatic retry on 429/5xx
+    client.session.auth = auth
+    return client
+```
+
+### Source function
+
+```python
+@dlt.source(name="my_source")
+def my_source(...) -> list[DltResource]:
+    config = _rest_api_config(auth)
+    rest_resources = rest_api_resources(config)
+    custom_resources = [my_custom_resource(...)]
+    all_resources: list[DltResource] = rest_resources + custom_resources
+    if resources:
+        return [r for r in all_resources if r.name in resources]
+    return all_resources
+```
+
+## 4. Implement tests
+
+- `test_source.py`: test `_rest_api_config()` dict (resource names, defaults, parent-child)
+- Test custom resource functions and helper functions directly
 - Do NOT mock through dlt decorators
 
-## 6. Write README.md
+## 5. Write README.md
 
 Must include:
 1. Installation (`pip install dlt-community-sources[{name}]`)
@@ -66,13 +104,13 @@ Must include:
 4. Authentication (parameters table)
 5. Notes (edge cases, skip behavior, defaults)
 
-## 7. Update project files
+## 6. Update project files
 
 - `pyproject.toml`: add extra under `[project.optional-dependencies]`
 - Root `README.md`: add row to Available Sources table
 - `tests/test_integration.py`: add real API test (skipped without env vars)
 
-## 8. Verify
+## 7. Verify
 
 ```bash
 uv run ruff format .
@@ -80,7 +118,7 @@ uv run ruff check .
 uv run pytest -v
 ```
 
-## 9. Sync AI rules if changed
+## 8. Sync AI rules if changed
 
 ```bash
 bash scripts/sync-ai-rules.sh
