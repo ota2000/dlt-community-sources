@@ -1,15 +1,129 @@
 """dlt source for Apple App Store Connect API."""
 
+import csv
+import gzip
+import io
 import logging
 from datetime import date, timedelta
 from typing import Optional, Sequence
 
 import dlt
+import requests as req
 from dlt.sources import DltResource
+from dlt.sources.rest_api import rest_api_resources
+from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from .client import BASE_URL, AppStoreConnectClient
+from .auth import AppStoreConnectAuth
 
 logger = logging.getLogger(__name__)
+
+BASE_URL = "https://api.appstoreconnect.apple.com/v1"
+
+
+def _rest_api_config(auth: AppStoreConnectAuth) -> RESTAPIConfig:
+    """Build the REST API config for standard App Store Connect endpoints."""
+    return {
+        "client": {
+            "base_url": f"{BASE_URL}/",
+            "auth": auth,
+            "paginator": {
+                "type": "json_link",
+                "next_url_path": "links.next",
+            },
+        },
+        "resource_defaults": {
+            "primary_key": "id",
+            "write_disposition": "merge",
+            "endpoint": {
+                "data_selector": "data",
+                "response_actions": [
+                    {"status_code": 403, "action": "ignore"},
+                    {"status_code": 404, "action": "ignore"},
+                ],
+            },
+        },
+        "resources": [
+            {"name": "apps", "endpoint": {"path": "apps"}},
+            {
+                "name": "app_store_versions",
+                "endpoint": {
+                    "path": "apps/{resources.apps.id}/appStoreVersions",
+                },
+            },
+            {"name": "builds", "endpoint": {"path": "builds"}},
+            {"name": "beta_testers", "endpoint": {"path": "betaTesters"}},
+            {"name": "beta_groups", "endpoint": {"path": "betaGroups"}},
+            {"name": "bundle_ids", "endpoint": {"path": "bundleIds"}},
+            {"name": "certificates", "endpoint": {"path": "certificates"}},
+            {"name": "devices", "endpoint": {"path": "devices"}},
+            {
+                "name": "in_app_purchases",
+                "endpoint": {
+                    "path": "apps/{resources.apps.id}/inAppPurchasesV2",
+                },
+            },
+            {
+                "name": "subscription_groups",
+                "endpoint": {
+                    "path": "apps/{resources.apps.id}/subscriptionGroups",
+                },
+            },
+            {
+                "name": "subscriptions",
+                "endpoint": {
+                    "path": "subscriptionGroups/{resources.subscription_groups.id}/subscriptions",
+                },
+            },
+            {"name": "users", "endpoint": {"path": "users"}},
+            {"name": "user_invitations", "endpoint": {"path": "userInvitations"}},
+            {
+                "name": "app_categories",
+                "write_disposition": "replace",
+                "endpoint": {"path": "appCategories"},
+            },
+            {
+                "name": "territories",
+                "write_disposition": "replace",
+                "endpoint": {"path": "territories"},
+            },
+            {
+                "name": "pre_release_versions",
+                "endpoint": {"path": "preReleaseVersions"},
+            },
+            {
+                "name": "beta_app_review_submissions",
+                "endpoint": {"path": "betaAppReviewSubmissions"},
+            },
+            {
+                "name": "beta_build_localizations",
+                "endpoint": {"path": "betaBuildLocalizations"},
+            },
+            {
+                "name": "beta_app_localizations",
+                "endpoint": {"path": "betaAppLocalizations"},
+            },
+            {
+                "name": "beta_license_agreements",
+                "endpoint": {"path": "betaLicenseAgreements"},
+            },
+            {
+                "name": "build_beta_details",
+                "endpoint": {"path": "buildBetaDetails"},
+            },
+            {
+                "name": "app_encryption_declarations",
+                "endpoint": {"path": "appEncryptionDeclarations"},
+            },
+            {
+                "name": "provisioning_profiles",
+                "endpoint": {"path": "profiles"},
+            },
+            {
+                "name": "review_submissions",
+                "endpoint": {"path": "reviewSubmissions"},
+            },
+        ],
+    }
 
 
 @dlt.source(name="app_store_connect")
@@ -32,189 +146,73 @@ def app_store_connect_source(
     Returns:
         List of dlt resources.
     """
-    client = AppStoreConnectClient(key_id, issuer_id, private_key)
+    auth = AppStoreConnectAuth(
+        key_id=key_id, issuer_id=issuer_id, private_key=private_key
+    )
 
-    all_resources = [
-        apps(client),
-        app_store_versions(client),
-        builds(client),
-        beta_testers(client),
-        beta_groups(client),
-        bundle_ids(client),
-        certificates(client),
-        devices(client),
-        in_app_purchases(client),
-        subscriptions(client),
-        subscription_groups(client),
-        users(client),
-        user_invitations(client),
-        app_categories(client),
-        territories(client),
-        pre_release_versions(client),
-        beta_app_review_submissions(client),
-        beta_build_localizations(client),
-        beta_app_localizations(client),
-        beta_license_agreements(client),
-        build_beta_details(client),
-        app_encryption_declarations(client),
-        provisioning_profiles(client),
-        review_submissions(client),
-        sales_reports(client, vendor_number=vendor_number or ""),
-        finance_reports(client, vendor_number=vendor_number or ""),
-        analytics_reports(client),
+    # REST API resources (declarative)
+    config = _rest_api_config(auth)
+    rest_resources = rest_api_resources(config)
+
+    # Report resources (custom, can't be done via rest_api)
+    report_resources = [
+        sales_reports(auth, vendor_number=vendor_number or ""),
+        finance_reports(auth, vendor_number=vendor_number or ""),
+        analytics_reports(auth),
     ]
+
+    all_resources = list(rest_resources.values()) + report_resources
 
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
 
 
-# --- REST API Resources ---
+# --- Report helpers ---
 
 
-@dlt.resource(name="apps", write_disposition="merge", primary_key="id")
-def apps(client: AppStoreConnectClient):
-    yield from client.get_paginated("apps")
+def _make_session(auth: AppStoreConnectAuth) -> req.Session:
+    """Create a requests Session with per-request JWT auth."""
+    session = req.Session()
+    session.auth = auth
+    return session
 
 
-@dlt.resource(name="app_store_versions", write_disposition="merge", primary_key="id")
-def app_store_versions(client: AppStoreConnectClient):
-    for app in client.get_paginated("apps"):
-        app_id = app["id"]
-        yield from client.get_paginated(f"apps/{app_id}/appStoreVersions")
-
-
-@dlt.resource(name="builds", write_disposition="merge", primary_key="id")
-def builds(client: AppStoreConnectClient):
-    yield from client.get_paginated("builds")
-
-
-@dlt.resource(name="beta_testers", write_disposition="merge", primary_key="id")
-def beta_testers(client: AppStoreConnectClient):
-    yield from client.get_paginated("betaTesters")
-
-
-@dlt.resource(name="beta_groups", write_disposition="merge", primary_key="id")
-def beta_groups(client: AppStoreConnectClient):
-    yield from client.get_paginated("betaGroups")
-
-
-@dlt.resource(name="bundle_ids", write_disposition="merge", primary_key="id")
-def bundle_ids(client: AppStoreConnectClient):
-    yield from client.get_paginated("bundleIds")
-
-
-@dlt.resource(name="certificates", write_disposition="merge", primary_key="id")
-def certificates(client: AppStoreConnectClient):
-    yield from client.get_paginated("certificates")
-
-
-@dlt.resource(name="devices", write_disposition="merge", primary_key="id")
-def devices(client: AppStoreConnectClient):
-    yield from client.get_paginated("devices")
-
-
-@dlt.resource(name="in_app_purchases", write_disposition="merge", primary_key="id")
-def in_app_purchases(client: AppStoreConnectClient):
-    for app in client.get_paginated("apps"):
-        app_id = app["id"]
-        yield from client.get_paginated(f"apps/{app_id}/inAppPurchasesV2")
-
-
-@dlt.resource(name="subscriptions", write_disposition="merge", primary_key="id")
-def subscriptions(client: AppStoreConnectClient):
-    for app in client.get_paginated("apps"):
-        app_id = app["id"]
-        for group in client.get_paginated(f"apps/{app_id}/subscriptionGroups"):
-            group_id = group["id"]
-            yield from client.get_paginated(
-                f"subscriptionGroups/{group_id}/subscriptions"
+def _download_tsv(session: req.Session, url: str, params=None) -> list[dict]:
+    """Download a TSV report and parse it into a list of dicts."""
+    try:
+        response = session.get(url, params=params)
+        response.raise_for_status()
+    except req.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code in (403, 404):
+            logger.warning(
+                "Report not available (%d) for %s. Skipping.",
+                e.response.status_code,
+                url,
             )
+            return []
+        raise
+    content = response.content
+    try:
+        content = gzip.decompress(content)
+    except gzip.BadGzipFile:
+        pass
+    text = content.decode("utf-8")
+    reader = csv.DictReader(io.StringIO(text), delimiter="\t")
+    return list(reader)
 
 
-@dlt.resource(name="subscription_groups", write_disposition="merge", primary_key="id")
-def subscription_groups(client: AppStoreConnectClient):
-    for app in client.get_paginated("apps"):
-        app_id = app["id"]
-        yield from client.get_paginated(f"apps/{app_id}/subscriptionGroups")
-
-
-@dlt.resource(name="users", write_disposition="merge", primary_key="id")
-def users(client: AppStoreConnectClient):
-    yield from client.get_paginated("users")
-
-
-@dlt.resource(name="user_invitations", write_disposition="merge", primary_key="id")
-def user_invitations(client: AppStoreConnectClient):
-    yield from client.get_paginated("userInvitations")
-
-
-@dlt.resource(name="app_categories", write_disposition="replace", primary_key="id")
-def app_categories(client: AppStoreConnectClient):
-    yield from client.get_paginated("appCategories")
-
-
-@dlt.resource(name="territories", write_disposition="replace", primary_key="id")
-def territories(client: AppStoreConnectClient):
-    yield from client.get_paginated("territories")
-
-
-@dlt.resource(name="pre_release_versions", write_disposition="merge", primary_key="id")
-def pre_release_versions(client: AppStoreConnectClient):
-    yield from client.get_paginated("preReleaseVersions")
-
-
-@dlt.resource(
-    name="beta_app_review_submissions", write_disposition="merge", primary_key="id"
-)
-def beta_app_review_submissions(client: AppStoreConnectClient):
-    yield from client.get_paginated("betaAppReviewSubmissions")
-
-
-@dlt.resource(
-    name="beta_build_localizations", write_disposition="merge", primary_key="id"
-)
-def beta_build_localizations(client: AppStoreConnectClient):
-    yield from client.get_paginated("betaBuildLocalizations")
-
-
-@dlt.resource(
-    name="beta_app_localizations", write_disposition="merge", primary_key="id"
-)
-def beta_app_localizations(client: AppStoreConnectClient):
-    yield from client.get_paginated("betaAppLocalizations")
-
-
-@dlt.resource(
-    name="beta_license_agreements", write_disposition="merge", primary_key="id"
-)
-def beta_license_agreements(client: AppStoreConnectClient):
-    yield from client.get_paginated("betaLicenseAgreements")
-
-
-@dlt.resource(name="build_beta_details", write_disposition="merge", primary_key="id")
-def build_beta_details(client: AppStoreConnectClient):
-    yield from client.get_paginated("buildBetaDetails")
-
-
-@dlt.resource(
-    name="app_encryption_declarations", write_disposition="merge", primary_key="id"
-)
-def app_encryption_declarations(client: AppStoreConnectClient):
-    yield from client.get_paginated("appEncryptionDeclarations")
-
-
-@dlt.resource(name="provisioning_profiles", write_disposition="merge", primary_key="id")
-def provisioning_profiles(client: AppStoreConnectClient):
-    yield from client.get_paginated("profiles")
-
-
-@dlt.resource(name="review_submissions", write_disposition="merge", primary_key="id")
-def review_submissions(client: AppStoreConnectClient):
-    yield from client.get_paginated("reviewSubmissions")
-
-
-# --- Sales & Finance Reports (with incremental loading) ---
+def _download_gzip_tsv(session: req.Session, url: str) -> list[dict]:
+    """Download a gzip-compressed TSV and parse it."""
+    try:
+        response = session.get(url)
+        response.raise_for_status()
+        text = gzip.decompress(response.content).decode("utf-8")
+    except (req.exceptions.HTTPError, gzip.BadGzipFile, UnicodeDecodeError) as e:
+        logger.warning("Failed to download/decompress TSV from %s: %s", url, e)
+        return []
+    reader = csv.DictReader(io.StringIO(text), delimiter="\t")
+    return list(reader)
 
 
 def _date_range(start: str, end: str):
@@ -238,9 +236,12 @@ def _month_range(start: str, end: str):
             current = current.replace(month=current.month + 1)
 
 
+# --- Sales & Finance Reports (with incremental loading) ---
+
+
 @dlt.resource(name="sales_reports", write_disposition="append")
 def sales_reports(
-    client: AppStoreConnectClient,
+    auth: AppStoreConnectAuth,
     vendor_number: str = "",
     report_type: str = "SALES",
     report_sub_type: str = "SUMMARY",
@@ -248,23 +249,11 @@ def sales_reports(
     version: str = "1_0",
     last_date=dlt.sources.incremental("_report_date", initial_value="2020-01-01"),
 ):
-    """Download Sales and Trends reports with incremental loading.
-
-    Args:
-        client: API client.
-        vendor_number: Your vendor number from App Store Connect.
-        report_type: SALES, PRE_ORDER, NEWSSTAND, SUBSCRIPTION,
-            SUBSCRIPTION_EVENT, SUBSCRIBER, SUBSCRIPTION_OFFER_CODE_REDEMPTION,
-            INSTALLS, FIRST_ANNUAL, WIN_BACK_ELIGIBILITY.
-        report_sub_type: SUMMARY, DETAILED, SUMMARY_INSTALL_TYPE,
-            SUMMARY_TERRITORY, SUMMARY_CHANNEL.
-        frequency: DAILY, WEEKLY, MONTHLY, YEARLY.
-        version: Report version (default: 1_0).
-        last_date: Managed by dlt incremental. Do not set manually.
-    """
+    """Download Sales and Trends reports with incremental loading."""
     if not vendor_number:
         return
 
+    session = _make_session(auth)
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     start = last_date.last_value
     start_date = date.fromisoformat(start) + timedelta(days=1)
@@ -283,7 +272,7 @@ def sales_reports(
             "filter[reportDate]": report_date,
             "filter[version]": version,
         }
-        rows = client.download_tsv(f"{BASE_URL}/salesReports", params=params)
+        rows = _download_tsv(session, f"{BASE_URL}/salesReports", params=params)
         if not rows:
             continue
         for row in rows:
@@ -295,24 +284,17 @@ def sales_reports(
 
 @dlt.resource(name="finance_reports", write_disposition="append")
 def finance_reports(
-    client: AppStoreConnectClient,
+    auth: AppStoreConnectAuth,
     vendor_number: str = "",
     region_code: str = "ZZ",
     report_type: str = "FINANCIAL",
     last_date=dlt.sources.incremental("_report_date", initial_value="2020-01"),
 ):
-    """Download Finance reports with incremental loading.
-
-    Args:
-        client: API client.
-        vendor_number: Your vendor number from App Store Connect.
-        region_code: Two-letter region code, or ZZ for all regions.
-        report_type: FINANCIAL, FINANCE_DETAIL.
-        last_date: Managed by dlt incremental. Do not set manually.
-    """
+    """Download Finance reports with incremental loading."""
     if not vendor_number:
         return
 
+    session = _make_session(auth)
     last_month = (date.today().replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
     start = last_date.last_value
     start_d = date.fromisoformat(start + "-01")
@@ -333,7 +315,7 @@ def finance_reports(
             "filter[regionCode]": region_code,
             "filter[reportDate]": report_date,
         }
-        rows = client.download_tsv(f"{BASE_URL}/financeReports", params=params)
+        rows = _download_tsv(session, f"{BASE_URL}/financeReports", params=params)
         if not rows:
             continue
         for row in rows:
@@ -347,51 +329,60 @@ def finance_reports(
 
 @dlt.resource(name="analytics_reports", write_disposition="append")
 def analytics_reports(
-    client: AppStoreConnectClient,
+    auth: AppStoreConnectAuth,
     last_processing_date=dlt.sources.incremental(
         "_processing_date", initial_value="2020-01-01"
     ),
 ):
-    """Download Analytics reports with incremental loading.
+    """Download Analytics reports with incremental loading."""
+    session = _make_session(auth)
 
-    Fetches all available analytics report instances and their segments.
-    Requires an existing ONGOING or ONE_TIME_SNAPSHOT analytics report request.
+    def _get_paginated(path):
+        url = f"{BASE_URL}/{path}"
+        while url:
+            try:
+                response = session.get(url)
+                response.raise_for_status()
+            except req.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code in (403, 404):
+                    logger.warning(
+                        "Request failed (%d) for %s. Skipping.",
+                        e.response.status_code,
+                        path,
+                    )
+                    return
+                raise
+            data = response.json()
+            yield from data.get("data", [])
+            url = data.get("links", {}).get("next")
 
-    Report categories: APP_USAGE, APP_STORE_ENGAGEMENT, COMMERCE,
-        FRAMEWORK_USAGE, PERFORMANCE.
-    Instance granularity: DAILY, WEEKLY, MONTHLY.
-
-    Args:
-        client: API client.
-        last_processing_date: Managed by dlt incremental. Do not set manually.
-    """
-    for app in client.get_paginated("apps"):
+    for app in _get_paginated("apps"):
         app_id = app["id"]
-        for request in client.get_paginated(f"apps/{app_id}/analyticsReportRequests"):
+        for request in _get_paginated(f"apps/{app_id}/analyticsReportRequests"):
             request_id = request["id"]
-            for report in client.get_paginated(
+            for report in _get_paginated(
                 f"analyticsReportRequests/{request_id}/reports"
             ):
                 report_id = report["id"]
                 report_name = report.get("attributes", {}).get("name", "unknown")
                 category = report.get("attributes", {}).get("category", "unknown")
 
-                for instance in client.get_paginated(
+                for instance in _get_paginated(
                     f"analyticsReports/{report_id}/instances"
                 ):
-                    instance_id = instance["id"]
                     processing_date = instance.get("attributes", {}).get(
                         "processingDate", ""
                     )
                     granularity = instance.get("attributes", {}).get("granularity", "")
+                    instance_id = instance["id"]
 
-                    for segment in client.get_paginated(
+                    for segment in _get_paginated(
                         f"analyticsReportInstances/{instance_id}/segments"
                     ):
                         url = segment.get("attributes", {}).get("url")
                         if not url:
                             continue
-                        rows = client.download_gzip_tsv(url)
+                        rows = _download_gzip_tsv(session, url)
                         if not rows:
                             continue
                         for row in rows:

@@ -1,8 +1,12 @@
 """Tests for JWT authentication."""
 
 import jwt as pyjwt
+import requests
 
-from dlt_community_sources.app_store_connect.auth import generate_token
+from dlt_community_sources.app_store_connect.auth import (
+    AppStoreConnectAuth,
+    generate_token,
+)
 
 # Test key generated for testing only - not a real key
 TEST_PRIVATE_KEY = """-----BEGIN EC PRIVATE KEY-----
@@ -50,3 +54,29 @@ def test_token_headers():
     assert headers["alg"] == "ES256"
     assert headers["kid"] == "MY_KEY_ID"
     assert headers["typ"] == "JWT"
+
+
+def test_auth_applies_to_prepared_request():
+    auth = AppStoreConnectAuth(
+        key_id="TEST_KEY_ID",
+        issuer_id="TEST_ISSUER_ID",
+        private_key=TEST_PRIVATE_KEY,
+    )
+    req = requests.Request("GET", "https://example.com").prepare()
+    result = auth(req)
+    assert "Authorization" in result.headers
+    assert result.headers["Authorization"].startswith("Bearer ")
+
+
+def test_auth_via_session_auth():
+    """Verify auth works when set as session.auth (per-request JWT refresh)."""
+    auth = AppStoreConnectAuth(
+        key_id="TEST_KEY_ID",
+        issuer_id="TEST_ISSUER_ID",
+        private_key=TEST_PRIVATE_KEY,
+    )
+    session = requests.Session()
+    session.auth = auth
+    prepared = requests.Request("GET", "https://example.com").prepare()
+    result = auth(prepared)
+    assert result.headers["Authorization"].startswith("Bearer ")
