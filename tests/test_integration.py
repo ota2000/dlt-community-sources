@@ -85,16 +85,16 @@ def _twilio_auth_kwargs():
 
 
 @pytest.mark.skipif(not twilio_available, reason="Twilio credentials not set")
-def test_twilio_account():
+def test_twilio_queues():
     from dlt_community_sources.twilio import twilio_source
 
     source = twilio_source(
         account_sid=TWILIO_ACCOUNT_SID,
-        resources=["accounts"],
+        resources=["queues"],
         **_twilio_auth_kwargs(),
     )
     pipeline = dlt.pipeline(
-        pipeline_name="test_twilio_account",
+        pipeline_name="test_twilio_queues",
         destination="duckdb",
         dataset_name="test_twilio",
     )
