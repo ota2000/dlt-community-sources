@@ -105,6 +105,27 @@ def test_rest_api_config_child_resources():
     )
 
 
+def test_convert_decimal_fields():
+    from decimal import Decimal
+
+    from dlt_community_sources.app_store_connect.source import _convert_decimal_fields
+
+    row = {"Customer Price": "1.99", "Units": "5", "Title": "My App"}
+    result = _convert_decimal_fields(row, {"Customer Price", "Units"})
+    assert result["Customer Price"] == Decimal("1.99")
+    assert result["Units"] == Decimal("5")
+    assert result["Title"] == "My App"  # untouched
+
+
+def test_convert_decimal_fields_empty():
+    from dlt_community_sources.app_store_connect.source import _convert_decimal_fields
+
+    row = {"Customer Price": "", "Units": None}
+    result = _convert_decimal_fields(row, {"Customer Price", "Units"})
+    assert result["Customer Price"] == ""
+    assert result["Units"] is None
+
+
 def test_report_resource_functions_exist():
     """Verify report resource functions are defined."""
     for name in REPORT_RESOURCE_NAMES:

@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Generator
+from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from typing import Optional, Sequence
 
@@ -291,7 +292,13 @@ def usage_records(
     client = _make_client(username, password)
     params = {"StartDate": last_date.last_value}
     url = f"{BASE_URL}/Accounts/{account_sid}/Usage/Records/Daily.json"
-    yield from _get_paginated(client, url, "usage_records", params=params)
+    for item in _get_paginated(client, url, "usage_records", params=params):
+        if "price" in item and item["price"]:
+            try:
+                item["price"] = Decimal(item["price"])
+            except InvalidOperation:
+                pass
+        yield item
 
 
 @dlt.resource(name="recordings", write_disposition="append", primary_key="sid")

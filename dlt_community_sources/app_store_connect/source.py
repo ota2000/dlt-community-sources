@@ -6,6 +6,7 @@ import io
 import logging
 from collections.abc import Generator
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Optional, Sequence
 
 import dlt
@@ -218,6 +219,26 @@ def _download_gzip_tsv(client: req.Client, url: str) -> list[dict]:
     return list(reader)
 
 
+SALES_REPORT_DECIMAL_FIELDS = {"Units", "Customer Price", "Developer Proceeds"}
+FINANCE_REPORT_DECIMAL_FIELDS = {
+    "Quantity",
+    "Partner Share",
+    "Extended Partner Share",
+    "Customer Price",
+}
+
+
+def _convert_decimal_fields(row: dict, fields: set[str]) -> dict:
+    """Convert specified fields from string to Decimal in-place."""
+    for field in fields:
+        if field in row and row[field]:
+            try:
+                row[field] = Decimal(row[field])
+            except InvalidOperation:
+                pass
+    return row
+
+
 def _date_range(start: str, end: str) -> Generator[str, None, None]:
     """Generate dates from start to end (inclusive), YYYY-MM-DD format."""
     current = date.fromisoformat(start)
@@ -279,6 +300,7 @@ def sales_reports(
         if not rows:
             continue
         for row in rows:
+            _convert_decimal_fields(row, SALES_REPORT_DECIMAL_FIELDS)
             row["_report_date"] = report_date
             row["_report_type"] = report_type
             row["_frequency"] = frequency
@@ -322,6 +344,7 @@ def finance_reports(
         if not rows:
             continue
         for row in rows:
+            _convert_decimal_fields(row, FINANCE_REPORT_DECIMAL_FIELDS)
             row["_report_date"] = report_date
             row["_report_type"] = report_type
         yield from rows
