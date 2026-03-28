@@ -44,7 +44,6 @@ def _rest_api_config(account_sid: str, username: str, password: str) -> RESTAPIC
         "resources": [
             {
                 "name": "transcriptions",
-                "write_disposition": "append",
                 "endpoint": {
                     "path": "Transcriptions.json",
                     "data_selector": "transcriptions",
@@ -277,7 +276,11 @@ def accounts_resource(
     yield response.json()
 
 
-@dlt.resource(name="usage_records", write_disposition="append")
+@dlt.resource(
+    name="usage_records",
+    write_disposition="merge",
+    primary_key=["category", "start_date"],
+)
 def usage_records(
     account_sid: str,
     username: str,

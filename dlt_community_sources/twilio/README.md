@@ -47,9 +47,9 @@ source = twilio_source(
 | `messages` | append | by date_sent | SMS/MMS messages |
 | `calls` | append | by start_time | Voice calls |
 | `accounts` | merge | - | Accounts and subaccounts |
-| `usage_records` | append | by start_date | Daily usage records |
+| `usage_records` | merge | by start_date | Daily usage records |
 | `recordings` | append | by date_created | Call recordings |
-| `transcriptions` | append | - | Transcriptions of recordings |
+| `transcriptions` | merge | - | Transcriptions of recordings |
 | `conferences` | append | by date_created | Conference calls |
 | `queues` | merge | - | Call queues |
 | `incoming_phone_numbers` | merge | - | Phone numbers owned by the account |
