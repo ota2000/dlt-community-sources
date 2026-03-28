@@ -1,6 +1,7 @@
 """dlt source for NextDNS API."""
 
 import logging
+from collections.abc import Generator
 from datetime import datetime
 from typing import Optional, Sequence
 
@@ -179,7 +180,7 @@ def nextdns_source(
         analytics_encryption_series(api_key, profile_ids=profile_ids),
     ]
 
-    all_resources = list(rest_resources.values()) + custom_resources
+    all_resources: list[DltResource] = rest_resources + custom_resources
 
     if resources:
         return [r for r in all_resources if r.name in resources]
@@ -196,7 +197,9 @@ def _make_session(api_key: str) -> req.Session:
     return session
 
 
-def _get_paginated(session: req.Session, path: str, params=None):
+def _get_paginated(
+    session: req.Session, path: str, params: Optional[dict] = None
+) -> Generator[dict, None, None]:
     """Fetch all pages using cursor-based pagination."""
     if params is None:
         params = {}
@@ -222,7 +225,9 @@ def _get_paginated(session: req.Session, path: str, params=None):
         params["cursor"] = cursor
 
 
-def _flatten_series(session: req.Session, path: str, params=None):
+def _flatten_series(
+    session: req.Session, path: str, params: Optional[dict] = None
+) -> Generator[dict, None, None]:
     """Fetch a series endpoint and flatten time-series data into rows.
 
     The API returns:

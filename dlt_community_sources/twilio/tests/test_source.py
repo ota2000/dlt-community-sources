@@ -73,7 +73,7 @@ def test_custom_resource_functions_exist():
 
 def test_resource_filtering():
     with patch("dlt_community_sources.twilio.source.rest_api_resources") as mock_rest:
-        mock_rest.return_value = {}
+        mock_rest.return_value = []
 
         source = mod.twilio_source(
             account_sid="TEST",

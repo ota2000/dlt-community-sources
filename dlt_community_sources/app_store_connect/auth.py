@@ -3,6 +3,8 @@
 import time
 
 import jwt
+from dlt.sources.helpers.rest_client.auth import BearerTokenAuth
+from requests import PreparedRequest
 
 
 def generate_token(
@@ -37,20 +39,20 @@ def generate_token(
     return jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
 
 
-class AppStoreConnectAuth:
+class AppStoreConnectAuth(BearerTokenAuth):
     """Authentication for App Store Connect API.
 
-    Generates JWT tokens on each request to avoid expiration issues.
-    Compatible with both dlt rest_api source and requests.Session.
+    Extends BearerTokenAuth to regenerate JWT on each request.
     """
 
     def __init__(self, key_id: str, issuer_id: str, private_key: str) -> None:
         self.key_id = key_id
         self.issuer_id = issuer_id
         self.private_key = private_key
+        # Set initial token (required by BearerTokenAuth)
+        super().__init__(token=generate_token(key_id, issuer_id, private_key))
 
-    def __call__(self, request):
-        """Apply auth to a PreparedRequest (called by requests per-request)."""
-        token = generate_token(self.key_id, self.issuer_id, self.private_key)
-        request.headers["Authorization"] = f"Bearer {token}"
-        return request
+    def __call__(self, request: PreparedRequest) -> PreparedRequest:
+        """Regenerate JWT token on each request to avoid expiration."""
+        self.token = generate_token(self.key_id, self.issuer_id, self.private_key)
+        return super().__call__(request)

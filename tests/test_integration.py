@@ -11,6 +11,7 @@ Skip if env vars are not set.
 
 import os
 
+import dlt
 import pytest  # noqa: I001
 
 # --- App Store Connect ---
@@ -24,52 +25,99 @@ asc_available = ASC_KEY_ID and ASC_ISSUER_ID and ASC_PRIVATE_KEY_PATH
 
 @pytest.mark.skipif(not asc_available, reason="ASC credentials not set")
 def test_asc_apps():
-    from dlt_community_sources.app_store_connect.client import AppStoreConnectClient
+    from dlt_community_sources.app_store_connect import app_store_connect_source
 
     private_key = open(ASC_PRIVATE_KEY_PATH).read()
-    client = AppStoreConnectClient(ASC_KEY_ID, ASC_ISSUER_ID, private_key)
-    apps = list(client.get_paginated("apps"))
-    assert len(apps) > 0
-    assert "id" in apps[0]
+    source = app_store_connect_source(
+        key_id=ASC_KEY_ID,
+        issuer_id=ASC_ISSUER_ID,
+        private_key=private_key,
+        resources=["apps"],
+    )
+    pipeline = dlt.pipeline(
+        pipeline_name="test_asc_apps",
+        destination="duckdb",
+        dataset_name="test_asc",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids
 
 
 @pytest.mark.skipif(not asc_available, reason="ASC credentials not set")
 def test_asc_users():
-    from dlt_community_sources.app_store_connect.client import AppStoreConnectClient
+    from dlt_community_sources.app_store_connect import app_store_connect_source
 
     private_key = open(ASC_PRIVATE_KEY_PATH).read()
-    client = AppStoreConnectClient(ASC_KEY_ID, ASC_ISSUER_ID, private_key)
-    users = list(client.get_paginated("users"))
-    assert len(users) > 0
+    source = app_store_connect_source(
+        key_id=ASC_KEY_ID,
+        issuer_id=ASC_ISSUER_ID,
+        private_key=private_key,
+        resources=["users"],
+    )
+    pipeline = dlt.pipeline(
+        pipeline_name="test_asc_users",
+        destination="duckdb",
+        dataset_name="test_asc",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids
 
 
 # --- Twilio ---
 
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_API_KEY_SID = os.environ.get("TWILIO_API_KEY_SID")
+TWILIO_API_KEY_SECRET = os.environ.get("TWILIO_API_KEY_SECRET")
 
-twilio_available = TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN
+twilio_available = TWILIO_ACCOUNT_SID and (
+    TWILIO_AUTH_TOKEN or (TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET)
+)
+
+
+def _twilio_auth_kwargs():
+    if TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET:
+        return {
+            "api_key_sid": TWILIO_API_KEY_SID,
+            "api_key_secret": TWILIO_API_KEY_SECRET,
+        }
+    return {"auth_token": TWILIO_AUTH_TOKEN}
 
 
 @pytest.mark.skipif(not twilio_available, reason="Twilio credentials not set")
 def test_twilio_account():
-    from dlt_community_sources.twilio.client import BASE_URL, TwilioClient
+    from dlt_community_sources.twilio import twilio_source
 
-    client = TwilioClient(TWILIO_ACCOUNT_SID, auth_token=TWILIO_AUTH_TOKEN)
-    resp = client._request("GET", f"{BASE_URL}/Accounts/{TWILIO_ACCOUNT_SID}.json")
-    data = resp.json()
-    assert data["sid"] == TWILIO_ACCOUNT_SID
+    source = twilio_source(
+        account_sid=TWILIO_ACCOUNT_SID,
+        resources=["accounts"],
+        **_twilio_auth_kwargs(),
+    )
+    pipeline = dlt.pipeline(
+        pipeline_name="test_twilio_account",
+        destination="duckdb",
+        dataset_name="test_twilio",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids
 
 
 @pytest.mark.skipif(not twilio_available, reason="Twilio credentials not set")
 def test_twilio_usage_records():
-    from dlt_community_sources.twilio.client import TwilioClient
+    from dlt_community_sources.twilio import twilio_source
 
-    client = TwilioClient(TWILIO_ACCOUNT_SID, auth_token=TWILIO_AUTH_TOKEN)
-    records = list(
-        client.get_paginated("Usage/Records/Daily", "usage_records", page_size=10)
+    source = twilio_source(
+        account_sid=TWILIO_ACCOUNT_SID,
+        resources=["usage_records"],
+        **_twilio_auth_kwargs(),
     )
-    assert len(records) > 0
+    pipeline = dlt.pipeline(
+        pipeline_name="test_twilio_usage",
+        destination="duckdb",
+        dataset_name="test_twilio",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids
 
 
 # --- NextDNS ---
@@ -81,20 +129,33 @@ nextdns_available = bool(NEXTDNS_API_KEY)
 
 @pytest.mark.skipif(not nextdns_available, reason="NextDNS credentials not set")
 def test_nextdns_profiles():
-    from dlt_community_sources.nextdns.client import NextDNSClient
+    from dlt_community_sources.nextdns import nextdns_source
 
-    client = NextDNSClient(NEXTDNS_API_KEY)
-    profiles = list(client.get_paginated("profiles"))
-    assert len(profiles) > 0
-    assert "id" in profiles[0]
+    source = nextdns_source(
+        api_key=NEXTDNS_API_KEY,
+        resources=["profiles"],
+    )
+    pipeline = dlt.pipeline(
+        pipeline_name="test_nextdns_profiles",
+        destination="duckdb",
+        dataset_name="test_nextdns",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids
 
 
 @pytest.mark.skipif(not nextdns_available, reason="NextDNS credentials not set")
 def test_nextdns_analytics_status():
-    from dlt_community_sources.nextdns.client import NextDNSClient
+    from dlt_community_sources.nextdns import nextdns_source
 
-    client = NextDNSClient(NEXTDNS_API_KEY)
-    profiles = list(client.get_paginated("profiles"))
-    pid = profiles[0]["id"]
-    # Should not raise
-    list(client.get_paginated(f"profiles/{pid}/analytics/status"))
+    source = nextdns_source(
+        api_key=NEXTDNS_API_KEY,
+        resources=["profiles", "analytics_status"],
+    )
+    pipeline = dlt.pipeline(
+        pipeline_name="test_nextdns_analytics",
+        destination="duckdb",
+        dataset_name="test_nextdns",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids

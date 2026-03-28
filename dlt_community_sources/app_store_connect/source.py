@@ -4,6 +4,7 @@ import csv
 import gzip
 import io
 import logging
+from collections.abc import Generator
 from datetime import date, timedelta
 from typing import Optional, Sequence
 
@@ -161,7 +162,7 @@ def app_store_connect_source(
         analytics_reports(auth),
     ]
 
-    all_resources = list(rest_resources.values()) + report_resources
+    all_resources: list[DltResource] = rest_resources + report_resources
 
     if resources:
         return [r for r in all_resources if r.name in resources]
@@ -178,7 +179,9 @@ def _make_session(auth: AppStoreConnectAuth) -> req.Session:
     return session
 
 
-def _download_tsv(session: req.Session, url: str, params=None) -> list[dict]:
+def _download_tsv(
+    session: req.Session, url: str, params: Optional[dict] = None
+) -> list[dict]:
     """Download a TSV report and parse it into a list of dicts."""
     try:
         response = session.get(url, params=params)
@@ -215,7 +218,7 @@ def _download_gzip_tsv(session: req.Session, url: str) -> list[dict]:
     return list(reader)
 
 
-def _date_range(start: str, end: str):
+def _date_range(start: str, end: str) -> Generator[str, None, None]:
     """Generate dates from start to end (inclusive), YYYY-MM-DD format."""
     current = date.fromisoformat(start)
     end_date = date.fromisoformat(end)
@@ -224,7 +227,7 @@ def _date_range(start: str, end: str):
         current += timedelta(days=1)
 
 
-def _month_range(start: str, end: str):
+def _month_range(start: str, end: str) -> Generator[str, None, None]:
     """Generate months from start to end (inclusive), YYYY-MM format."""
     current = date.fromisoformat(start + "-01")
     end_date = date.fromisoformat(end + "-01")
@@ -337,7 +340,7 @@ def analytics_reports(
     """Download Analytics reports with incremental loading."""
     session = _make_session(auth)
 
-    def _get_paginated(path):
+    def _get_paginated(path: str) -> Generator[dict, None, None]:
         url = f"{BASE_URL}/{path}"
         while url:
             try:

@@ -1,6 +1,7 @@
 """dlt source for Twilio API."""
 
 import logging
+from collections.abc import Generator
 from email.utils import parsedate_to_datetime
 from typing import Optional, Sequence
 
@@ -179,7 +180,7 @@ def twilio_source(
         available_phone_numbers(account_sid, username, password),
     ]
 
-    all_resources = list(rest_resources.values()) + custom_resources
+    all_resources: list[DltResource] = rest_resources + custom_resources
 
     if resources:
         return [r for r in all_resources if r.name in resources]
@@ -201,8 +202,8 @@ def _get_paginated(
     session: req.Session,
     url: str,
     resource_key: str,
-    params=None,
-):
+    params: Optional[dict] = None,
+) -> Generator[dict, None, None]:
     """Fetch all pages from a Twilio list endpoint."""
     if params is None:
         params = {}
