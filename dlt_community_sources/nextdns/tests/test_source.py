@@ -1,68 +1,102 @@
 """Tests for NextDNS dlt source."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from dlt_community_sources.nextdns import source as mod
+from dlt_community_sources.nextdns.source import _rest_api_config
+
+REST_API_RESOURCE_NAMES = [
+    "profiles",
+    "analytics_status",
+    "analytics_domains",
+    "analytics_blocked_domains",
+    "analytics_reasons",
+    "analytics_devices",
+    "analytics_protocols",
+    "analytics_destinations",
+    "analytics_ips",
+    "analytics_query_types",
+    "analytics_ip_versions",
+    "analytics_dnssec",
+    "analytics_encryption",
+]
+
+CUSTOM_RESOURCE_NAMES = [
+    "logs",
+    "analytics_status_series",
+    "analytics_domains_series",
+    "analytics_devices_series",
+    "analytics_protocols_series",
+    "analytics_destinations_series",
+    "analytics_encryption_series",
+]
 
 
-def test_source_has_all_resources():
-    expected = [
-        "profiles",
-        "logs",
-        "analytics_status",
-        "analytics_domains",
-        "analytics_blocked_domains",
-        "analytics_reasons",
-        "analytics_devices",
-        "analytics_protocols",
-        "analytics_destinations",
-        "analytics_ips",
-        "analytics_query_types",
-        "analytics_ip_versions",
-        "analytics_dnssec",
-        "analytics_encryption",
-        "analytics_status_series",
-        "analytics_domains_series",
-        "analytics_devices_series",
-        "analytics_protocols_series",
-        "analytics_destinations_series",
-        "analytics_encryption_series",
-    ]
-    for name in expected:
-        assert hasattr(mod, name), f"Missing resource function: {name}"
+def test_rest_api_config_has_all_resources():
+    """Verify the REST API config dict contains all expected resources."""
+    config = _rest_api_config("TEST_KEY")
+
+    resource_names = []
+    for r in config["resources"]:
+        if isinstance(r, str):
+            resource_names.append(r)
+        else:
+            resource_names.append(r["name"])
+
+    for name in REST_API_RESOURCE_NAMES:
+        assert name in resource_names, f"Missing REST API resource: {name}"
 
 
-def test_resource_filtering():
-    with patch("dlt_community_sources.nextdns.source.NextDNSClient") as MockClient:
-        mock_client = MagicMock()
-        MockClient.return_value = mock_client
-        mock_client.get_paginated.return_value = iter([])
+def test_rest_api_config_defaults():
+    """Verify resource defaults are correctly set."""
+    config = _rest_api_config("TEST_KEY")
 
-        source = mod.nextdns_source(
-            api_key="TEST",
-            profile_id="abc",
-            resources=["profiles", "logs"],
-        )
-        resource_names = [r.name for r in source.resources.values()]
-        assert "profiles" in resource_names
-        assert "logs" in resource_names
-        assert "analytics_status" not in resource_names
+    assert config["resource_defaults"]["write_disposition"] == "replace"
+    assert config["client"]["paginator"]["type"] == "cursor"
+    assert config["client"]["auth"]["type"] == "api_key"
+    assert config["client"]["auth"]["name"] == "X-Api-Key"
 
 
-def test_auto_discover_profiles():
-    with patch("dlt_community_sources.nextdns.source.NextDNSClient") as MockClient:
-        mock_client = MagicMock()
-        MockClient.return_value = mock_client
-        mock_client.get_paginated.return_value = iter(
-            [{"id": "p1", "name": "Profile 1"}]
-        )
+def test_rest_api_config_profiles_merge():
+    """Verify profiles uses merge disposition."""
+    config = _rest_api_config("TEST_KEY")
 
-        source = mod.nextdns_source(
-            api_key="TEST",
-            resources=["profiles"],
-        )
-        resource_names = [r.name for r in source.resources.values()]
-        assert "profiles" in resource_names
+    profiles = next(
+        r
+        for r in config["resources"]
+        if isinstance(r, dict) and r["name"] == "profiles"
+    )
+    assert profiles["write_disposition"] == "merge"
+    assert profiles["primary_key"] == "id"
+
+
+def test_rest_api_config_child_resources():
+    """Verify analytics resources depend on profiles."""
+    config = _rest_api_config("TEST_KEY")
+
+    for r in config["resources"]:
+        if isinstance(r, dict) and r["name"].startswith("analytics_"):
+            assert "resources.profiles.id" in r["endpoint"]["path"], (
+                f"{r['name']} should reference profiles"
+            )
+
+
+def test_rest_api_config_blocked_domains_params():
+    """Verify analytics_blocked_domains has status=blocked param."""
+    config = _rest_api_config("TEST_KEY")
+
+    blocked = next(
+        r
+        for r in config["resources"]
+        if isinstance(r, dict) and r["name"] == "analytics_blocked_domains"
+    )
+    assert blocked["endpoint"]["params"]["status"] == "blocked"
+
+
+def test_custom_resource_functions_exist():
+    """Verify custom resource functions are defined."""
+    for name in CUSTOM_RESOURCE_NAMES:
+        assert hasattr(mod, name), f"Missing custom resource function: {name}"
 
 
 def test_iso_to_unix_ms():
@@ -75,8 +109,9 @@ def test_iso_to_unix_ms():
 
 
 def test_flatten_series():
-    mock_client = MagicMock()
-    mock_client.get.return_value = {
+    session = MagicMock()
+    resp = MagicMock()
+    resp.json.return_value = {
         "data": [
             {"id": "default", "queries": [10, 20, 30]},
             {"id": "blocked", "queries": [1, 2, 3]},
@@ -93,7 +128,10 @@ def test_flatten_series():
             "pagination": {"cursor": None},
         },
     }
-    rows = list(mod._flatten_series(mock_client, "profiles/p1/analytics/status;series"))
+    resp.raise_for_status = MagicMock()
+    session.get.return_value = resp
+
+    rows = list(mod._flatten_series(session, "profiles/p1/analytics/status;series"))
     assert len(rows) == 6
     assert rows[0] == {
         "id": "default",
@@ -108,19 +146,24 @@ def test_flatten_series():
 
 
 def test_flatten_series_empty():
-    mock_client = MagicMock()
-    mock_client.get.return_value = {
+    session = MagicMock()
+    resp = MagicMock()
+    resp.json.return_value = {
         "data": [],
         "meta": {"series": {"times": []}, "pagination": {"cursor": None}},
     }
-    rows = list(mod._flatten_series(mock_client, "profiles/p1/analytics/status;series"))
+    resp.raise_for_status = MagicMock()
+    session.get.return_value = resp
+
+    rows = list(mod._flatten_series(session, "profiles/p1/analytics/status;series"))
     assert rows == []
 
 
 def test_flatten_series_mismatched_lengths():
     """When queries array is shorter than times array, missing values default to 0."""
-    mock_client = MagicMock()
-    mock_client.get.return_value = {
+    session = MagicMock()
+    resp = MagicMock()
+    resp.json.return_value = {
         "data": [
             {"id": "default", "queries": [10]},
         ],
@@ -134,7 +177,10 @@ def test_flatten_series_mismatched_lengths():
             },
         },
     }
-    rows = list(mod._flatten_series(mock_client, "profiles/p1/analytics/status;series"))
+    resp.raise_for_status = MagicMock()
+    session.get.return_value = resp
+
+    rows = list(mod._flatten_series(session, "profiles/p1/analytics/status;series"))
     assert len(rows) == 3
     assert rows[0]["queries"] == 10
     assert rows[1]["queries"] == 0

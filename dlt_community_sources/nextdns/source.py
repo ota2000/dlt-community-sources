@@ -5,11 +5,138 @@ from datetime import datetime
 from typing import Optional, Sequence
 
 import dlt
+import requests as req
 from dlt.sources import DltResource
-
-from .client import NextDNSClient
+from dlt.sources.rest_api import rest_api_resources
+from dlt.sources.rest_api.typing import RESTAPIConfig
 
 logger = logging.getLogger(__name__)
+
+BASE_URL = "https://api.nextdns.io"
+
+
+def _rest_api_config(api_key: str) -> RESTAPIConfig:
+    """Build the REST API config for standard NextDNS endpoints."""
+    return {
+        "client": {
+            "base_url": f"{BASE_URL}/",
+            "auth": {
+                "type": "api_key",
+                "name": "X-Api-Key",
+                "api_key": api_key,
+                "location": "header",
+            },
+            "paginator": {
+                "type": "cursor",
+                "cursor_path": "meta.pagination.cursor",
+                "cursor_param": "cursor",
+            },
+        },
+        "resource_defaults": {
+            "write_disposition": "replace",
+            "endpoint": {
+                "data_selector": "data",
+                "response_actions": [
+                    {"status_code": 403, "action": "ignore"},
+                    {"status_code": 404, "action": "ignore"},
+                ],
+            },
+        },
+        "resources": [
+            {
+                "name": "profiles",
+                "primary_key": "id",
+                "write_disposition": "merge",
+                "endpoint": {"path": "profiles"},
+            },
+            {
+                "name": "analytics_status",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/status",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_domains",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/domains",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_blocked_domains",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/domains",
+                    "params": {"status": "blocked"},
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_reasons",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/reasons",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_devices",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/devices",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_protocols",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/protocols",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_destinations",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/destinations",
+                    "params": {"type": "countries"},
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_ips",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/ips",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_query_types",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/queryTypes",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_ip_versions",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/ipVersions",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_dnssec",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/dnssec",
+                },
+                "include_from_parent": ["id"],
+            },
+            {
+                "name": "analytics_encryption",
+                "endpoint": {
+                    "path": "profiles/{resources.profiles.id}/analytics/encryption",
+                },
+                "include_from_parent": ["id"],
+            },
+        ],
+    }
 
 
 @dlt.source(name="nextdns")
@@ -28,45 +155,75 @@ def nextdns_source(
     Returns:
         List of dlt resources.
     """
-    client = NextDNSClient(api_key)
+    # REST API resources (declarative)
+    config = _rest_api_config(api_key)
+    rest_resources = rest_api_resources(config)
 
+    # Discover profile IDs for custom resources
     profile_ids = []
     if profile_id:
         profile_ids = [profile_id]
     else:
-        for p in client.get_paginated("profiles"):
+        session = _make_session(api_key)
+        for p in _get_paginated(session, "profiles"):
             profile_ids.append(p["id"])
 
-    all_resources = [
-        profiles(client),
-        logs(client, profile_ids=profile_ids),
-        analytics_status(client, profile_ids=profile_ids),
-        analytics_domains(client, profile_ids=profile_ids),
-        analytics_blocked_domains(client, profile_ids=profile_ids),
-        analytics_reasons(client, profile_ids=profile_ids),
-        analytics_devices(client, profile_ids=profile_ids),
-        analytics_protocols(client, profile_ids=profile_ids),
-        analytics_destinations(client, profile_ids=profile_ids),
-        analytics_ips(client, profile_ids=profile_ids),
-        analytics_query_types(client, profile_ids=profile_ids),
-        analytics_ip_versions(client, profile_ids=profile_ids),
-        analytics_dnssec(client, profile_ids=profile_ids),
-        analytics_encryption(client, profile_ids=profile_ids),
-        analytics_status_series(client, profile_ids=profile_ids),
-        analytics_domains_series(client, profile_ids=profile_ids),
-        analytics_devices_series(client, profile_ids=profile_ids),
-        analytics_protocols_series(client, profile_ids=profile_ids),
-        analytics_destinations_series(client, profile_ids=profile_ids),
-        analytics_encryption_series(client, profile_ids=profile_ids),
+    # Custom resources (can't be done via rest_api)
+    custom_resources = [
+        logs(api_key, profile_ids=profile_ids),
+        analytics_status_series(api_key, profile_ids=profile_ids),
+        analytics_domains_series(api_key, profile_ids=profile_ids),
+        analytics_devices_series(api_key, profile_ids=profile_ids),
+        analytics_protocols_series(api_key, profile_ids=profile_ids),
+        analytics_destinations_series(api_key, profile_ids=profile_ids),
+        analytics_encryption_series(api_key, profile_ids=profile_ids),
     ]
+
+    all_resources = list(rest_resources.values()) + custom_resources
 
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
 
 
-def _flatten_series(client: NextDNSClient, path: str, params: Optional[dict] = None):
-    """Fetch a ;series endpoint and flatten time-series data into rows.
+# --- Helpers ---
+
+
+def _make_session(api_key: str) -> req.Session:
+    """Create a requests Session with API key auth."""
+    session = req.Session()
+    session.headers.update({"X-Api-Key": api_key, "Accept": "application/json"})
+    return session
+
+
+def _get_paginated(session: req.Session, path: str, params=None):
+    """Fetch all pages using cursor-based pagination."""
+    if params is None:
+        params = {}
+    url = f"{BASE_URL}/{path}"
+    while True:
+        try:
+            response = session.get(url, params=params)
+            response.raise_for_status()
+        except req.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code in (403, 404):
+                logger.warning(
+                    "Request failed (%d) for %s. Skipping.",
+                    e.response.status_code,
+                    path,
+                )
+                return
+            raise
+        data = response.json()
+        yield from data.get("data", [])
+        cursor = data.get("meta", {}).get("pagination", {}).get("cursor")
+        if not cursor:
+            break
+        params["cursor"] = cursor
+
+
+def _flatten_series(session: req.Session, path: str, params=None):
+    """Fetch a series endpoint and flatten time-series data into rows.
 
     The API returns:
         data: [{"id": "x", "queries": [10, 20, ...]}]
@@ -79,7 +236,11 @@ def _flatten_series(client: NextDNSClient, path: str, params: Optional[dict] = N
         params = {}
     params.setdefault("from", "-30d")
 
-    data = client.get(path, params=params)
+    url = f"{BASE_URL}/{path}"
+    response = session.get(url, params=params)
+    response.raise_for_status()
+    data = response.json()
+
     times = data.get("meta", {}).get("series", {}).get("times", [])
     for item in data.get("data", []):
         queries = item.get("queries", [])
@@ -88,12 +249,6 @@ def _flatten_series(client: NextDNSClient, path: str, params: Optional[dict] = N
             row["timestamp"] = ts
             row["queries"] = queries[i] if i < len(queries) else 0
             yield row
-
-
-@dlt.resource(name="profiles", write_disposition="merge", primary_key="id")
-def profiles(client: NextDNSClient):
-    """NextDNS profiles."""
-    yield from client.get_paginated("profiles")
 
 
 def _iso_to_unix_ms(iso_timestamp: str) -> int:
@@ -106,219 +261,94 @@ def _iso_to_unix_ms(iso_timestamp: str) -> int:
         return 0
 
 
+# --- Custom resources ---
+
+
 @dlt.resource(name="logs", write_disposition="append")
 def logs(
-    client: NextDNSClient,
+    api_key: str,
     profile_ids: Optional[list[str]] = None,
     last_timestamp=dlt.sources.incremental(
         "timestamp", initial_value="2020-01-01T00:00:00.000Z"
     ),
 ):
     """DNS query logs."""
+    session = _make_session(api_key)
     from_ts = _iso_to_unix_ms(last_timestamp.last_value)
 
     for pid in profile_ids or []:
-        for item in client.get_paginated(
-            f"profiles/{pid}/logs", params={"from": from_ts}
+        for item in _get_paginated(
+            session, f"profiles/{pid}/logs", params={"from": from_ts}
         ):
-            item["_profile_id"] = pid
+            item["_profiles_id"] = pid
             yield item
-
-
-@dlt.resource(name="analytics_status", write_disposition="replace")
-def analytics_status(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
-    """Query count by status (default, blocked, allowed)."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/status"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_domains", write_disposition="replace")
-def analytics_domains(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
-    """Top queried domains."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/domains"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_blocked_domains", write_disposition="replace")
-def analytics_blocked_domains(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
-    """Top blocked domains."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(
-            f"profiles/{pid}/analytics/domains", params={"status": "blocked"}
-        ):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_reasons", write_disposition="replace")
-def analytics_reasons(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
-    """Block reasons breakdown."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/reasons"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_devices", write_disposition="replace")
-def analytics_devices(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
-    """Query count by device."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/devices"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_protocols", write_disposition="replace")
-def analytics_protocols(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
-    """Query count by protocol (DoH, DoT, etc.)."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/protocols"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_destinations", write_disposition="replace")
-def analytics_destinations(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
-    """Query count by destination country."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(
-            f"profiles/{pid}/analytics/destinations", params={"type": "countries"}
-        ):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_ips", write_disposition="replace")
-def analytics_ips(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
-    """Query count by client IP."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/ips"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_query_types", write_disposition="replace")
-def analytics_query_types(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
-    """Query count by DNS query type (A, AAAA, MX, etc.)."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/queryTypes"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_ip_versions", write_disposition="replace")
-def analytics_ip_versions(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
-    """Query count by IP version (IPv4 vs IPv6)."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/ipVersions"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_dnssec", write_disposition="replace")
-def analytics_dnssec(client: NextDNSClient, profile_ids: Optional[list[str]] = None):
-    """Query count by DNSSEC validation status."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/dnssec"):
-            item["_profile_id"] = pid
-            yield item
-
-
-@dlt.resource(name="analytics_encryption", write_disposition="replace")
-def analytics_encryption(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
-    """Query count by encryption status."""
-    for pid in profile_ids or []:
-        for item in client.get_paginated(f"profiles/{pid}/analytics/encryption"):
-            item["_profile_id"] = pid
-            yield item
-
-
-# --- Analytics Time Series ---
 
 
 @dlt.resource(name="analytics_status_series", write_disposition="replace")
-def analytics_status_series(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
+def analytics_status_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by status over time."""
+    session = _make_session(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/status;series"):
-            row["_profile_id"] = pid
+        for row in _flatten_series(session, f"profiles/{pid}/analytics/status;series"):
+            row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_domains_series", write_disposition="replace")
-def analytics_domains_series(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
+def analytics_domains_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Top queried domains over time."""
+    session = _make_session(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/domains;series"):
-            row["_profile_id"] = pid
+        for row in _flatten_series(session, f"profiles/{pid}/analytics/domains;series"):
+            row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_devices_series", write_disposition="replace")
-def analytics_devices_series(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
+def analytics_devices_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by device over time."""
+    session = _make_session(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/devices;series"):
-            row["_profile_id"] = pid
+        for row in _flatten_series(session, f"profiles/{pid}/analytics/devices;series"):
+            row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_protocols_series", write_disposition="replace")
-def analytics_protocols_series(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
+def analytics_protocols_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by protocol over time."""
+    session = _make_session(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/protocols;series"
+            session, f"profiles/{pid}/analytics/protocols;series"
         ):
-            row["_profile_id"] = pid
+            row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_destinations_series", write_disposition="replace")
 def analytics_destinations_series(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
+    api_key: str, profile_ids: Optional[list[str]] = None
 ):
     """Query count by destination country over time."""
+    session = _make_session(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client,
+            session,
             f"profiles/{pid}/analytics/destinations;series",
             params={"type": "countries"},
         ):
-            row["_profile_id"] = pid
+            row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_encryption_series", write_disposition="replace")
-def analytics_encryption_series(
-    client: NextDNSClient, profile_ids: Optional[list[str]] = None
-):
+def analytics_encryption_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by encryption status over time."""
+    session = _make_session(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/encryption;series"
+            session, f"profiles/{pid}/analytics/encryption;series"
         ):
-            row["_profile_id"] = pid
+            row["_profiles_id"] = pid
             yield row
