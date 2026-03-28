@@ -14,6 +14,48 @@ uv sync --group dev
 uv run pre-commit install
 ```
 
+## AI-assisted development (recommended)
+
+This repository integrates the [dltHub AI workbench](https://dlthub.com/context/) which provides dlt-specific skills, MCP server, and workflow rules for AI coding assistants. The sync script installs everything automatically:
+
+```bash
+bash scripts/sync-ai-rules.sh
+```
+
+This sets up rules and skills for Claude Code, Cursor, and Codex. The dltHub workbench provides:
+
+- **MCP server** (`dlt-workspace-mcp`) — source search, pipeline inspection, schema/data exploration, secrets management directly from your AI assistant
+- **Skills** — guided workflows for common tasks (see table below)
+- **Rules** — dlt ecosystem best practices automatically loaded into your AI context
+
+### Available skills
+
+| Skill | When to use |
+|---|---|
+| `find-source` | Looking for an existing dlt source for an API |
+| `create-rest-api-pipeline` | Scaffolding a new REST API pipeline |
+| `add-source` | Adding a new source to this repository (project-specific) |
+| `add-resource` | Adding an endpoint to an existing source (project-specific) |
+| `debug-pipeline` | After a pipeline run fails or behaves unexpectedly |
+| `validate-data` | Checking loaded data, schemas, types |
+| `adjust-endpoint` | Tuning pagination, incremental loading, date ranges |
+| `view-data` | Querying and exploring loaded data |
+| `setup-secrets` | Configuring API keys and credentials safely |
+| `release` | Publishing a new version to PyPI (project-specific) |
+
+### Workflow for adding a new source
+
+```
+find-source → create-rest-api-pipeline → debug-pipeline → validate-data → adjust-endpoint → add-source
+```
+
+1. Use `find-source` to check if dlt already has a source for the API (9,700+ covered)
+2. Use `create-rest-api-pipeline` to scaffold and test a pipeline
+3. Use `debug-pipeline` and `validate-data` to iterate until data looks right
+4. Use `add-source` to integrate into this repository's structure
+
+> **Note:** If `dlt` is not installed or unavailable, the sync script skips the dltHub workbench setup gracefully. Project rules and custom skills still work without it.
+
 ## Running tests
 
 ```bash

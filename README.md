@@ -75,21 +75,20 @@ uv run ruff check .
 
 ## AI-assisted development
 
-This repository is set up for AI coding assistants. Rules and skills are managed in [`.ai/`](.ai/) as a single source of truth and synced to tool-specific locations via [`scripts/sync-ai-rules.sh`](scripts/sync-ai-rules.sh).
+This repository is set up for AI coding assistants with two layers of AI context:
 
-| File | Tool |
-|---|---|
-| `.ai/rules.md` | Source of truth |
-| `CLAUDE.md` | Claude Code |
-| `AGENTS.md` | OpenAI Codex CLI |
-| `GEMINI.md` | Gemini CLI |
-| `.cursor/rules/` | Cursor |
-| `.github/copilot-instructions.md` | GitHub Copilot |
-| `.clinerules/` | Cline |
-| `.continue/rules/` | Continue |
-| `.ai/skills/*.md` → `.claude/skills/`, `.gemini/skills/` | Skills |
+- **Project rules** (`.ai/rules.md`) — coding conventions, testing patterns, and structure specific to this repo
+- **[dltHub AI workbench](https://dlthub.com/context/)** — dlt ecosystem knowledge, MCP server, and guided skills for pipeline development
 
-Edit `.ai/` only, then run `bash scripts/sync-ai-rules.sh`. CI checks that files are in sync.
+Both are synced to tool-specific locations (Claude Code, Cursor, Codex, etc.) via a single command:
+
+```bash
+bash scripts/sync-ai-rules.sh
+```
+
+The dltHub workbench provides an MCP server for source search (9,700+ APIs), pipeline inspection, and data exploration — plus skills that guide you through the full pipeline development workflow. See [CONTRIBUTING.md](CONTRIBUTING.md#ai-assisted-development-recommended) for details.
+
+Edit `.ai/` only for project rules, then re-run the sync script. CI checks that files are in sync.
 
 ## Contributing
 
