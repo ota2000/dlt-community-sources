@@ -79,16 +79,24 @@ uv run ruff format .
 ## Adding a new source
 
 1. Create a new directory under `dlt_community_sources/your_source/`
-2. Add `__init__.py`, `source.py`, `client.py`, and `auth.py` (if needed)
-3. Add tests under `dlt_community_sources/your_source/tests/`
-4. Add an extra in `pyproject.toml` under `[project.optional-dependencies]`
-5. Add a `README.md` in the source directory
-6. Update the source table in `README.md`
+2. Add `__init__.py` and `source.py` with a declarative `_rest_api_config()` using `rest_api_resources()`
+3. Add `auth.py` if the API requires custom authentication (e.g., JWT)
+4. Add custom `@dlt.resource` functions for endpoints that `rest_api` can't handle (non-JSON responses, complex incremental loading)
+5. Add tests under `dlt_community_sources/your_source/tests/`
+6. Add an extra in `pyproject.toml` under `[project.optional-dependencies]`
+7. Add a `README.md` in the source directory
+8. Update the source table in `README.md`
 
 ## Adding a resource to an existing source
 
-1. Add the resource function in `dlt_community_sources/your_source/source.py`
-2. Add it to the `all_resources` list in the source function
+For standard REST endpoints:
+1. Add an entry to the `_rest_api_config()` dict in `source.py`
+2. Add a test
+3. Update the resource table in the source's `README.md`
+
+For non-standard endpoints (non-JSON, custom pagination, etc.):
+1. Add a `@dlt.resource` function in `source.py`
+2. Add it to the `custom_resources` list in the source function
 3. Add a test
 4. Update the resource table in the source's `README.md`
 
