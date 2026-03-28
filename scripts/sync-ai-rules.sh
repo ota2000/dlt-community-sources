@@ -1,6 +1,9 @@
 #!/bin/bash
-# Sync AI rules and skills from .ai/ to all tool-specific locations.
+# Sync AI rules and skills from .ai/ and dltHub AI workbench to all tool-specific locations.
 # Run after editing files under .ai/
+#
+# Order matters: dltHub workbench runs FIRST (it may overwrite AGENTS.md etc.),
+# then .ai/rules.md overwrites on top so project-specific rules always win.
 
 set -euo pipefail
 
@@ -11,7 +14,24 @@ if [ ! -f "$RULES" ]; then
   exit 1
 fi
 
-# --- Rules ---
+# --- dltHub AI workbench (runs first, project rules overwrite after) ---
+
+AGENTS=(claude cursor codex)
+
+if command -v uv > /dev/null 2>&1 && uv run dlt --version > /dev/null 2>&1; then
+  echo "Syncing dltHub AI workbench..."
+  for agent in "${AGENTS[@]}"; do
+    uv run dlt ai init --agent "$agent" --overwrite 2>&1 | sed 's/^/  /'
+    uv run dlt ai toolkit rest-api-pipeline install --agent "$agent" --overwrite 2>&1 | sed 's/^/  /'
+  done
+  echo "✓ dltHub AI workbench synced"
+  echo ""
+else
+  echo "⚠ Skipping dltHub AI workbench sync (dlt not available)"
+  echo ""
+fi
+
+# --- Project rules (overwrites dltHub where paths overlap, e.g. AGENTS.md) ---
 
 # Claude Code
 cp "$RULES" CLAUDE.md
@@ -66,4 +86,5 @@ if [ -d ".ai/skills" ] && compgen -G ".ai/skills/*.md" > /dev/null; then
   done
 fi
 
-echo "Done. All AI rules and skills synced from .ai/"
+echo ""
+echo "Done. All AI rules and skills synced."
