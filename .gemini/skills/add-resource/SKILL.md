@@ -51,6 +51,25 @@ Add to the `custom_resources` list in the source function.
 - Declarative: add name to `REST_API_RESOURCE_NAMES` list and verify in `test_rest_api_config_has_all_resources`
 - Custom: add name to `CUSTOM_RESOURCE_NAMES` list and add helper tests if new logic was introduced
 
+## 4b. Monetary fields
+
+**NEVER use float for monetary amounts.** Convert to `Decimal` before yielding:
+
+```python
+from decimal import Decimal, InvalidOperation
+
+DECIMAL_FIELDS = {"price", "amount", "proceeds"}
+
+def _convert_decimal_fields(row: dict, fields: set[str]) -> dict:
+    for field in fields:
+        if field in row and row[field]:
+            try:
+                row[field] = Decimal(row[field])
+            except InvalidOperation:
+                pass
+    return row
+```
+
 ## 5. Update README.md
 
 - Add row to Resources table (must match implementation)

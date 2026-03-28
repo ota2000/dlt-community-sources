@@ -62,6 +62,34 @@ def _rest_api_config(auth) -> RESTAPIConfig:
     }
 ```
 
+### Custom auth (JWT or non-standard Bearer)
+
+Extend `BearerTokenAuth` with `@configspec`. This is required for `rest_api` config validation.
+
+```python
+from dlt.common.configuration import configspec
+from dlt.sources.helpers.rest_client.auth import BearerTokenAuth
+
+@configspec
+class MyAuth(BearerTokenAuth):
+    api_key: str = None
+    api_secret: str = None
+
+    def __init__(self, api_key: str, api_secret: str) -> None:
+        self.api_key = api_key
+        self.api_secret = api_secret
+        super().__init__(token=generate_token(api_key, api_secret))
+
+    def __call__(self, request):
+        self.token = generate_token(self.api_key, self.api_secret)  # refresh per request
+        return super().__call__(request)
+```
+
+Key points:
+- `@configspec` decorator is **required** — without it, `rest_api_resources()` raises `ConfigurationWrongTypeException`
+- Declare fields as class variables with type annotations (e.g., `api_key: str = None`)
+- `requests.auth.AuthBase` alone is NOT enough — must be `AuthConfigBase` subclass
+
 ### Custom resources (only when rest_api can't handle it)
 
 Use custom `@dlt.resource` functions for: non-JSON responses (TSV/gzip), complex incremental logic, custom response transformation.
@@ -71,9 +99,15 @@ from dlt.sources.helpers import requests as req
 
 def _make_client(auth) -> req.Client:
     client = req.Client()  # Automatic retry on 429/5xx
-    client.session.auth = auth
+    client.session.auth = auth  # set on client.session, NOT client
     return client
 ```
+
+Key points:
+- Use `dlt.sources.helpers.requests.Client`, NOT `requests.Session` — Client provides automatic retry on 429/5xx
+- Set auth/headers on `client.session`, not directly on `client`
+- Use `req.HTTPError` for exception handling, NOT `req.exceptions.HTTPError`
+- `rest_api_resources()` returns `list[DltResource]`, NOT a dict
 
 ### Source function
 
