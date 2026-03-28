@@ -18,15 +18,6 @@ BASE_URL = "https://api.twilio.com/2010-04-01"
 API_HOST = "https://api.twilio.com"
 
 
-class TwilioPaginator(JSONLinkPaginator):
-    """Paginator for Twilio's relative next_page_uri."""
-
-    def update_request(self, request):
-        if self._next_reference and not self._next_reference.startswith("http"):
-            self._next_reference = f"{API_HOST}{self._next_reference}"
-        super().update_request(request)
-
-
 def _rest_api_config(account_sid: str, username: str, password: str) -> RESTAPIConfig:
     """Build the REST API config for standard Twilio endpoints."""
     return {
@@ -37,7 +28,7 @@ def _rest_api_config(account_sid: str, username: str, password: str) -> RESTAPIC
                 "username": username,
                 "password": password,
             },
-            "paginator": TwilioPaginator(next_url_path="next_page_uri"),
+            "paginator": JSONLinkPaginator(next_url_path="next_page_uri"),
         },
         "resource_defaults": {
             "primary_key": "sid",
