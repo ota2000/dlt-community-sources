@@ -1,41 +1,79 @@
 """Tests for Twilio dlt source."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from dlt_community_sources.twilio import source as mod
+from dlt_community_sources.twilio.source import _rest_api_config
+
+REST_API_RESOURCE_NAMES = [
+    "transcriptions",
+    "queues",
+    "incoming_phone_numbers",
+    "addresses",
+    "keys",
+    "outgoing_caller_ids",
+    "applications",
+    "connect_apps",
+    "sip_domains",
+    "sip_ip_access_control_lists",
+    "sip_credential_lists",
+]
+
+CUSTOM_RESOURCE_NAMES = [
+    "messages",
+    "calls",
+    "accounts",
+    "usage_records",
+    "recordings",
+    "conferences",
+    "notifications",
+    "available_phone_numbers",
+]
 
 
-def test_source_has_all_resources():
-    expected = [
-        "messages",
-        "calls",
-        "accounts",
-        "usage_records",
-        "recordings",
-        "transcriptions",
-        "conferences",
-        "queues",
-        "incoming_phone_numbers",
-        "available_phone_numbers",
-        "addresses",
-        "keys",
-        "outgoing_caller_ids",
-        "applications",
-        "connect_apps",
-        "notifications",
-        "sip_domains",
-        "sip_ip_access_control_lists",
-        "sip_credential_lists",
-    ]
-    for name in expected:
-        assert hasattr(mod, name), f"Missing resource function: {name}"
+def test_rest_api_config_has_all_resources():
+    """Verify the REST API config dict contains all expected resources."""
+    config = _rest_api_config("AC_TEST", "user", "pass")
+
+    resource_names = []
+    for r in config["resources"]:
+        if isinstance(r, str):
+            resource_names.append(r)
+        else:
+            resource_names.append(r["name"])
+
+    for name in REST_API_RESOURCE_NAMES:
+        assert name in resource_names, f"Missing REST API resource: {name}"
+
+
+def test_rest_api_config_defaults():
+    """Verify resource defaults are correctly set."""
+    config = _rest_api_config("AC_TEST", "user", "pass")
+
+    assert config["resource_defaults"]["primary_key"] == "sid"
+    assert config["resource_defaults"]["write_disposition"] == "merge"
+    assert config["client"]["auth"]["type"] == "http_basic"
+
+
+def test_rest_api_config_base_url():
+    """Verify base URL includes account SID."""
+    config = _rest_api_config("AC_TEST", "user", "pass")
+    assert "AC_TEST" in config["client"]["base_url"]
+
+
+def test_custom_resource_functions_exist():
+    """Verify custom resource functions are defined."""
+    # accounts is exposed as accounts_resource function but named "accounts"
+    for name in CUSTOM_RESOURCE_NAMES:
+        if name == "accounts":
+            assert hasattr(mod, "accounts_resource")
+        else:
+            assert hasattr(mod, name), f"Missing custom resource function: {name}"
 
 
 def test_resource_filtering():
-    with patch("dlt_community_sources.twilio.source.TwilioClient") as MockClient:
-        mock_client = MagicMock()
-        MockClient.return_value = mock_client
-        mock_client.get_paginated.return_value = iter([])
+    with patch("dlt_community_sources.twilio.source.rest_api_resources") as mock_rest:
+        mock_rest.return_value = {}
 
         source = mod.twilio_source(
             account_sid="TEST",
@@ -48,24 +86,11 @@ def test_resource_filtering():
         assert "accounts" not in resource_names
 
 
-def test_resource_filtering_with_api_key():
-    with patch("dlt_community_sources.twilio.source.TwilioClient") as MockClient:
-        mock_client = MagicMock()
-        MockClient.return_value = mock_client
-        mock_client.get_paginated.return_value = iter([])
+def test_auth_requires_credentials():
+    import pytest
 
-        mod.twilio_source(
-            account_sid="TEST",
-            api_key_sid="SK_TEST",
-            api_key_secret="SECRET",
-            resources=["messages"],
-        )
-        MockClient.assert_called_once_with(
-            "TEST",
-            auth_token=None,
-            api_key_sid="SK_TEST",
-            api_key_secret="SECRET",
-        )
+    with pytest.raises(ValueError, match="auth_token"):
+        mod.twilio_source(account_sid="TEST")
 
 
 def test_rfc2822_to_iso():
