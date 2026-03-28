@@ -34,7 +34,7 @@ Issues = "https://github.com/ota2000/dlt-community-sources/issues"
 
 [dependency-groups]
 dev = [
-    "dlt[duckdb]>=1.24.0",
+    "dlt[duckdb,workspace]>=1.24.0",
     "PyJWT[crypto]>=2.8.0",
     "pytest>=8.0.0",
     "pytest-cov>=7.1.0",
