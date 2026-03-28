@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import requests
 
-from dlt_community_sources.nextdns.source import _get_paginated, _make_session
+from dlt_community_sources.nextdns.source import _get_paginated, _make_client
 
 
-def test_make_session_sets_headers():
-    session = _make_session("TEST_KEY")
-    assert session.headers["X-Api-Key"] == "TEST_KEY"
-    assert session.headers["Accept"] == "application/json"
+def test_make_client_sets_headers():
+    client = _make_client("TEST_KEY")
+    assert client.session.headers["X-Api-Key"] == "TEST_KEY"
+    assert client.session.headers["Accept"] == "application/json"
 
 
 def _mock_response(data, cursor=None, status_code=200):

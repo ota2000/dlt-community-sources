@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Optional, Sequence
 
 import dlt
-import requests as req
 from dlt.sources import DltResource
+from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
@@ -165,8 +165,8 @@ def nextdns_source(
     if profile_id:
         profile_ids = [profile_id]
     else:
-        session = _make_session(api_key)
-        for p in _get_paginated(session, "profiles"):
+        client = _make_client(api_key)
+        for p in _get_paginated(client, "profiles"):
             profile_ids.append(p["id"])
 
     # Custom resources (can't be done via rest_api)
@@ -190,15 +190,15 @@ def nextdns_source(
 # --- Helpers ---
 
 
-def _make_session(api_key: str) -> req.Session:
-    """Create a requests Session with API key auth."""
-    session = req.Session()
-    session.headers.update({"X-Api-Key": api_key, "Accept": "application/json"})
-    return session
+def _make_client(api_key: str) -> req.Client:
+    """Create a dlt HTTP client with API key auth and automatic retry."""
+    client = req.Client()
+    client.session.headers.update({"X-Api-Key": api_key, "Accept": "application/json"})
+    return client
 
 
 def _get_paginated(
-    session: req.Session, path: str, params: Optional[dict] = None
+    client: req.Client, path: str, params: Optional[dict] = None
 ) -> Generator[dict, None, None]:
     """Fetch all pages using cursor-based pagination."""
     if params is None:
@@ -206,9 +206,9 @@ def _get_paginated(
     url = f"{BASE_URL}/{path}"
     while True:
         try:
-            response = session.get(url, params=params)
+            response = client.get(url, params=params)
             response.raise_for_status()
-        except req.exceptions.HTTPError as e:
+        except req.HTTPError as e:
             if e.response is not None and e.response.status_code in (403, 404):
                 logger.warning(
                     "Request failed (%d) for %s. Skipping.",
@@ -226,7 +226,7 @@ def _get_paginated(
 
 
 def _flatten_series(
-    session: req.Session, path: str, params: Optional[dict] = None
+    client: req.Client, path: str, params: Optional[dict] = None
 ) -> Generator[dict, None, None]:
     """Fetch a series endpoint and flatten time-series data into rows.
 
@@ -242,7 +242,7 @@ def _flatten_series(
     params.setdefault("from", "-30d")
 
     url = f"{BASE_URL}/{path}"
-    response = session.get(url, params=params)
+    response = client.get(url, params=params)
     response.raise_for_status()
     data = response.json()
 
@@ -278,12 +278,12 @@ def logs(
     ),
 ):
     """DNS query logs."""
-    session = _make_session(api_key)
+    client = _make_client(api_key)
     from_ts = _iso_to_unix_ms(last_timestamp.last_value)
 
     for pid in profile_ids or []:
         for item in _get_paginated(
-            session, f"profiles/{pid}/logs", params={"from": from_ts}
+            client, f"profiles/{pid}/logs", params={"from": from_ts}
         ):
             item["_profiles_id"] = pid
             yield item
@@ -292,9 +292,9 @@ def logs(
 @dlt.resource(name="analytics_status_series", write_disposition="replace")
 def analytics_status_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by status over time."""
-    session = _make_session(api_key)
+    client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(session, f"profiles/{pid}/analytics/status;series"):
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/status;series"):
             row["_profiles_id"] = pid
             yield row
 
@@ -302,9 +302,9 @@ def analytics_status_series(api_key: str, profile_ids: Optional[list[str]] = Non
 @dlt.resource(name="analytics_domains_series", write_disposition="replace")
 def analytics_domains_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Top queried domains over time."""
-    session = _make_session(api_key)
+    client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(session, f"profiles/{pid}/analytics/domains;series"):
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/domains;series"):
             row["_profiles_id"] = pid
             yield row
 
@@ -312,9 +312,9 @@ def analytics_domains_series(api_key: str, profile_ids: Optional[list[str]] = No
 @dlt.resource(name="analytics_devices_series", write_disposition="replace")
 def analytics_devices_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by device over time."""
-    session = _make_session(api_key)
+    client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(session, f"profiles/{pid}/analytics/devices;series"):
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/devices;series"):
             row["_profiles_id"] = pid
             yield row
 
@@ -322,10 +322,10 @@ def analytics_devices_series(api_key: str, profile_ids: Optional[list[str]] = No
 @dlt.resource(name="analytics_protocols_series", write_disposition="replace")
 def analytics_protocols_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by protocol over time."""
-    session = _make_session(api_key)
+    client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            session, f"profiles/{pid}/analytics/protocols;series"
+            client, f"profiles/{pid}/analytics/protocols;series"
         ):
             row["_profiles_id"] = pid
             yield row
@@ -336,10 +336,10 @@ def analytics_destinations_series(
     api_key: str, profile_ids: Optional[list[str]] = None
 ):
     """Query count by destination country over time."""
-    session = _make_session(api_key)
+    client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            session,
+            client,
             f"profiles/{pid}/analytics/destinations;series",
             params={"type": "countries"},
         ):
@@ -350,10 +350,10 @@ def analytics_destinations_series(
 @dlt.resource(name="analytics_encryption_series", write_disposition="replace")
 def analytics_encryption_series(api_key: str, profile_ids: Optional[list[str]] = None):
     """Query count by encryption status over time."""
-    session = _make_session(api_key)
+    client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            session, f"profiles/{pid}/analytics/encryption;series"
+            client, f"profiles/{pid}/analytics/encryption;series"
         ):
             row["_profiles_id"] = pid
             yield row

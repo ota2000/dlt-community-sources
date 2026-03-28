@@ -9,8 +9,8 @@ from datetime import date, timedelta
 from typing import Optional, Sequence
 
 import dlt
-import requests as req
 from dlt.sources import DltResource
+from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
@@ -172,21 +172,21 @@ def app_store_connect_source(
 # --- Report helpers ---
 
 
-def _make_session(auth: AppStoreConnectAuth) -> req.Session:
-    """Create a requests Session with per-request JWT auth."""
-    session = req.Session()
-    session.auth = auth
-    return session
+def _make_client(auth: AppStoreConnectAuth) -> req.Client:
+    """Create a dlt HTTP client with per-request JWT auth and automatic retry."""
+    client = req.Client()
+    client.session.auth = auth
+    return client
 
 
 def _download_tsv(
-    session: req.Session, url: str, params: Optional[dict] = None
+    client: req.Client, url: str, params: Optional[dict] = None
 ) -> list[dict]:
     """Download a TSV report and parse it into a list of dicts."""
     try:
-        response = session.get(url, params=params)
+        response = client.get(url, params=params)
         response.raise_for_status()
-    except req.exceptions.HTTPError as e:
+    except req.HTTPError as e:
         if e.response is not None and e.response.status_code in (403, 404):
             logger.warning(
                 "Report not available (%d) for %s. Skipping.",
@@ -205,13 +205,13 @@ def _download_tsv(
     return list(reader)
 
 
-def _download_gzip_tsv(session: req.Session, url: str) -> list[dict]:
+def _download_gzip_tsv(client: req.Client, url: str) -> list[dict]:
     """Download a gzip-compressed TSV and parse it."""
     try:
-        response = session.get(url)
+        response = client.get(url)
         response.raise_for_status()
         text = gzip.decompress(response.content).decode("utf-8")
-    except (req.exceptions.HTTPError, gzip.BadGzipFile, UnicodeDecodeError) as e:
+    except (req.HTTPError, gzip.BadGzipFile, UnicodeDecodeError) as e:
         logger.warning("Failed to download/decompress TSV from %s: %s", url, e)
         return []
     reader = csv.DictReader(io.StringIO(text), delimiter="\t")
@@ -256,7 +256,7 @@ def sales_reports(
     if not vendor_number:
         return
 
-    session = _make_session(auth)
+    client = _make_client(auth)
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     start = last_date.last_value
     start_date = date.fromisoformat(start) + timedelta(days=1)
@@ -275,7 +275,7 @@ def sales_reports(
             "filter[reportDate]": report_date,
             "filter[version]": version,
         }
-        rows = _download_tsv(session, f"{BASE_URL}/salesReports", params=params)
+        rows = _download_tsv(client, f"{BASE_URL}/salesReports", params=params)
         if not rows:
             continue
         for row in rows:
@@ -297,7 +297,7 @@ def finance_reports(
     if not vendor_number:
         return
 
-    session = _make_session(auth)
+    client = _make_client(auth)
     last_month = (date.today().replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
     start = last_date.last_value
     start_d = date.fromisoformat(start + "-01")
@@ -318,7 +318,7 @@ def finance_reports(
             "filter[regionCode]": region_code,
             "filter[reportDate]": report_date,
         }
-        rows = _download_tsv(session, f"{BASE_URL}/financeReports", params=params)
+        rows = _download_tsv(client, f"{BASE_URL}/financeReports", params=params)
         if not rows:
             continue
         for row in rows:
@@ -338,15 +338,15 @@ def analytics_reports(
     ),
 ):
     """Download Analytics reports with incremental loading."""
-    session = _make_session(auth)
+    client = _make_client(auth)
 
     def _get_paginated(path: str) -> Generator[dict, None, None]:
         url = f"{BASE_URL}/{path}"
         while url:
             try:
-                response = session.get(url)
+                response = client.get(url)
                 response.raise_for_status()
-            except req.exceptions.HTTPError as e:
+            except req.HTTPError as e:
                 if e.response is not None and e.response.status_code in (403, 404):
                     logger.warning(
                         "Request failed (%d) for %s. Skipping.",
@@ -385,7 +385,7 @@ def analytics_reports(
                         url = segment.get("attributes", {}).get("url")
                         if not url:
                             continue
-                        rows = _download_gzip_tsv(session, url)
+                        rows = _download_gzip_tsv(client, url)
                         if not rows:
                             continue
                         for row in rows:

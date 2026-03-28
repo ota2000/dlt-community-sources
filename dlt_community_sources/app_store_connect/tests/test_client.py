@@ -8,7 +8,7 @@ import requests
 from dlt_community_sources.app_store_connect.source import (
     _download_gzip_tsv,
     _download_tsv,
-    _make_session,
+    _make_client,
 )
 
 
@@ -20,10 +20,10 @@ def _mock_response(content, status_code=200):
     return resp
 
 
-def test_make_session_sets_auth():
+def test_make_client_sets_auth():
     mock_auth = MagicMock()
-    session = _make_session(mock_auth)
-    assert session.auth is mock_auth
+    client = _make_client(mock_auth)
+    assert client.session.auth is mock_auth
 
 
 @patch("dlt_community_sources.app_store_connect.source.req")
@@ -60,7 +60,7 @@ def test_download_tsv_returns_empty_on_404(mock_req):
     resp = MagicMock()
     resp.raise_for_status.side_effect = exc
     session.get.return_value = resp
-    mock_req.exceptions = requests.exceptions
+    mock_req.HTTPError = requests.exceptions.HTTPError
 
     result = _download_tsv(session, "https://example.com/report.tsv")
     assert result == []

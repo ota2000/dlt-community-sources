@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import requests
 
-from dlt_community_sources.twilio.source import _get_paginated, _make_session
+from dlt_community_sources.twilio.source import _get_paginated, _make_client
 
 
-def test_make_session_sets_auth():
-    session = _make_session("user", "pass")
-    assert session.auth == ("user", "pass")
-    assert session.headers["Accept"] == "application/json"
+def test_make_client_sets_auth():
+    client = _make_client("user", "pass")
+    assert client.session.auth == ("user", "pass")
+    assert client.session.headers["Accept"] == "application/json"
 
 
 def _mock_response(data, resource_key="items", next_uri=None, status_code=200):

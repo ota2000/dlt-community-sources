@@ -6,8 +6,8 @@ from email.utils import parsedate_to_datetime
 from typing import Optional, Sequence
 
 import dlt
-import requests as req
 from dlt.sources import DltResource
+from dlt.sources.helpers import requests as req
 from dlt.sources.helpers.rest_client.paginators import JSONLinkPaginator
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
@@ -181,16 +181,16 @@ def twilio_source(
 # --- Helpers ---
 
 
-def _make_session(username: str, password: str) -> req.Session:
-    """Create a requests Session with Basic auth."""
-    session = req.Session()
-    session.auth = (username, password)
-    session.headers.update({"Accept": "application/json"})
-    return session
+def _make_client(username: str, password: str) -> req.Client:
+    """Create a dlt HTTP client with Basic auth and automatic retry."""
+    client = req.Client()
+    client.session.auth = (username, password)
+    client.session.headers.update({"Accept": "application/json"})
+    return client
 
 
 def _get_paginated(
-    session: req.Session,
+    client: req.Client,
     url: str,
     resource_key: str,
     params: Optional[dict] = None,
@@ -202,9 +202,9 @@ def _get_paginated(
 
     while url:
         try:
-            response = session.get(url, params=params)
+            response = client.get(url, params=params)
             response.raise_for_status()
-        except req.exceptions.HTTPError as e:
+        except req.HTTPError as e:
             if e.response is not None and e.response.status_code in (403, 404):
                 logger.warning(
                     "Request failed (%d) for %s. Skipping.",
@@ -240,10 +240,10 @@ def messages(
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """SMS/MMS messages."""
-    session = _make_session(username, password)
+    client = _make_client(username, password)
     params = {"DateSent>": last_date.last_value}
     url = f"{BASE_URL}/Accounts/{account_sid}/Messages.json"
-    for item in _get_paginated(session, url, "messages", params=params):
+    for item in _get_paginated(client, url, "messages", params=params):
         item["_cursor"] = _rfc2822_to_iso(item.get("date_sent", ""))
         yield item
 
@@ -256,10 +256,10 @@ def calls(
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """Voice calls."""
-    session = _make_session(username, password)
+    client = _make_client(username, password)
     params = {"StartTime>": last_date.last_value}
     url = f"{BASE_URL}/Accounts/{account_sid}/Calls.json"
-    for item in _get_paginated(session, url, "calls", params=params):
+    for item in _get_paginated(client, url, "calls", params=params):
         item["_cursor"] = _rfc2822_to_iso(item.get("start_time", ""))
         yield item
 
@@ -271,8 +271,8 @@ def accounts_resource(
     password: str,
 ):
     """Twilio accounts and subaccounts."""
-    session = _make_session(username, password)
-    response = session.get(f"{BASE_URL}/Accounts/{account_sid}.json")
+    client = _make_client(username, password)
+    response = client.get(f"{BASE_URL}/Accounts/{account_sid}.json")
     response.raise_for_status()
     yield response.json()
 
@@ -285,10 +285,10 @@ def usage_records(
     last_date=dlt.sources.incremental("start_date", initial_value="2020-01-01"),
 ):
     """Usage records (daily)."""
-    session = _make_session(username, password)
+    client = _make_client(username, password)
     params = {"StartDate": last_date.last_value}
     url = f"{BASE_URL}/Accounts/{account_sid}/Usage/Records/Daily.json"
-    yield from _get_paginated(session, url, "usage_records", params=params)
+    yield from _get_paginated(client, url, "usage_records", params=params)
 
 
 @dlt.resource(name="recordings", write_disposition="append", primary_key="sid")
@@ -299,10 +299,10 @@ def recordings(
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """Call recordings."""
-    session = _make_session(username, password)
+    client = _make_client(username, password)
     params = {"DateCreated>": last_date.last_value}
     url = f"{BASE_URL}/Accounts/{account_sid}/Recordings.json"
-    for item in _get_paginated(session, url, "recordings", params=params):
+    for item in _get_paginated(client, url, "recordings", params=params):
         item["_cursor"] = _rfc2822_to_iso(item.get("date_created", ""))
         yield item
 
@@ -315,10 +315,10 @@ def conferences(
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """Conference calls."""
-    session = _make_session(username, password)
+    client = _make_client(username, password)
     params = {"DateCreated>": last_date.last_value}
     url = f"{BASE_URL}/Accounts/{account_sid}/Conferences.json"
-    for item in _get_paginated(session, url, "conferences", params=params):
+    for item in _get_paginated(client, url, "conferences", params=params):
         item["_cursor"] = _rfc2822_to_iso(item.get("date_created", ""))
         yield item
 
@@ -331,10 +331,10 @@ def notifications(
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
 ):
     """Log notifications."""
-    session = _make_session(username, password)
+    client = _make_client(username, password)
     params = {"MessageDate>": last_date.last_value}
     url = f"{BASE_URL}/Accounts/{account_sid}/Notifications.json"
-    for item in _get_paginated(session, url, "notifications", params=params):
+    for item in _get_paginated(client, url, "notifications", params=params):
         item["_cursor"] = _rfc2822_to_iso(item.get("message_date", ""))
         yield item
 
@@ -347,8 +347,8 @@ def available_phone_numbers(
     country_code: str = "US",
 ):
     """Available phone numbers for purchase."""
-    session = _make_session(username, password)
+    client = _make_client(username, password)
     url = f"{BASE_URL}/Accounts/{account_sid}/AvailablePhoneNumbers/{country_code}/Local.json"
-    response = session.get(url)
+    response = client.get(url)
     response.raise_for_status()
     yield from response.json().get("available_phone_numbers", [])
