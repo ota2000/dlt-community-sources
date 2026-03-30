@@ -301,37 +301,59 @@ def logs(
 
 
 @dlt.resource(name="analytics_status_series", write_disposition="replace")
-def analytics_status_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
+def analytics_status_series(
+    api_key: str,
+    profile_ids: Optional[list[str]] = None,
+    base_url: str = DEFAULT_BASE_URL,
+):
     """Query count by status over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/status;series", base_url=base_url):
+        for row in _flatten_series(
+            client, f"profiles/{pid}/analytics/status;series", base_url=base_url
+        ):
             row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_domains_series", write_disposition="replace")
-def analytics_domains_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
+def analytics_domains_series(
+    api_key: str,
+    profile_ids: Optional[list[str]] = None,
+    base_url: str = DEFAULT_BASE_URL,
+):
     """Top queried domains over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/domains;series", base_url=base_url):
+        for row in _flatten_series(
+            client, f"profiles/{pid}/analytics/domains;series", base_url=base_url
+        ):
             row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_devices_series", write_disposition="replace")
-def analytics_devices_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
+def analytics_devices_series(
+    api_key: str,
+    profile_ids: Optional[list[str]] = None,
+    base_url: str = DEFAULT_BASE_URL,
+):
     """Query count by device over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/devices;series", base_url=base_url):
+        for row in _flatten_series(
+            client, f"profiles/{pid}/analytics/devices;series", base_url=base_url
+        ):
             row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_protocols_series", write_disposition="replace")
-def analytics_protocols_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
+def analytics_protocols_series(
+    api_key: str,
+    profile_ids: Optional[list[str]] = None,
+    base_url: str = DEFAULT_BASE_URL,
+):
     """Query count by protocol over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
@@ -344,7 +366,9 @@ def analytics_protocols_series(api_key: str, profile_ids: Optional[list[str]] = 
 
 @dlt.resource(name="analytics_destinations_series", write_disposition="replace")
 def analytics_destinations_series(
-    api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL
+    api_key: str,
+    profile_ids: Optional[list[str]] = None,
+    base_url: str = DEFAULT_BASE_URL,
 ):
     """Query count by destination country over time."""
     client = _make_client(api_key)
@@ -360,7 +384,11 @@ def analytics_destinations_series(
 
 
 @dlt.resource(name="analytics_encryption_series", write_disposition="replace")
-def analytics_encryption_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
+def analytics_encryption_series(
+    api_key: str,
+    profile_ids: Optional[list[str]] = None,
+    base_url: str = DEFAULT_BASE_URL,
+):
     """Query count by encryption status over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:

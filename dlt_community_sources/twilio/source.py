@@ -5,6 +5,7 @@ from collections.abc import Generator
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from typing import Optional, Sequence
+from urllib.parse import urlparse
 
 import dlt
 from dlt.sources import DltResource
@@ -151,6 +152,8 @@ def twilio_source(
         List of dlt resources.
     """
     url = base_url or DEFAULT_BASE_URL
+    parsed = urlparse(url)
+    host = f"{parsed.scheme}://{parsed.netloc}"
 
     if api_key_sid and api_key_secret:
         username, password = api_key_sid, api_key_secret
@@ -167,13 +170,13 @@ def twilio_source(
 
     # Custom resources (incremental with RFC 2822 date conversion)
     custom_resources = [
-        messages(account_sid, username, password, base_url=url),
-        calls(account_sid, username, password, base_url=url),
+        messages(account_sid, username, password, base_url=url, api_host=host),
+        calls(account_sid, username, password, base_url=url, api_host=host),
         accounts_resource(account_sid, username, password, base_url=url),
-        usage_records(account_sid, username, password, base_url=url),
-        recordings(account_sid, username, password, base_url=url),
-        conferences(account_sid, username, password, base_url=url),
-        notifications(account_sid, username, password, base_url=url),
+        usage_records(account_sid, username, password, base_url=url, api_host=host),
+        recordings(account_sid, username, password, base_url=url, api_host=host),
+        conferences(account_sid, username, password, base_url=url, api_host=host),
+        notifications(account_sid, username, password, base_url=url, api_host=host),
         available_phone_numbers(account_sid, username, password, base_url=url),
     ]
 
@@ -246,12 +249,15 @@ def messages(
     password: str,
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
     base_url: str = DEFAULT_BASE_URL,
+    api_host: str = DEFAULT_API_HOST,
 ):
     """SMS/MMS messages."""
     client = _make_client(username, password)
     params = {"DateSent>": last_date.last_value}
     url = f"{base_url}/Accounts/{account_sid}/Messages.json"
-    for item in _get_paginated(client, url, "messages", params=params):
+    for item in _get_paginated(
+        client, url, "messages", params=params, api_host=api_host
+    ):
         item["_cursor"] = _rfc2822_to_iso(item.get("date_sent", ""))
         yield item
 
@@ -263,12 +269,13 @@ def calls(
     password: str,
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
     base_url: str = DEFAULT_BASE_URL,
+    api_host: str = DEFAULT_API_HOST,
 ):
     """Voice calls."""
     client = _make_client(username, password)
     params = {"StartTime>": last_date.last_value}
     url = f"{base_url}/Accounts/{account_sid}/Calls.json"
-    for item in _get_paginated(client, url, "calls", params=params):
+    for item in _get_paginated(client, url, "calls", params=params, api_host=api_host):
         item["_cursor"] = _rfc2822_to_iso(item.get("start_time", ""))
         yield item
 
@@ -298,12 +305,15 @@ def usage_records(
     password: str,
     last_date=dlt.sources.incremental("start_date", initial_value="2020-01-01"),
     base_url: str = DEFAULT_BASE_URL,
+    api_host: str = DEFAULT_API_HOST,
 ):
     """Usage records (daily)."""
     client = _make_client(username, password)
     params = {"StartDate": last_date.last_value}
     url = f"{base_url}/Accounts/{account_sid}/Usage/Records/Daily.json"
-    for item in _get_paginated(client, url, "usage_records", params=params):
+    for item in _get_paginated(
+        client, url, "usage_records", params=params, api_host=api_host
+    ):
         if "price" in item and item["price"]:
             try:
                 item["price"] = Decimal(item["price"])
@@ -319,12 +329,15 @@ def recordings(
     password: str,
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
     base_url: str = DEFAULT_BASE_URL,
+    api_host: str = DEFAULT_API_HOST,
 ):
     """Call recordings."""
     client = _make_client(username, password)
     params = {"DateCreated>": last_date.last_value}
     url = f"{base_url}/Accounts/{account_sid}/Recordings.json"
-    for item in _get_paginated(client, url, "recordings", params=params):
+    for item in _get_paginated(
+        client, url, "recordings", params=params, api_host=api_host
+    ):
         item["_cursor"] = _rfc2822_to_iso(item.get("date_created", ""))
         yield item
 
@@ -336,12 +349,15 @@ def conferences(
     password: str,
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
     base_url: str = DEFAULT_BASE_URL,
+    api_host: str = DEFAULT_API_HOST,
 ):
     """Conference calls."""
     client = _make_client(username, password)
     params = {"DateCreated>": last_date.last_value}
     url = f"{base_url}/Accounts/{account_sid}/Conferences.json"
-    for item in _get_paginated(client, url, "conferences", params=params):
+    for item in _get_paginated(
+        client, url, "conferences", params=params, api_host=api_host
+    ):
         item["_cursor"] = _rfc2822_to_iso(item.get("date_created", ""))
         yield item
 
@@ -353,12 +369,15 @@ def notifications(
     password: str,
     last_date=dlt.sources.incremental("_cursor", initial_value="2020-01-01"),
     base_url: str = DEFAULT_BASE_URL,
+    api_host: str = DEFAULT_API_HOST,
 ):
     """Log notifications."""
     client = _make_client(username, password)
     params = {"MessageDate>": last_date.last_value}
     url = f"{base_url}/Accounts/{account_sid}/Notifications.json"
-    for item in _get_paginated(client, url, "notifications", params=params):
+    for item in _get_paginated(
+        client, url, "notifications", params=params, api_host=api_host
+    ):
         item["_cursor"] = _rfc2822_to_iso(item.get("message_date", ""))
         yield item
 
