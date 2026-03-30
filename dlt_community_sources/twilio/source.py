@@ -135,6 +135,9 @@ def twilio_source(
     api_key_secret: Optional[str] = None,
     resources: Optional[Sequence[str]] = None,
     base_url: Optional[str] = None,
+    country_code: str = "US",
+    phone_number_type: str = "Local",
+    start_date: Optional[str] = None,
 ) -> list[DltResource]:
     """A dlt source for Twilio API.
 
@@ -147,6 +150,9 @@ def twilio_source(
         api_key_secret: Twilio API Key Secret.
         resources: List of resource names to load. None for all.
         base_url: Override the API base URL. Useful for testing.
+        country_code: Country code for available phone numbers (e.g. "US", "GB", "JP").
+        phone_number_type: Phone number type (e.g. "Local", "TollFree", "Mobile").
+        start_date: Override incremental start date (YYYY-MM-DD).
 
     Returns:
         List of dlt resources.
@@ -154,6 +160,7 @@ def twilio_source(
     url = base_url or DEFAULT_BASE_URL
     parsed = urlparse(url)
     host = f"{parsed.scheme}://{parsed.netloc}"
+    _start = start_date or "2020-01-01"
 
     if api_key_sid and api_key_secret:
         username, password = api_key_sid, api_key_secret
@@ -169,15 +176,65 @@ def twilio_source(
     rest_resources = rest_api_resources(config)
 
     # Custom resources (incremental with RFC 2822 date conversion)
+    _inc = lambda cursor: dlt.sources.incremental(cursor, initial_value=_start)  # noqa: E731
     custom_resources = [
-        messages(account_sid, username, password, base_url=url, api_host=host),
-        calls(account_sid, username, password, base_url=url, api_host=host),
+        messages(
+            account_sid,
+            username,
+            password,
+            last_date=_inc("_cursor"),
+            base_url=url,
+            api_host=host,
+        ),
+        calls(
+            account_sid,
+            username,
+            password,
+            last_date=_inc("_cursor"),
+            base_url=url,
+            api_host=host,
+        ),
         accounts_resource(account_sid, username, password, base_url=url),
-        usage_records(account_sid, username, password, base_url=url, api_host=host),
-        recordings(account_sid, username, password, base_url=url, api_host=host),
-        conferences(account_sid, username, password, base_url=url, api_host=host),
-        notifications(account_sid, username, password, base_url=url, api_host=host),
-        available_phone_numbers(account_sid, username, password, base_url=url),
+        usage_records(
+            account_sid,
+            username,
+            password,
+            last_date=_inc("start_date"),
+            base_url=url,
+            api_host=host,
+        ),
+        recordings(
+            account_sid,
+            username,
+            password,
+            last_date=_inc("_cursor"),
+            base_url=url,
+            api_host=host,
+        ),
+        conferences(
+            account_sid,
+            username,
+            password,
+            last_date=_inc("_cursor"),
+            base_url=url,
+            api_host=host,
+        ),
+        notifications(
+            account_sid,
+            username,
+            password,
+            last_date=_inc("_cursor"),
+            base_url=url,
+            api_host=host,
+        ),
+        available_phone_numbers(
+            account_sid,
+            username,
+            password,
+            country_code=country_code,
+            phone_number_type=phone_number_type,
+            base_url=url,
+        ),
     ]
 
     all_resources: list[DltResource] = rest_resources + custom_resources
@@ -388,11 +445,12 @@ def available_phone_numbers(
     username: str,
     password: str,
     country_code: str = "US",
+    phone_number_type: str = "Local",
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Available phone numbers for purchase."""
     client = _make_client(username, password)
-    url = f"{base_url}/Accounts/{account_sid}/AvailablePhoneNumbers/{country_code}/Local.json"
+    url = f"{base_url}/Accounts/{account_sid}/AvailablePhoneNumbers/{country_code}/{phone_number_type}.json"
     response = client.get(url)
     response.raise_for_status()
     yield from response.json().get("available_phone_numbers", [])

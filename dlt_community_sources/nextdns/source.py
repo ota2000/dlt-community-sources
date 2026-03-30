@@ -146,6 +146,9 @@ def nextdns_source(
     profile_id: Optional[str] = None,
     resources: Optional[Sequence[str]] = None,
     base_url: Optional[str] = None,
+    series_period: str = "-30d",
+    destinations_type: str = "countries",
+    start_date: Optional[str] = None,
 ) -> list[DltResource]:
     """A dlt source for NextDNS API.
 
@@ -154,11 +157,15 @@ def nextdns_source(
         profile_id: NextDNS profile ID. If None, fetches all profiles.
         resources: List of resource names to load. None for all.
         base_url: Override the API base URL. Useful for testing.
+        series_period: Time period for analytics series (e.g. "-30d", "-7d", "-90d").
+        destinations_type: Destinations analytics type (e.g. "countries", "gafam").
+        start_date: Override incremental start date for logs (ISO 8601).
 
     Returns:
         List of dlt resources.
     """
     url = base_url or DEFAULT_BASE_URL
+    log_start = start_date or "2020-01-01T00:00:00.000Z"
 
     # REST API resources (declarative)
     config = _rest_api_config(api_key, url)
@@ -175,13 +182,36 @@ def nextdns_source(
 
     # Custom resources (can't be done via rest_api)
     custom_resources = [
-        logs(api_key, profile_ids=profile_ids, base_url=url),
-        analytics_status_series(api_key, profile_ids=profile_ids, base_url=url),
-        analytics_domains_series(api_key, profile_ids=profile_ids, base_url=url),
-        analytics_devices_series(api_key, profile_ids=profile_ids, base_url=url),
-        analytics_protocols_series(api_key, profile_ids=profile_ids, base_url=url),
-        analytics_destinations_series(api_key, profile_ids=profile_ids, base_url=url),
-        analytics_encryption_series(api_key, profile_ids=profile_ids, base_url=url),
+        logs(
+            api_key,
+            profile_ids=profile_ids,
+            last_timestamp=dlt.sources.incremental(
+                "timestamp", initial_value=log_start
+            ),
+            base_url=url,
+        ),
+        analytics_status_series(
+            api_key, profile_ids=profile_ids, series_period=series_period, base_url=url
+        ),
+        analytics_domains_series(
+            api_key, profile_ids=profile_ids, series_period=series_period, base_url=url
+        ),
+        analytics_devices_series(
+            api_key, profile_ids=profile_ids, series_period=series_period, base_url=url
+        ),
+        analytics_protocols_series(
+            api_key, profile_ids=profile_ids, series_period=series_period, base_url=url
+        ),
+        analytics_destinations_series(
+            api_key,
+            profile_ids=profile_ids,
+            series_period=series_period,
+            destinations_type=destinations_type,
+            base_url=url,
+        ),
+        analytics_encryption_series(
+            api_key, profile_ids=profile_ids, series_period=series_period, base_url=url
+        ),
     ]
 
     all_resources: list[DltResource] = rest_resources + custom_resources
@@ -237,6 +267,7 @@ def _flatten_series(
     path: str,
     params: Optional[dict] = None,
     base_url: str = DEFAULT_BASE_URL,
+    series_period: str = "-30d",
 ) -> Generator[dict, None, None]:
     """Fetch a series endpoint and flatten time-series data into rows.
 
@@ -249,7 +280,7 @@ def _flatten_series(
     """
     if params is None:
         params = {}
-    params.setdefault("from", "-30d")
+    params.setdefault("from", series_period)
 
     url = f"{base_url}/{path}"
     response = client.get(url, params=params)
@@ -304,13 +335,17 @@ def logs(
 def analytics_status_series(
     api_key: str,
     profile_ids: Optional[list[str]] = None,
+    series_period: str = "-30d",
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Query count by status over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/status;series", base_url=base_url
+            client,
+            f"profiles/{pid}/analytics/status;series",
+            base_url=base_url,
+            series_period=series_period,
         ):
             row["_profiles_id"] = pid
             yield row
@@ -320,13 +355,17 @@ def analytics_status_series(
 def analytics_domains_series(
     api_key: str,
     profile_ids: Optional[list[str]] = None,
+    series_period: str = "-30d",
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Top queried domains over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/domains;series", base_url=base_url
+            client,
+            f"profiles/{pid}/analytics/domains;series",
+            base_url=base_url,
+            series_period=series_period,
         ):
             row["_profiles_id"] = pid
             yield row
@@ -336,13 +375,17 @@ def analytics_domains_series(
 def analytics_devices_series(
     api_key: str,
     profile_ids: Optional[list[str]] = None,
+    series_period: str = "-30d",
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Query count by device over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/devices;series", base_url=base_url
+            client,
+            f"profiles/{pid}/analytics/devices;series",
+            base_url=base_url,
+            series_period=series_period,
         ):
             row["_profiles_id"] = pid
             yield row
@@ -352,13 +395,17 @@ def analytics_devices_series(
 def analytics_protocols_series(
     api_key: str,
     profile_ids: Optional[list[str]] = None,
+    series_period: str = "-30d",
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Query count by protocol over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/protocols;series", base_url=base_url
+            client,
+            f"profiles/{pid}/analytics/protocols;series",
+            base_url=base_url,
+            series_period=series_period,
         ):
             row["_profiles_id"] = pid
             yield row
@@ -368,16 +415,19 @@ def analytics_protocols_series(
 def analytics_destinations_series(
     api_key: str,
     profile_ids: Optional[list[str]] = None,
+    series_period: str = "-30d",
+    destinations_type: str = "countries",
     base_url: str = DEFAULT_BASE_URL,
 ):
-    """Query count by destination country over time."""
+    """Query count by destination over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
             client,
             f"profiles/{pid}/analytics/destinations;series",
-            params={"type": "countries"},
+            params={"type": destinations_type},
             base_url=base_url,
+            series_period=series_period,
         ):
             row["_profiles_id"] = pid
             yield row
@@ -387,13 +437,17 @@ def analytics_destinations_series(
 def analytics_encryption_series(
     api_key: str,
     profile_ids: Optional[list[str]] = None,
+    series_period: str = "-30d",
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Query count by encryption status over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/encryption;series", base_url=base_url
+            client,
+            f"profiles/{pid}/analytics/encryption;series",
+            base_url=base_url,
+            series_period=series_period,
         ):
             row["_profiles_id"] = pid
             yield row

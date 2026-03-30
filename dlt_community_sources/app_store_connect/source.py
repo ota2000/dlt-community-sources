@@ -136,6 +136,13 @@ def app_store_connect_source(
     vendor_number: Optional[str] = None,
     resources: Optional[Sequence[str]] = None,
     base_url: Optional[str] = None,
+    report_type: str = "SALES",
+    report_sub_type: str = "SUMMARY",
+    frequency: str = "DAILY",
+    report_version: str = "1_0",
+    finance_report_type: str = "FINANCIAL",
+    region_code: str = "ZZ",
+    start_date: Optional[str] = None,
 ) -> list[DltResource]:
     """A dlt source for Apple App Store Connect API.
 
@@ -146,6 +153,13 @@ def app_store_connect_source(
         vendor_number: Vendor number for sales/finance reports.
         resources: List of resource names to load. None for all.
         base_url: Override the API base URL. Useful for testing.
+        report_type: Sales report type (e.g. SALES, PRE_ORDER, NEWSSTAND).
+        report_sub_type: Sales report sub type (e.g. SUMMARY, DETAILED).
+        frequency: Sales report frequency (e.g. DAILY, WEEKLY, MONTHLY, YEARLY).
+        report_version: Sales report version (e.g. 1_0).
+        finance_report_type: Finance report type (e.g. FINANCIAL).
+        region_code: Finance report region code (e.g. ZZ for all, US, JP).
+        start_date: Override incremental start date (YYYY-MM-DD). Defaults vary per report.
 
     Returns:
         List of dlt resources.
@@ -159,11 +173,40 @@ def app_store_connect_source(
     config = _rest_api_config(auth, url)
     rest_resources = rest_api_resources(config)
 
+    sales_start = start_date or "2020-01-01"
+    finance_start = start_date[:7] if start_date else "2020-01"
+
     # Report resources (custom, can't be done via rest_api)
     report_resources = [
-        sales_reports(auth, vendor_number=vendor_number or "", base_url=url),
-        finance_reports(auth, vendor_number=vendor_number or "", base_url=url),
-        analytics_reports(auth, base_url=url),
+        sales_reports(
+            auth,
+            vendor_number=vendor_number or "",
+            report_type=report_type,
+            report_sub_type=report_sub_type,
+            frequency=frequency,
+            version=report_version,
+            last_date=dlt.sources.incremental(
+                "_report_date", initial_value=sales_start
+            ),
+            base_url=url,
+        ),
+        finance_reports(
+            auth,
+            vendor_number=vendor_number or "",
+            region_code=region_code,
+            report_type=finance_report_type,
+            last_date=dlt.sources.incremental(
+                "_report_date", initial_value=finance_start
+            ),
+            base_url=url,
+        ),
+        analytics_reports(
+            auth,
+            last_processing_date=dlt.sources.incremental(
+                "_processing_date", initial_value=sales_start
+            ),
+            base_url=url,
+        ),
     ]
 
     all_resources: list[DltResource] = rest_resources + report_resources

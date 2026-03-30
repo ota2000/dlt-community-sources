@@ -100,6 +100,19 @@ You need an API key from [App Store Connect](https://appstoreconnect.apple.com/a
 | `private_key` | Contents of the `.p8` file downloaded when creating the key |
 | `vendor_number` | Your vendor number (required for sales/finance reports) |
 
+## Configuration
+
+| Parameter | Default | Description |
+|---|---|---|
+| `base_url` | `None` | Override the API base URL (useful for testing) |
+| `report_type` | `"SALES"` | Sales report type (e.g. SALES, PRE_ORDER, NEWSSTAND) |
+| `report_sub_type` | `"SUMMARY"` | Sales report sub type (e.g. SUMMARY, DETAILED) |
+| `frequency` | `"DAILY"` | Sales report frequency (e.g. DAILY, WEEKLY, MONTHLY, YEARLY) |
+| `report_version` | `"1_0"` | Sales report version |
+| `finance_report_type` | `"FINANCIAL"` | Finance report type |
+| `region_code` | `"ZZ"` | Finance report region code (ZZ for all, US, JP, etc.) |
+| `start_date` | `None` | Override incremental start date (YYYY-MM-DD) |
+
 ## Notes
 
 - **Permission errors**: Resources that return 403 (e.g., due to API key role restrictions) are silently skipped. The pipeline continues with accessible resources.
