@@ -157,7 +157,7 @@ def twilio_source(
     Returns:
         List of dlt resources.
     """
-    url = base_url or DEFAULT_BASE_URL
+    url = (base_url or DEFAULT_BASE_URL).rstrip("/")
     parsed = urlparse(url)
     host = f"{parsed.scheme}://{parsed.netloc}"
     _start = start_date or "2020-01-01"

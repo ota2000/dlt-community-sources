@@ -164,7 +164,7 @@ def app_store_connect_source(
     Returns:
         List of dlt resources.
     """
-    url = base_url or DEFAULT_BASE_URL
+    url = (base_url or DEFAULT_BASE_URL).rstrip("/")
     auth = AppStoreConnectAuth(
         key_id=key_id, issuer_id=issuer_id, private_key=private_key
     )

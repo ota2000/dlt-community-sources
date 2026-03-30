@@ -115,8 +115,8 @@ Key points:
 
 ```python
 @dlt.source(name="my_source")
-def my_source(..., base_url: Optional[str] = None) -> list[DltResource]:
-    url = base_url or DEFAULT_BASE_URL
+def my_source(..., base_url: str | None = None) -> list[DltResource]:
+    url = (base_url or DEFAULT_BASE_URL).rstrip("/")
     config = _rest_api_config(auth, url)
     rest_resources = rest_api_resources(config)
     custom_resources = [my_custom_resource(..., base_url=url)]
@@ -128,7 +128,8 @@ def my_source(..., base_url: Optional[str] = None) -> list[DltResource]:
 
 Key points:
 - Define `DEFAULT_BASE_URL` as a module-level constant
-- Add `base_url: Optional[str] = None` to the source function for testing with fake servers
+- Add `base_url: str | None = None` to the source function for testing with fake servers
+- Normalize with `.rstrip("/")` to prevent double slashes in URLs
 - Pass `base_url` through to `_rest_api_config()` and all custom resource functions
 - Custom resources should accept `base_url: str = DEFAULT_BASE_URL` as a parameter
 

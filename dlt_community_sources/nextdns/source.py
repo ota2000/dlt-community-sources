@@ -164,7 +164,7 @@ def nextdns_source(
     Returns:
         List of dlt resources.
     """
-    url = base_url or DEFAULT_BASE_URL
+    url = (base_url or DEFAULT_BASE_URL).rstrip("/")
     log_start = start_date or "2020-01-01T00:00:00.000Z"
 
     # REST API resources (declarative)
