@@ -37,10 +37,12 @@ dlt_community_sources/{name}/
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-def _rest_api_config(auth) -> RESTAPIConfig:
+DEFAULT_BASE_URL = "https://api.example.com/v1"
+
+def _rest_api_config(auth, base_url: str) -> RESTAPIConfig:
     return {
         "client": {
-            "base_url": "https://api.example.com/v1/",
+            "base_url": f"{base_url}/",
             "auth": auth,  # dict or AuthConfigBase instance
             "paginator": {"type": "json_link", "next_url_path": "links.next"},
         },
@@ -113,15 +115,22 @@ Key points:
 
 ```python
 @dlt.source(name="my_source")
-def my_source(...) -> list[DltResource]:
-    config = _rest_api_config(auth)
+def my_source(..., base_url: Optional[str] = None) -> list[DltResource]:
+    url = base_url or DEFAULT_BASE_URL
+    config = _rest_api_config(auth, url)
     rest_resources = rest_api_resources(config)
-    custom_resources = [my_custom_resource(...)]
+    custom_resources = [my_custom_resource(..., base_url=url)]
     all_resources: list[DltResource] = rest_resources + custom_resources
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
 ```
+
+Key points:
+- Define `DEFAULT_BASE_URL` as a module-level constant
+- Add `base_url: Optional[str] = None` to the source function for testing with fake servers
+- Pass `base_url` through to `_rest_api_config()` and all custom resource functions
+- Custom resources should accept `base_url: str = DEFAULT_BASE_URL` as a parameter
 
 ## 4. Implement tests
 
