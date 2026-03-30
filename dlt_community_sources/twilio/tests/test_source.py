@@ -33,7 +33,7 @@ CUSTOM_RESOURCE_NAMES = [
 
 def test_rest_api_config_has_all_resources():
     """Verify the REST API config dict contains all expected resources."""
-    config = _rest_api_config("AC_TEST", "user", "pass")
+    config = _rest_api_config("AC_TEST", "user", "pass", mod.DEFAULT_BASE_URL)
 
     resource_names = []
     for r in config["resources"]:
@@ -48,7 +48,7 @@ def test_rest_api_config_has_all_resources():
 
 def test_rest_api_config_defaults():
     """Verify resource defaults are correctly set."""
-    config = _rest_api_config("AC_TEST", "user", "pass")
+    config = _rest_api_config("AC_TEST", "user", "pass", mod.DEFAULT_BASE_URL)
 
     assert config["resource_defaults"]["primary_key"] == "sid"
     assert config["resource_defaults"]["write_disposition"] == "merge"
@@ -57,7 +57,7 @@ def test_rest_api_config_defaults():
 
 def test_rest_api_config_base_url():
     """Verify base URL includes account SID."""
-    config = _rest_api_config("AC_TEST", "user", "pass")
+    config = _rest_api_config("AC_TEST", "user", "pass", mod.DEFAULT_BASE_URL)
     assert "AC_TEST" in config["client"]["base_url"]
 
 

@@ -13,14 +13,14 @@ from dlt.sources.rest_api.typing import RESTAPIConfig
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://api.nextdns.io"
+DEFAULT_BASE_URL = "https://api.nextdns.io"
 
 
-def _rest_api_config(api_key: str) -> RESTAPIConfig:
+def _rest_api_config(api_key: str, base_url: str) -> RESTAPIConfig:
     """Build the REST API config for standard NextDNS endpoints."""
     return {
         "client": {
-            "base_url": f"{BASE_URL}/",
+            "base_url": f"{base_url}/",
             "auth": {
                 "type": "api_key",
                 "name": "X-Api-Key",
@@ -145,6 +145,7 @@ def nextdns_source(
     api_key: str = dlt.secrets.value,
     profile_id: Optional[str] = None,
     resources: Optional[Sequence[str]] = None,
+    base_url: Optional[str] = None,
 ) -> list[DltResource]:
     """A dlt source for NextDNS API.
 
@@ -152,12 +153,15 @@ def nextdns_source(
         api_key: NextDNS API key from https://my.nextdns.io/account.
         profile_id: NextDNS profile ID. If None, fetches all profiles.
         resources: List of resource names to load. None for all.
+        base_url: Override the API base URL. Useful for testing.
 
     Returns:
         List of dlt resources.
     """
+    url = base_url or DEFAULT_BASE_URL
+
     # REST API resources (declarative)
-    config = _rest_api_config(api_key)
+    config = _rest_api_config(api_key, url)
     rest_resources = rest_api_resources(config)
 
     # Discover profile IDs for custom resources
@@ -166,18 +170,18 @@ def nextdns_source(
         profile_ids = [profile_id]
     else:
         client = _make_client(api_key)
-        for p in _get_paginated(client, "profiles"):
+        for p in _get_paginated(client, "profiles", base_url=url):
             profile_ids.append(p["id"])
 
     # Custom resources (can't be done via rest_api)
     custom_resources = [
-        logs(api_key, profile_ids=profile_ids),
-        analytics_status_series(api_key, profile_ids=profile_ids),
-        analytics_domains_series(api_key, profile_ids=profile_ids),
-        analytics_devices_series(api_key, profile_ids=profile_ids),
-        analytics_protocols_series(api_key, profile_ids=profile_ids),
-        analytics_destinations_series(api_key, profile_ids=profile_ids),
-        analytics_encryption_series(api_key, profile_ids=profile_ids),
+        logs(api_key, profile_ids=profile_ids, base_url=url),
+        analytics_status_series(api_key, profile_ids=profile_ids, base_url=url),
+        analytics_domains_series(api_key, profile_ids=profile_ids, base_url=url),
+        analytics_devices_series(api_key, profile_ids=profile_ids, base_url=url),
+        analytics_protocols_series(api_key, profile_ids=profile_ids, base_url=url),
+        analytics_destinations_series(api_key, profile_ids=profile_ids, base_url=url),
+        analytics_encryption_series(api_key, profile_ids=profile_ids, base_url=url),
     ]
 
     all_resources: list[DltResource] = rest_resources + custom_resources
@@ -198,12 +202,15 @@ def _make_client(api_key: str) -> req.Client:
 
 
 def _get_paginated(
-    client: req.Client, path: str, params: Optional[dict] = None
+    client: req.Client,
+    path: str,
+    params: Optional[dict] = None,
+    base_url: str = DEFAULT_BASE_URL,
 ) -> Generator[dict, None, None]:
     """Fetch all pages using cursor-based pagination."""
     if params is None:
         params = {}
-    url = f"{BASE_URL}/{path}"
+    url = f"{base_url}/{path}"
     while True:
         try:
             response = client.get(url, params=params)
@@ -226,7 +233,10 @@ def _get_paginated(
 
 
 def _flatten_series(
-    client: req.Client, path: str, params: Optional[dict] = None
+    client: req.Client,
+    path: str,
+    params: Optional[dict] = None,
+    base_url: str = DEFAULT_BASE_URL,
 ) -> Generator[dict, None, None]:
     """Fetch a series endpoint and flatten time-series data into rows.
 
@@ -241,7 +251,7 @@ def _flatten_series(
         params = {}
     params.setdefault("from", "-30d")
 
-    url = f"{BASE_URL}/{path}"
+    url = f"{base_url}/{path}"
     response = client.get(url, params=params)
     response.raise_for_status()
     data = response.json()
@@ -276,6 +286,7 @@ def logs(
     last_timestamp=dlt.sources.incremental(
         "timestamp", initial_value="2020-01-01T00:00:00.000Z"
     ),
+    base_url: str = DEFAULT_BASE_URL,
 ):
     """DNS query logs."""
     client = _make_client(api_key)
@@ -283,49 +294,49 @@ def logs(
 
     for pid in profile_ids or []:
         for item in _get_paginated(
-            client, f"profiles/{pid}/logs", params={"from": from_ts}
+            client, f"profiles/{pid}/logs", params={"from": from_ts}, base_url=base_url
         ):
             item["_profiles_id"] = pid
             yield item
 
 
 @dlt.resource(name="analytics_status_series", write_disposition="replace")
-def analytics_status_series(api_key: str, profile_ids: Optional[list[str]] = None):
+def analytics_status_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
     """Query count by status over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/status;series"):
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/status;series", base_url=base_url):
             row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_domains_series", write_disposition="replace")
-def analytics_domains_series(api_key: str, profile_ids: Optional[list[str]] = None):
+def analytics_domains_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
     """Top queried domains over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/domains;series"):
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/domains;series", base_url=base_url):
             row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_devices_series", write_disposition="replace")
-def analytics_devices_series(api_key: str, profile_ids: Optional[list[str]] = None):
+def analytics_devices_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
     """Query count by device over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
-        for row in _flatten_series(client, f"profiles/{pid}/analytics/devices;series"):
+        for row in _flatten_series(client, f"profiles/{pid}/analytics/devices;series", base_url=base_url):
             row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_protocols_series", write_disposition="replace")
-def analytics_protocols_series(api_key: str, profile_ids: Optional[list[str]] = None):
+def analytics_protocols_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
     """Query count by protocol over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/protocols;series"
+            client, f"profiles/{pid}/analytics/protocols;series", base_url=base_url
         ):
             row["_profiles_id"] = pid
             yield row
@@ -333,7 +344,7 @@ def analytics_protocols_series(api_key: str, profile_ids: Optional[list[str]] = 
 
 @dlt.resource(name="analytics_destinations_series", write_disposition="replace")
 def analytics_destinations_series(
-    api_key: str, profile_ids: Optional[list[str]] = None
+    api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL
 ):
     """Query count by destination country over time."""
     client = _make_client(api_key)
@@ -342,18 +353,19 @@ def analytics_destinations_series(
             client,
             f"profiles/{pid}/analytics/destinations;series",
             params={"type": "countries"},
+            base_url=base_url,
         ):
             row["_profiles_id"] = pid
             yield row
 
 
 @dlt.resource(name="analytics_encryption_series", write_disposition="replace")
-def analytics_encryption_series(api_key: str, profile_ids: Optional[list[str]] = None):
+def analytics_encryption_series(api_key: str, profile_ids: Optional[list[str]] = None, base_url: str = DEFAULT_BASE_URL):
     """Query count by encryption status over time."""
     client = _make_client(api_key)
     for pid in profile_ids or []:
         for row in _flatten_series(
-            client, f"profiles/{pid}/analytics/encryption;series"
+            client, f"profiles/{pid}/analytics/encryption;series", base_url=base_url
         ):
             row["_profiles_id"] = pid
             yield row
