@@ -34,7 +34,7 @@ CUSTOM_RESOURCE_NAMES = [
 
 def test_rest_api_config_has_all_resources():
     """Verify the REST API config dict contains all expected resources."""
-    config = _rest_api_config("TEST_KEY")
+    config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL)
 
     resource_names = []
     for r in config["resources"]:
@@ -49,7 +49,7 @@ def test_rest_api_config_has_all_resources():
 
 def test_rest_api_config_defaults():
     """Verify resource defaults are correctly set."""
-    config = _rest_api_config("TEST_KEY")
+    config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL)
 
     assert config["resource_defaults"]["write_disposition"] == "replace"
     assert config["client"]["paginator"]["type"] == "cursor"
@@ -59,7 +59,7 @@ def test_rest_api_config_defaults():
 
 def test_rest_api_config_profiles_merge():
     """Verify profiles uses merge disposition."""
-    config = _rest_api_config("TEST_KEY")
+    config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL)
 
     profiles = next(
         r
@@ -72,7 +72,7 @@ def test_rest_api_config_profiles_merge():
 
 def test_rest_api_config_child_resources():
     """Verify analytics resources depend on profiles."""
-    config = _rest_api_config("TEST_KEY")
+    config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL)
 
     for r in config["resources"]:
         if isinstance(r, dict) and r["name"].startswith("analytics_"):
@@ -83,7 +83,7 @@ def test_rest_api_config_child_resources():
 
 def test_rest_api_config_blocked_domains_params():
     """Verify analytics_blocked_domains has status=blocked param."""
-    config = _rest_api_config("TEST_KEY")
+    config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL)
 
     blocked = next(
         r

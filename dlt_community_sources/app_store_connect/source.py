@@ -19,14 +19,14 @@ from .auth import AppStoreConnectAuth
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://api.appstoreconnect.apple.com/v1"
+DEFAULT_BASE_URL = "https://api.appstoreconnect.apple.com/v1"
 
 
-def _rest_api_config(auth: AppStoreConnectAuth) -> RESTAPIConfig:
+def _rest_api_config(auth: AppStoreConnectAuth, base_url: str) -> RESTAPIConfig:
     """Build the REST API config for standard App Store Connect endpoints."""
     return {
         "client": {
-            "base_url": f"{BASE_URL}/",
+            "base_url": f"{base_url}/",
             "auth": auth,
             "paginator": {
                 "type": "json_link",
@@ -135,6 +135,14 @@ def app_store_connect_source(
     private_key: str = dlt.secrets.value,
     vendor_number: Optional[str] = None,
     resources: Optional[Sequence[str]] = None,
+    base_url: Optional[str] = None,
+    report_type: str = "SALES",
+    report_sub_type: str = "SUMMARY",
+    frequency: str = "DAILY",
+    report_version: str = "1_0",
+    finance_report_type: str = "FINANCIAL",
+    region_code: str = "ZZ",
+    start_date: Optional[str] = None,
 ) -> list[DltResource]:
     """A dlt source for Apple App Store Connect API.
 
@@ -144,23 +152,61 @@ def app_store_connect_source(
         private_key: Contents of the .p8 private key file.
         vendor_number: Vendor number for sales/finance reports.
         resources: List of resource names to load. None for all.
+        base_url: Override the API base URL. Useful for testing.
+        report_type: Sales report type (e.g. SALES, PRE_ORDER, NEWSSTAND).
+        report_sub_type: Sales report sub type (e.g. SUMMARY, DETAILED).
+        frequency: Sales report frequency (e.g. DAILY, WEEKLY, MONTHLY, YEARLY).
+        report_version: Sales report version (e.g. 1_0).
+        finance_report_type: Finance report type (e.g. FINANCIAL).
+        region_code: Finance report region code (e.g. ZZ for all, US, JP).
+        start_date: Override incremental start date (YYYY-MM-DD). Defaults vary per report.
 
     Returns:
         List of dlt resources.
     """
+    url = (base_url or DEFAULT_BASE_URL).rstrip("/")
     auth = AppStoreConnectAuth(
         key_id=key_id, issuer_id=issuer_id, private_key=private_key
     )
 
     # REST API resources (declarative)
-    config = _rest_api_config(auth)
+    config = _rest_api_config(auth, url)
     rest_resources = rest_api_resources(config)
+
+    sales_start = start_date or "2020-01-01"
+    finance_start = start_date[:7] if start_date else "2020-01"
 
     # Report resources (custom, can't be done via rest_api)
     report_resources = [
-        sales_reports(auth, vendor_number=vendor_number or ""),
-        finance_reports(auth, vendor_number=vendor_number or ""),
-        analytics_reports(auth),
+        sales_reports(
+            auth,
+            vendor_number=vendor_number or "",
+            report_type=report_type,
+            report_sub_type=report_sub_type,
+            frequency=frequency,
+            version=report_version,
+            last_date=dlt.sources.incremental(
+                "_report_date", initial_value=sales_start
+            ),
+            base_url=url,
+        ),
+        finance_reports(
+            auth,
+            vendor_number=vendor_number or "",
+            region_code=region_code,
+            report_type=finance_report_type,
+            last_date=dlt.sources.incremental(
+                "_report_date", initial_value=finance_start
+            ),
+            base_url=url,
+        ),
+        analytics_reports(
+            auth,
+            last_processing_date=dlt.sources.incremental(
+                "_processing_date", initial_value=sales_start
+            ),
+            base_url=url,
+        ),
     ]
 
     all_resources: list[DltResource] = rest_resources + report_resources
@@ -272,6 +318,7 @@ def sales_reports(
     frequency: str = "DAILY",
     version: str = "1_0",
     last_date=dlt.sources.incremental("_report_date", initial_value="2020-01-01"),
+    base_url: str = DEFAULT_BASE_URL,
 ):
     """Download Sales and Trends reports with incremental loading."""
     if not vendor_number:
@@ -296,7 +343,7 @@ def sales_reports(
             "filter[reportDate]": report_date,
             "filter[version]": version,
         }
-        rows = _download_tsv(client, f"{BASE_URL}/salesReports", params=params)
+        rows = _download_tsv(client, f"{base_url}/salesReports", params=params)
         if not rows:
             continue
         for row in rows:
@@ -314,6 +361,7 @@ def finance_reports(
     region_code: str = "ZZ",
     report_type: str = "FINANCIAL",
     last_date=dlt.sources.incremental("_report_date", initial_value="2020-01"),
+    base_url: str = DEFAULT_BASE_URL,
 ):
     """Download Finance reports with incremental loading."""
     if not vendor_number:
@@ -340,7 +388,7 @@ def finance_reports(
             "filter[regionCode]": region_code,
             "filter[reportDate]": report_date,
         }
-        rows = _download_tsv(client, f"{BASE_URL}/financeReports", params=params)
+        rows = _download_tsv(client, f"{base_url}/financeReports", params=params)
         if not rows:
             continue
         for row in rows:
@@ -359,12 +407,13 @@ def analytics_reports(
     last_processing_date=dlt.sources.incremental(
         "_processing_date", initial_value="2020-01-01"
     ),
+    base_url: str = DEFAULT_BASE_URL,
 ):
     """Download Analytics reports with incremental loading."""
     client = _make_client(auth)
 
     def _get_paginated(path: str) -> Generator[dict, None, None]:
-        url = f"{BASE_URL}/{path}"
+        url = f"{base_url}/{path}"
         while url:
             try:
                 response = client.get(url)

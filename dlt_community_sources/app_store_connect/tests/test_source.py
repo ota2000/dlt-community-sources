@@ -43,7 +43,7 @@ REPORT_RESOURCE_NAMES = [
 def test_rest_api_config_has_all_resources():
     """Verify the REST API config dict contains all expected resources."""
     mock_auth = MagicMock(spec=AppStoreConnectAuth)
-    config = _rest_api_config(mock_auth)
+    config = _rest_api_config(mock_auth, mod.DEFAULT_BASE_URL)
 
     resource_names = []
     for r in config["resources"]:
@@ -59,7 +59,7 @@ def test_rest_api_config_has_all_resources():
 def test_rest_api_config_defaults():
     """Verify resource defaults are correctly set."""
     mock_auth = MagicMock(spec=AppStoreConnectAuth)
-    config = _rest_api_config(mock_auth)
+    config = _rest_api_config(mock_auth, mod.DEFAULT_BASE_URL)
 
     assert config["resource_defaults"]["primary_key"] == "id"
     assert config["resource_defaults"]["write_disposition"] == "merge"
@@ -69,7 +69,7 @@ def test_rest_api_config_defaults():
 def test_rest_api_config_replace_disposition():
     """Verify app_categories and territories use replace disposition."""
     mock_auth = MagicMock(spec=AppStoreConnectAuth)
-    config = _rest_api_config(mock_auth)
+    config = _rest_api_config(mock_auth, mod.DEFAULT_BASE_URL)
 
     replace_resources = {
         r["name"]: r
@@ -83,7 +83,7 @@ def test_rest_api_config_replace_disposition():
 def test_rest_api_config_child_resources():
     """Verify parent-child resource relationships are defined."""
     mock_auth = MagicMock(spec=AppStoreConnectAuth)
-    config = _rest_api_config(mock_auth)
+    config = _rest_api_config(mock_auth, mod.DEFAULT_BASE_URL)
 
     resources_by_name = {
         r["name"]: r for r in config["resources"] if isinstance(r, dict)

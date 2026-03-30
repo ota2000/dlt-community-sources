@@ -102,10 +102,19 @@ source = twilio_source(
 
 Create API keys at [Twilio Console > API keys & tokens](https://console.twilio.com/us1/account/keys-credentials/api-keys).
 
+## Configuration
+
+| Parameter | Default | Description |
+|---|---|---|
+| `base_url` | `None` | Override the API base URL (useful for testing) |
+| `country_code` | `"US"` | Country code for available phone numbers (e.g. "US", "GB", "JP") |
+| `phone_number_type` | `"Local"` | Phone number type (e.g. "Local", "TollFree", "Mobile") |
+| `start_date` | `None` | Override incremental start date (YYYY-MM-DD) |
+
 ## Notes
 
 - **Permission errors**: Resources that return 403 or 404 are silently skipped. The pipeline continues with accessible resources.
 - **API Key (Standard)**: Cannot access `accounts` resource. Use Auth Token if you need account data.
 - **Free trial accounts**: Some resources may return 403 depending on your account type.
-- **available_phone_numbers**: Defaults to US (`country_code="US"`). Pass a different country code to the resource if needed.
+- **available_phone_numbers**: Defaults to US Local numbers. Use `country_code` and `phone_number_type` to customize.
 - **Credentials required**: Either `auth_token` or both `api_key_sid` and `api_key_secret` must be provided. Omitting both raises `ValueError`.
