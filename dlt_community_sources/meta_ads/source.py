@@ -338,7 +338,7 @@ DEFAULT_FIELDS = {
         "time_updated",
     ],
 }
-# Insights のメトリクスで文字列→数値変換が必要なフィールド
+# Insight metric fields requiring string-to-numeric conversion
 INSIGHT_INT_FIELDS = {
     "impressions",
     "clicks",
@@ -365,11 +365,11 @@ INSIGHT_FLOAT_FIELDS = {
     "cost_per_unique_outbound_click",
     "social_spend",
 }
-# SDK: facebook_business/adobjects/adsinsights.py — 主要フィールド
-# 全170+フィールドのうち、一般的に利用可能なものをデフォルトに含む。
-# 全フィールドが必要な場合は insight_fields パラメータで指定。
+# SDK: facebook_business/adobjects/adsinsights.py
+# Includes commonly available fields out of 170+ total.
+# Pass custom list via insight_fields parameter for full coverage.
 DEFAULT_INSIGHT_FIELDS = [
-    # 日付・識別子
+    # Date & identifiers
     "date_start",
     "date_stop",
     "account_id",
@@ -380,7 +380,7 @@ DEFAULT_INSIGHT_FIELDS = [
     "adset_name",
     "ad_id",
     "ad_name",
-    # 基本メトリクス
+    # Basic metrics
     "impressions",
     "clicks",
     "spend",
@@ -390,7 +390,7 @@ DEFAULT_INSIGHT_FIELDS = [
     "cpm",
     "ctr",
     "cpp",
-    # アクション
+    # Actions
     "actions",
     "action_values",
     "conversions",
@@ -399,7 +399,7 @@ DEFAULT_INSIGHT_FIELDS = [
     "cost_per_conversion",
     "cost_per_result",
     "result_rate",
-    # ユニーク
+    # Unique metrics
     "unique_actions",
     "unique_clicks",
     "unique_ctr",
@@ -407,7 +407,7 @@ DEFAULT_INSIGHT_FIELDS = [
     "cost_per_unique_click",
     "cost_per_unique_action_type",
     "cost_per_unique_conversion",
-    # インライン
+    # Inline metrics
     "inline_link_clicks",
     "inline_link_click_ctr",
     "inline_post_engagement",
@@ -416,20 +416,20 @@ DEFAULT_INSIGHT_FIELDS = [
     "unique_inline_link_clicks",
     "unique_inline_link_click_ctr",
     "cost_per_unique_inline_link_click",
-    # アウトバウンド
+    # Outbound metrics
     "outbound_clicks",
     "outbound_clicks_ctr",
     "unique_outbound_clicks",
     "unique_outbound_clicks_ctr",
     "cost_per_outbound_click",
     "cost_per_unique_outbound_click",
-    # リーチ・推定
+    # Reach & estimation
     "estimated_ad_recallers",
     "estimated_ad_recall_rate",
     "cost_per_estimated_ad_recallers",
     "full_view_impressions",
     "full_view_reach",
-    # 動画
+    # Video
     "video_play_actions",
     "video_play_curve_actions",
     "video_thruplay_watched_actions",
@@ -447,23 +447,23 @@ DEFAULT_INSIGHT_FIELDS = [
     "cost_per_thruplay",
     "cost_per_15_sec_video_view",
     "cost_per_2_sec_continuous_video_view",
-    # キャンバス
+    # Canvas
     "canvas_avg_view_percent",
     "canvas_avg_view_time",
-    # カタログ
+    # Catalog
     "catalog_segment_actions",
     "catalog_segment_value",
     # ROAS
     "purchase_roas",
     "mobile_app_purchase_roas",
     "website_purchase_roas",
-    # ソーシャル
+    # Social
     "social_spend",
-    # ランキング
+    # Ranking
     "quality_ranking",
     "engagement_rate_ranking",
     "conversion_rate_ranking",
-    # その他
+    # Other
     "buying_type",
     "objective",
     "optimization_goal",
@@ -477,7 +477,7 @@ DEFAULT_INSIGHT_FIELDS = [
     "instant_experience_clicks_to_start",
     "instant_experience_outbound_clicks",
 ]
-# ポーリング間隔と最大待機時間
+# Polling interval and max wait time
 POLL_INTERVAL_SECONDS = 10
 POLL_MAX_WAIT_SECONDS = 600
 
@@ -730,8 +730,8 @@ def ad_leads(
     fields = lead_fields or DEFAULT_FIELDS["ad_leads"]
     client = _make_client(access_token)
 
-    # ads を取得して、各 ad の leads を取得
-    # filtering パラメータで created_time > last_value のリードのみ取得
+    # Iterate through ads to fetch their leads
+    # Filter leads by created_time > last incremental value
     since = last_created_time.last_value
     ads_params = urlencode(
         [
@@ -787,7 +787,7 @@ def insights(
     fields = insight_fields or DEFAULT_INSIGHT_FIELDS
     client = _make_client(access_token)
 
-    # 再取得開始日: attribution_window_days 分遡る
+    # Start date: go back attribution_window_days from last cursor
     last = last_date.last_value
     window_start = date.fromisoformat(last) - timedelta(days=attribution_window_days)
     start = window_start.isoformat()
@@ -799,7 +799,7 @@ def insights(
 
     logger.info("insights: fetching %s to %s (level=%s)", start, end, level)
 
-    # 非同期レポートジョブを作成
+    # Create async report job
     request_data = {
         "fields": ",".join(fields),
         "level": level,
@@ -822,11 +822,11 @@ def insights(
         logger.warning("insights: no report_run_id returned")
         return
 
-    # ポーリング
+    # Poll until completion
     if not _poll_report(client, report_run_id, base_url):
         return
 
-    # 結果取得（型変換を適用）
+    # Fetch results with type conversion
     for row in _fetch_insights_pages(client, report_run_id, base_url):
         yield _convert_insight_types(row)
 
