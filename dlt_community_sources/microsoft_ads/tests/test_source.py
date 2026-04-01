@@ -1,18 +1,25 @@
 """Tests for Microsoft Ads source configuration and helpers."""
 
-from unittest.mock import MagicMock
+import io
+import zipfile
+from unittest.mock import MagicMock, patch
 
 from dlt_community_sources.microsoft_ads.resources.ad_insight import (
     ALL_AD_INSIGHT_RESOURCES,
+    auction_insight_data,
 )
 from dlt_community_sources.microsoft_ads.resources.campaign_management import (
     ALL_CAMPAIGN_MGMT_RESOURCES,
 )
 from dlt_community_sources.microsoft_ads.resources.customer_billing import (
     ALL_CUSTOMER_BILLING_RESOURCES,
+    account_monthly_spend,
+    billing_documents_info,
 )
 from dlt_community_sources.microsoft_ads.resources.customer_management import (
     ALL_CUSTOMER_MGMT_RESOURCES,
+    account_info,
+    customer_pilot_features,
 )
 from dlt_community_sources.microsoft_ads.resources.helpers import (
     CAMPAIGN_MGMT_URL,
@@ -30,6 +37,8 @@ from dlt_community_sources.microsoft_ads.resources.helpers import (
 from dlt_community_sources.microsoft_ads.resources.reporting import (
     REPORT_COLUMNS,
     REPORT_TYPES,
+    _download_csv_report,
+    _poll_report,
     _submit_report,
 )
 
@@ -217,3 +226,255 @@ class TestSubmitReport:
             "Month": 3,
             "Year": 2026,
         }
+
+
+class TestPollReport:
+    def test_success(self):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "ReportRequestStatus": {
+                "Status": "Success",
+                "ReportDownloadUrl": "https://download.example.com/report.zip",
+            }
+        }
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        result = _poll_report(mock_client, "req123")
+        assert result == "https://download.example.com/report.zip"
+
+    def test_error_returns_none(self):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "ReportRequestStatus": {"Status": "Error"}
+        }
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        result = _poll_report(mock_client, "req123")
+        assert result is None
+
+    @patch("dlt_community_sources.microsoft_ads.resources.reporting.time.sleep")
+    @patch(
+        "dlt_community_sources.microsoft_ads.resources.reporting.POLL_MAX_WAIT_SECONDS",
+        20,
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.resources.reporting.POLL_INTERVAL_SECONDS",
+        10,
+    )
+    def test_timeout_returns_none(self, mock_sleep):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "ReportRequestStatus": {"Status": "Pending"}
+        }
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        result = _poll_report(mock_client, "req123")
+        assert result is None
+        assert mock_sleep.call_count == 2
+
+
+class TestDownloadCsvReport:
+    def test_parses_csv_from_zip(self):
+        # Build an in-memory ZIP containing a CSV
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr(
+                "report.csv",
+                "TimePeriod,Impressions,Spend\n2026-01-01,100,12.34\n",
+            )
+        buf.seek(0)
+
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.content = buf.getvalue()
+        mock_resp.raise_for_status.return_value = None
+        mock_client.get.return_value = mock_resp
+
+        rows = list(_download_csv_report(mock_client, "https://example.com/r.zip"))
+        assert len(rows) == 1
+        assert rows[0]["TimePeriod"] == "2026-01-01"
+        assert rows[0]["Impressions"] == 100
+        assert rows[0]["Spend"] == 12.34
+
+
+class TestSourceFunction:
+    @patch("dlt_community_sources.microsoft_ads.source.refresh_access_token")
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CAMPAIGN_MGMT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_MGMT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_AD_INSIGHT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_BILLING_RESOURCES",
+        [],
+    )
+    def test_returns_report_resource(self, mock_refresh):
+        mock_refresh.return_value = {
+            "access_token": "at",
+            "refresh_token": "rt_new",
+        }
+        from dlt_community_sources.microsoft_ads.source import microsoft_ads_source
+
+        source = microsoft_ads_source(
+            client_id="cid",
+            client_secret="cs",
+            developer_token="dt",
+            refresh_token="rt",
+            account_id="aid",
+            customer_id="cuid",
+        )
+        assert "report" in source.resources
+
+    @patch("dlt_community_sources.microsoft_ads.source.refresh_access_token")
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CAMPAIGN_MGMT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_MGMT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_AD_INSIGHT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_BILLING_RESOURCES",
+        [],
+    )
+    def test_filter_by_resource_name(self, mock_refresh):
+        mock_refresh.return_value = {
+            "access_token": "at",
+            "refresh_token": "rt_new",
+        }
+        from dlt_community_sources.microsoft_ads.source import microsoft_ads_source
+
+        source = microsoft_ads_source(
+            client_id="cid",
+            client_secret="cs",
+            developer_token="dt",
+            refresh_token="rt",
+            account_id="aid",
+            customer_id="cuid",
+            resources=["report"],
+        )
+        assert "report" in source.resources
+
+    @patch("dlt_community_sources.microsoft_ads.source.refresh_access_token")
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CAMPAIGN_MGMT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_MGMT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_AD_INSIGHT_RESOURCES",
+        [],
+    )
+    @patch(
+        "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_BILLING_RESOURCES",
+        [],
+    )
+    def test_filter_excludes_unknown(self, mock_refresh):
+        mock_refresh.return_value = {
+            "access_token": "at",
+            "refresh_token": "rt_new",
+        }
+        from dlt_community_sources.microsoft_ads.source import microsoft_ads_source
+
+        source = microsoft_ads_source(
+            client_id="cid",
+            client_secret="cs",
+            developer_token="dt",
+            refresh_token="rt",
+            account_id="aid",
+            customer_id="cuid",
+            resources=["nonexistent"],
+        )
+        # Only resources matching the filter are included
+        resource_names = list(source.resources.keys())
+        assert "report" not in resource_names
+
+
+class TestResourceFunctions:
+    """Test individual resource functions with mocked clients."""
+
+    @patch(
+        "dlt_community_sources.microsoft_ads.resources.ad_insight.make_client"
+    )
+    def test_auction_insight_data(self, mock_make):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"Result": [{"Id": 1}]}
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        mock_make.return_value = mock_client
+        result = list(auction_insight_data("at", "dt", "ci", "ai"))
+        assert result == [{"Id": 1}]
+
+    @patch(
+        "dlt_community_sources.microsoft_ads.resources.customer_management.make_client"
+    )
+    def test_account_info(self, mock_make):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"Account": {"Id": 1, "Name": "Test"}}
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        mock_make.return_value = mock_client
+        result = list(account_info("at", "dt", "ci", "ai"))
+        assert result == [{"Id": 1, "Name": "Test"}]
+
+    @patch(
+        "dlt_community_sources.microsoft_ads.resources.customer_management.make_client"
+    )
+    def test_customer_pilot_features(self, mock_make):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"FeaturePilotFlags": [100, 200]}
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        mock_make.return_value = mock_client
+        result = list(customer_pilot_features("at", "dt", "ci", "ai"))
+        assert len(result) == 2
+        assert result[0]["feature_id"] == 100
+
+    @patch(
+        "dlt_community_sources.microsoft_ads.resources.customer_billing.make_client"
+    )
+    def test_account_monthly_spend(self, mock_make):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"Amount": 1234.56}
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        mock_make.return_value = mock_client
+        result = list(account_monthly_spend("at", "dt", "ci", "ai"))
+        assert result[0]["amount"] == 1234.56
+
+    @patch(
+        "dlt_community_sources.microsoft_ads.resources.customer_billing.make_client"
+    )
+    def test_billing_documents_info(self, mock_make):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "BillingDocumentsInfo": [{"DocumentId": "doc1"}]
+        }
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        mock_make.return_value = mock_client
+        result = list(billing_documents_info("at", "dt", "ci", "ai"))
+        assert result == [{"DocumentId": "doc1"}]

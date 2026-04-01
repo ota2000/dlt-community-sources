@@ -24,14 +24,13 @@ def refresh_access_token(
     """
     response = requests.post(
         MSFT_TOKEN_URL,
-        data=(
-            f"grant_type=refresh_token"
-            f"&client_id={client_id}"
-            f"&client_secret={client_secret}"
-            f"&refresh_token={refresh_token}"
-            f"&scope=https://ads.microsoft.com/msads.manage offline_access"
-        ),
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data={
+            "grant_type": "refresh_token",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "scope": "https://ads.microsoft.com/msads.manage offline_access",
+        },
     )
     response.raise_for_status()
     return response.json()

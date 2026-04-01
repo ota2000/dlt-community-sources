@@ -33,7 +33,9 @@ class TestRefreshAccessToken:
         assert result["refresh_token"] == "new_rt"
         mock_post.assert_called_once()
         call_kwargs = mock_post.call_args
-        assert "grant_type=refresh_token" in call_kwargs[1]["data"]
+        assert call_kwargs[1]["data"]["grant_type"] == "refresh_token"
+        assert call_kwargs[1]["data"]["client_id"] == "client_id"
+        assert call_kwargs[1]["data"]["refresh_token"] == "old_rt"
 
     @patch("dlt_community_sources.microsoft_ads.auth.requests.post")
     def test_error_raises(self, mock_post):
