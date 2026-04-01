@@ -17,9 +17,9 @@ from .auth import refresh_access_token
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://business-api.tiktok.com/open_api/v1.3"
-# レポートの1リクエストあたり最大日数
+# Max days per report request
 MAX_REPORT_DAYS = 30
-# レポートのデフォルトメトリクス
+# Default report metrics
 DEFAULT_METRICS = [
     "spend",
     "impressions",
@@ -52,21 +52,21 @@ DEFAULT_METRICS = [
     "follows",
     "profile_visits",
 ]
-# レポートのデフォルトディメンション（data_level によって変わる）
+# Default report dimensions (varies by data_level)
 REPORT_DIMENSIONS = {
     "AUCTION_ADVERTISER": ["advertiser_id", "stat_time_day"],
     "AUCTION_CAMPAIGN": ["campaign_id", "stat_time_day"],
     "AUCTION_ADGROUP": ["adgroup_id", "stat_time_day"],
     "AUCTION_AD": ["ad_id", "stat_time_day"],
 }
-# data_level と primary_key のマッピング
+# Primary key mapping by data_level
 REPORT_PRIMARY_KEYS = {
     "AUCTION_ADVERTISER": ["stat_time_day", "advertiser_id"],
     "AUCTION_CAMPAIGN": ["stat_time_day", "campaign_id"],
     "AUCTION_ADGROUP": ["stat_time_day", "adgroup_id"],
     "AUCTION_AD": ["stat_time_day", "ad_id"],
 }
-# メトリクスの型変換
+# Metric type conversion fields
 REPORT_INT_FIELDS = {
     "impressions",
     "clicks",
@@ -551,10 +551,10 @@ def tiktok_ads_source(
     """
     url = (base_url or DEFAULT_BASE_URL).rstrip("/")
 
-    # refresh_token → access_token（トークンローテーション）
+    # Refresh token → access_token (token rotation)
     tokens = refresh_access_token(app_id, secret, refresh_token)
     access_token = tokens["access_token"]
-    # tokens["refresh_token"] は呼び出し元で Secret Manager に書き戻す
+    # tokens["refresh_token"] should be persisted by the caller (e.g., Secret Manager)
 
     # REST API resources (master data)
     config = _rest_api_config(access_token, advertiser_id, url)
