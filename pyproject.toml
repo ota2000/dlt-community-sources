@@ -23,6 +23,7 @@ classifiers = [
 [project.optional-dependencies]
 app-store-connect = ["PyJWT[crypto]>=2.8.0"]
 twilio = []  # no extra dependencies, requests is included in dlt
+meta-ads = []  # no extra dependencies, requests is included in dlt
 nextdns = []  # no extra dependencies, requests is included in dlt
 
 [project.urls]

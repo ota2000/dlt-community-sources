@@ -520,7 +520,7 @@ requires-dist = [
     { name = "dlt", specifier = ">=1.0.0" },
     { name = "pyjwt", extras = ["crypto"], marker = "extra == 'app-store-connect'", specifier = ">=2.8.0" },
 ]
-provides-extras = ["app-store-connect", "nextdns", "twilio"]
+provides-extras = ["app-store-connect", "meta-ads", "nextdns", "twilio"]
 
 [package.metadata.requires-dev]
 dev = [
