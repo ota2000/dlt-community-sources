@@ -6,9 +6,11 @@ from dlt_community_sources.tiktok_ads.source import (
     REPORT_FLOAT_FIELDS,
     REPORT_INT_FIELDS,
     REPORT_PRIMARY_KEYS,
+    _check_response,
     _convert_report_types,
     _date_chunks,
     _flatten_report_row,
+    _make_client,
     _rest_api_config,
 )
 
@@ -156,3 +158,28 @@ class TestDateChunks:
     def test_exact_boundary(self):
         chunks = list(_date_chunks("2026-01-01", "2026-01-30", max_days=30))
         assert chunks == [("2026-01-01", "2026-01-30")]
+
+
+class TestCheckResponse:
+    """Test _check_response()."""
+
+    def test_success(self):
+        assert _check_response({"code": 0, "message": "OK"}, "test") is True
+
+    def test_error(self):
+        assert _check_response({"code": 40001, "message": "error"}, "test") is False
+
+    def test_missing_code(self):
+        assert _check_response({}, "test") is False
+
+
+class TestMakeClient:
+    """Test _make_client()."""
+
+    def test_sets_access_token_header(self):
+        client = _make_client("test_token")
+        assert client.session.headers["Access-Token"] == "test_token"
+
+    def test_no_bearer_header(self):
+        client = _make_client("test_token")
+        assert "Authorization" not in client.session.headers
