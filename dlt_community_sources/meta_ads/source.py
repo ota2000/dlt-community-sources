@@ -324,6 +324,7 @@ def _rest_api_config(
             },
             {
                 "name": "activities",
+                "primary_key": "",
                 "write_disposition": "append",
                 "endpoint": {
                     "path": f"{act_id}/activities",
@@ -357,20 +358,15 @@ def _poll_report(
     report_run_id: str,
     base_url: str,
 ) -> bool:
-    """Poll async report until completion. Returns True if completed."""
+    """Poll async report until completion. Returns True if completed.
+
+    Note: 429 rate limit retry is handled by dlt's req.Client automatically
+    (exponential backoff, Retry-After header support, max 5 attempts).
+    """
     elapsed = 0
     while elapsed < POLL_MAX_WAIT_SECONDS:
-        try:
-            response = client.get(f"{base_url}/{report_run_id}")
-            response.raise_for_status()
-        except req.HTTPError as e:
-            if e.response is not None and e.response.status_code == 429:
-                wait = POLL_INTERVAL_SECONDS * 2
-                logger.warning("Rate limited during poll, waiting %ds", wait)
-                time.sleep(wait)
-                elapsed += wait
-                continue
-            raise
+        response = client.get(f"{base_url}/{report_run_id}")
+        response.raise_for_status()
         data = response.json()
 
         status = data.get("async_status")
@@ -406,7 +402,10 @@ def _get_paginated(
     client: req.Client,
     url: str,
 ) -> Generator[dict, None, None]:
-    """Fetch all pages using cursor pagination."""
+    """Fetch all pages using cursor pagination.
+
+    Note: 429 rate limit retry is handled by dlt's req.Client automatically.
+    """
     while url:
         try:
             response = client.get(url)
@@ -414,7 +413,9 @@ def _get_paginated(
         except req.HTTPError as e:
             if e.response is not None and e.response.status_code in (403, 404):
                 logger.warning(
-                    "Request failed (%d) for %s. Skipping.", e.response.status_code, url
+                    "Request failed (%d) for %s. Skipping.",
+                    e.response.status_code,
+                    url,
                 )
                 return
             raise
@@ -451,7 +452,7 @@ def ad_leads(
     )
     ads_url = f"{base_url}/{act_id}/ads?{ads_params}"
     filtering = json.dumps(
-        [{"field": "time_created", "operator": "GREATER_THAN", "value": since}]
+        [{"field": "created_time", "operator": "GREATER_THAN", "value": since}]
     )
     for ad in _get_paginated(client, ads_url):
         ad_id = ad["id"]

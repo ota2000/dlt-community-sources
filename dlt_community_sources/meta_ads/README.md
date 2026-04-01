@@ -75,10 +75,10 @@ source = meta_ads_source(
 | custom_conversions | merge | id | Custom conversion definitions |
 | ad_images | merge | hash | Ad image assets |
 | ad_videos | merge | id | Ad video assets |
-| activities | append | id | Account activity/change logs |
+| activities | append | (none) | Account activity/change logs |
 | saved_audiences | merge | id | Saved audience configurations |
 | ad_leads | append | id | Lead form submissions (incremental) |
-| insights | merge | date_start + entity_id | Daily performance metrics (async report) |
+| insights | merge | date_start + campaign_id/adset_id/ad_id (+ breakdowns) | Daily performance metrics (async report) |
 
 ## Authentication
 

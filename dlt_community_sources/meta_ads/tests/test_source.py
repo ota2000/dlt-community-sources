@@ -87,6 +87,12 @@ class TestRestApiConfig:
         ]
         assert activities["write_disposition"] == "append"
 
+    def test_activities_no_primary_key(self):
+        activities = [r for r in self.config["resources"] if r["name"] == "activities"][
+            0
+        ]
+        assert activities["primary_key"] == ""
+
     def test_custom_fields_override(self):
         config = _rest_api_config(
             "token",
