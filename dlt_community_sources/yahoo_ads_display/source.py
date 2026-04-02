@@ -123,6 +123,12 @@ REPORT_FIELDS = {
 # Numeric fields for type conversion
 REPORT_INT_FIELDS = {"IMPS", "CLICKS", "CONVERSIONS"}
 REPORT_FLOAT_FIELDS = {"CLICK_RATE", "AVG_CPC", "COST", "CONV_RATE", "CONV_VALUE"}
+REPORT_METRIC_FIELDS = REPORT_INT_FIELDS | REPORT_FLOAT_FIELDS
+
+
+def _derive_primary_key(fields: list[str]) -> list[str]:
+    """Derive primary key from report fields (all non-metric fields)."""
+    return [f for f in fields if f not in REPORT_METRIC_FIELDS]
 
 
 def _convert_report_types(row: dict) -> dict:
@@ -217,10 +223,12 @@ def yahoo_ads_display_source(
     fields = report_fields or REPORT_FIELDS.get(
         report_type, REPORT_FIELDS["AD"]
     )
+    pk = _derive_primary_key(fields)
+    initial = start_date or "2020-01-01"
 
-    @dlt.resource(name="report", write_disposition="merge", primary_key="DAY")
+    @dlt.resource(name="report", write_disposition="merge", primary_key=pk)
     def _report(
-        last_date=dlt.sources.incremental("DAY", initial_value="2020-01-01"),
+        last_date=dlt.sources.incremental("DAY", initial_value=initial),
     ):
         client = make_client(access_token, account_id)
         last = last_date.last_value

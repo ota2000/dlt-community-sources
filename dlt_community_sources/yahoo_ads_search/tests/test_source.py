@@ -19,6 +19,7 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
 )
 from dlt_community_sources.yahoo_ads_search.source import (
     _ENTITY_RESOURCES,
+    _derive_primary_key,
     BASE_URL,
     REPORT_FIELDS,
     REPORT_TYPES,
@@ -355,6 +356,18 @@ class TestSourceConfig:
         result = _convert_report_types(row)
         assert result["IMPS"] is None
         assert result["COST"] is None
+
+
+class TestDerivePrimaryKey:
+    def test_campaign_report(self):
+        fields = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "CAMPAIGN_NAME", "IMPS", "CLICKS", "COST"]
+        pk = _derive_primary_key(fields)
+        assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "CAMPAIGN_NAME"]
+
+    def test_excludes_all_metrics(self):
+        fields = ["DAY", "IMPS", "CLICKS", "CLICK_RATE", "AVG_CPC", "COST", "CONVERSIONS", "CONV_RATE", "CONV_VALUE"]
+        pk = _derive_primary_key(fields)
+        assert pk == ["DAY"]
 
 
 class TestSourceFunction:
