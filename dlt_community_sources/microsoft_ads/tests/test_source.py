@@ -246,9 +246,7 @@ class TestPollReport:
     def test_error_returns_none(self):
         mock_client = MagicMock()
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "ReportRequestStatus": {"Status": "Error"}
-        }
+        mock_resp.json.return_value = {"ReportRequestStatus": {"Status": "Error"}}
         mock_resp.raise_for_status.return_value = None
         mock_client.post.return_value = mock_resp
         result = _poll_report(mock_client, "req123")
@@ -266,9 +264,7 @@ class TestPollReport:
     def test_timeout_returns_none(self, mock_sleep):
         mock_client = MagicMock()
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "ReportRequestStatus": {"Status": "Pending"}
-        }
+        mock_resp.json.return_value = {"ReportRequestStatus": {"Status": "Pending"}}
         mock_resp.raise_for_status.return_value = None
         mock_client.post.return_value = mock_resp
         result = _poll_report(mock_client, "req123")
@@ -411,9 +407,7 @@ class TestSourceFunction:
 class TestResourceFunctions:
     """Test individual resource functions with mocked clients."""
 
-    @patch(
-        "dlt_community_sources.microsoft_ads.resources.ad_insight.make_client"
-    )
+    @patch("dlt_community_sources.microsoft_ads.resources.ad_insight.make_client")
     def test_auction_insight_data(self, mock_make):
         mock_client = MagicMock()
         mock_resp = MagicMock()
@@ -451,9 +445,7 @@ class TestResourceFunctions:
         assert len(result) == 2
         assert result[0]["feature_id"] == 100
 
-    @patch(
-        "dlt_community_sources.microsoft_ads.resources.customer_billing.make_client"
-    )
+    @patch("dlt_community_sources.microsoft_ads.resources.customer_billing.make_client")
     def test_account_monthly_spend(self, mock_make):
         mock_client = MagicMock()
         mock_resp = MagicMock()
@@ -464,15 +456,11 @@ class TestResourceFunctions:
         result = list(account_monthly_spend("at", "dt", "ci", "ai"))
         assert result[0]["amount"] == 1234.56
 
-    @patch(
-        "dlt_community_sources.microsoft_ads.resources.customer_billing.make_client"
-    )
+    @patch("dlt_community_sources.microsoft_ads.resources.customer_billing.make_client")
     def test_billing_documents_info(self, mock_make):
         mock_client = MagicMock()
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "BillingDocumentsInfo": [{"DocumentId": "doc1"}]
-        }
+        mock_resp.json.return_value = {"BillingDocumentsInfo": [{"DocumentId": "doc1"}]}
         mock_resp.raise_for_status.return_value = None
         mock_client.post.return_value = mock_resp
         mock_make.return_value = mock_client
