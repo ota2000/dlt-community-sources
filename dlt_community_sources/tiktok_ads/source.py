@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Generator
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Optional, Sequence
 
 import dlt
@@ -11,8 +12,6 @@ from dlt.sources import DltResource
 from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
-
-from .auth import refresh_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +226,7 @@ def _convert_report_types(row: dict) -> dict:
     for field in REPORT_FLOAT_FIELDS:
         if field in row and row[field] is not None:
             try:
-                row[field] = float(row[field])
+                row[field] = Decimal(row[field])
             except (ValueError, TypeError):
                 pass
     return row
@@ -297,7 +296,9 @@ def advertiser_info(
         yield from data.get("data", {}).get("list", [])
 
 
-@dlt.resource(name="advertiser_balance", write_disposition="replace")
+@dlt.resource(
+    name="advertiser_balance", write_disposition="replace", primary_key="advertiser_id"
+)
 def advertiser_balance(
     access_token: str,
     advertiser_id: str,
@@ -517,9 +518,7 @@ def report(
 
 @dlt.source(name="tiktok_ads")
 def tiktok_ads_source(
-    app_id: str = dlt.secrets.value,
-    secret: str = dlt.secrets.value,
-    refresh_token: str = dlt.secrets.value,
+    access_token: str = dlt.secrets.value,
     advertiser_id: str = dlt.secrets.value,
     data_level: str = "AUCTION_AD",
     metrics: Optional[list[str]] = None,
@@ -531,10 +530,12 @@ def tiktok_ads_source(
 ) -> list[DltResource]:
     """A dlt source for TikTok Marketing API.
 
+    Token management is the caller's responsibility. Use
+    ``refresh_access_token()`` from ``dlt_community_sources.tiktok_ads.auth``
+    to obtain a fresh ``access_token`` before calling this source.
+
     Args:
-        app_id: TikTok app ID.
-        secret: TikTok app secret.
-        refresh_token: Refresh token (rotated on each use).
+        access_token: TikTok access token (obtained via refresh_access_token).
         advertiser_id: TikTok advertiser ID.
         data_level: Report data level (AUCTION_ADVERTISER/CAMPAIGN/ADGROUP/AD).
         metrics: Custom list of report metrics.
@@ -546,15 +547,8 @@ def tiktok_ads_source(
 
     Returns:
         List of dlt resources.
-        The caller (data-collector main.py) is responsible for persisting
-        the new refresh_token to Secret Manager via refresh_access_token().
     """
     url = (base_url or DEFAULT_BASE_URL).rstrip("/")
-
-    # Refresh token → access_token (token rotation)
-    tokens = refresh_access_token(app_id, secret, refresh_token)
-    access_token = tokens["access_token"]
-    # tokens["refresh_token"] should be persisted by the caller (e.g., Secret Manager)
 
     # REST API resources (master data)
     config = _rest_api_config(access_token, advertiser_id, url)
@@ -562,9 +556,6 @@ def tiktok_ads_source(
 
     # Custom resources
     custom_resources = [
-        authorized_advertiser_ids(
-            access_token=access_token, app_id=app_id, secret=secret, base_url=url
-        ),
         advertiser_info(
             access_token=access_token, advertiser_id=advertiser_id, base_url=url
         ),

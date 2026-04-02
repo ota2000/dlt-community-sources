@@ -1,5 +1,7 @@
 """Tests for TikTok Ads source configuration and helpers."""
 
+from decimal import Decimal
+
 from dlt_community_sources.tiktok_ads.source import (
     DEFAULT_METRICS,
     REPORT_DIMENSIONS,
@@ -103,11 +105,11 @@ class TestConvertReportTypes:
         assert result["impressions"] == 1234
         assert result["clicks"] == 56
 
-    def test_converts_float_fields(self):
+    def test_converts_float_fields_to_decimal(self):
         row = {"spend": "12.34", "cpc": "0.56"}
         result = _convert_report_types(row)
-        assert result["spend"] == 12.34
-        assert isinstance(result["cpc"], float)
+        assert result["spend"] == Decimal("12.34")
+        assert isinstance(result["cpc"], Decimal)
 
     def test_handles_none(self):
         row = {"impressions": None, "spend": None}

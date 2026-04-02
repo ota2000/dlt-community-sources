@@ -13,7 +13,19 @@ pip install "dlt-community-sources[tiktok-ads]"
 ```python
 import dlt
 from dlt_community_sources.tiktok_ads import tiktok_ads_source
+from dlt_community_sources.tiktok_ads.auth import refresh_access_token
 
+# 1. Refresh token to get access_token (caller manages token lifecycle)
+tokens = refresh_access_token(
+    app_id="your_app_id",
+    secret="your_app_secret",
+    refresh_token="your_refresh_token",
+)
+access_token = tokens["access_token"]
+# IMPORTANT: persist tokens["refresh_token"] to Secret Manager
+# (TikTok rotates refresh_token on each use)
+
+# 2. Run the source with access_token
 pipeline = dlt.pipeline(
     pipeline_name="tiktok_ads",
     destination="bigquery",
@@ -21,26 +33,11 @@ pipeline = dlt.pipeline(
 )
 
 source = tiktok_ads_source(
-    app_id="your_app_id",
-    secret="your_app_secret",
-    refresh_token="your_refresh_token",
+    access_token=access_token,
     advertiser_id="your_advertiser_id",
 )
 
 load_info = pipeline.run(source)
-```
-
-### Token rotation
-
-TikTok rotates refresh_token on each use. The caller is responsible for
-persisting the new token. Use `refresh_access_token()` directly:
-
-```python
-from dlt_community_sources.tiktok_ads.auth import refresh_access_token
-
-tokens = refresh_access_token(app_id, secret, refresh_token)
-# tokens["access_token"] — use for API calls
-# tokens["refresh_token"] — persist to Secret Manager
 ```
 
 ## Resources
@@ -54,9 +51,9 @@ tokens = refresh_access_token(app_id, secret, refresh_token)
 | saved_audiences | merge | saved_audience_id | DMP saved audiences |
 | creative_portfolios | merge | creative_portfolio_id | Creative portfolios |
 | automated_rules | merge | rule_id | Automated optimization rules |
-| authorized_advertiser_ids | replace | advertiser_id | Advertiser IDs authorized for this token |
+| authorized_advertiser_ids | replace | advertiser_id | Advertiser IDs authorized for this token (standalone, requires app_id/secret) |
 | advertiser_info | merge | advertiser_id | Advertiser account info |
-| advertiser_balance | replace | — | Advertiser account balance |
+| advertiser_balance | replace | advertiser_id | Advertiser account balance |
 | advertiser_transactions | append | — | Advertiser account transactions (incremental) |
 | apps | merge | app_id | Apps associated with the advertiser |
 | videos | merge | video_id | Ad video assets (via search) |
@@ -79,7 +76,7 @@ The API uses `Access-Token` header (not `Authorization: Bearer`).
 
 - Reports are fetched in 30-day chunks (API limitation)
 - Report dimensions/metrics response is nested (`{dimensions: {}, metrics: {}}`) and flattened automatically
-- Metrics are converted from strings to numeric types (int/float)
+- Metrics are converted from strings to numeric types (int/Decimal)
 - Attribution window: re-fetches last 7 days by default (configurable)
 - TikTok API returns HTTP 200 for errors (`code != 0`) — handled gracefully
 - 429 rate limit retry handled by dlt's built-in HTTP client
