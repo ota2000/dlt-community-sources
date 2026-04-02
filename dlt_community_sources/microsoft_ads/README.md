@@ -2,7 +2,7 @@
 
 A dlt source for [Microsoft Advertising API](https://learn.microsoft.com/en-us/advertising/guides/).
 
-Covers 54 resources across 5 API services: Campaign Management, Customer Management, Ad Insight, Customer Billing, and Reporting (37 report types).
+Covers 55 resources across 5 API services: Campaign Management, Customer Management, Ad Insight, Customer Billing, and Reporting (37 report types).
 
 ## Installation
 
@@ -122,7 +122,7 @@ source = microsoft_ads_source(
 | `linked_accounts_and_customers` | replace | Linked accounts and customers |
 | `notifications` | append | Notifications |
 
-### Ad Insight (7 resources)
+### Ad Insight (8 resources)
 
 | Resource | Write Disposition | Description |
 |---|---|---|
@@ -132,7 +132,8 @@ source = microsoft_ads_source(
 | `keyword_opportunities` | replace | Keyword opportunities |
 | `recommendations` | replace | Account recommendations |
 | `performance_insights` | replace | Performance insights |
-| `keyword_ideas` | replace | Keyword idea categories |
+| `keyword_idea_categories` | replace | Keyword idea categories |
+| `auto_apply_opt_in_status` | replace | Auto-apply recommendations opt-in status |
 
 ### Customer Billing (3 resources)
 
@@ -188,3 +189,21 @@ The refresh token is rotated on each API call. The caller is responsible for per
 - **Report polling**: Reports are submitted asynchronously and polled until completion (max 10 minutes). The response is a ZIP-compressed CSV.
 - **Type conversion**: Report CSV values are automatically converted to int/float for numeric fields (Impressions, Clicks, Spend, etc.).
 - **Primary key**: Report primary key is dynamically set based on report type (e.g., CampaignPerformanceReportRequest includes CampaignId).
+
+## API Coverage
+
+This source covers all Microsoft Advertising GET operations that can be called without entity-specific input parameters (i.e., operations suitable for periodic ETL). The following operations are intentionally excluded:
+
+| Operation | Service | Reason |
+|---|---|---|
+| GetKeywordIdeas | Ad Insight | Requires seed keywords as input (tool-like usage) |
+| GetKeywordTrafficEstimates | Ad Insight | Requires keyword list as input |
+| GetHistoricalKeywordPerformance | Ad Insight | Requires keyword list as input |
+| GetHistoricalSearchCount | Ad Insight | Requires keyword list as input |
+| GetUser | Customer Management | Requires specific UserID; use `users_info` for listing |
+| GetMediaAssociations | Campaign Management | Requires specific MediaIds from `media` resource |
+| GetImportResults | Campaign Management | Requires specific ImportJobId from `import_jobs` resource |
+| GetAssetGroupListingGroupsByIds | Campaign Management | Requires specific AssetGroupIds |
+| GetBillingDocuments | Customer Billing | Requires DocumentIds from `billing_documents_info`; returns PDF/XML binary data |
+
+These operations require entity-specific IDs or seed inputs, making them unsuitable for a general-purpose ETL source. If you need these, call the Microsoft Advertising API directly with the required parameters.

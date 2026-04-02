@@ -91,12 +91,34 @@ def performance_insights(access_token, developer_token, customer_id, account_id)
     )
 
 
-@dlt.resource(name="keyword_ideas", write_disposition="replace")
-def keyword_ideas(access_token, developer_token, customer_id, account_id):
+@dlt.resource(name="keyword_idea_categories", write_disposition="replace")
+def keyword_idea_categories(access_token, developer_token, customer_id, account_id):
     """SDK: GetKeywordIdeaCategories."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c, _url("KeywordIdeaCategories/Query"), {}, "KeywordIdeaCategories"
+    )
+
+
+# All known recommendation types for auto-apply opt-in status
+_AUTO_APPLY_RECOMMENDATION_TYPES = [
+    "ResponsiveSearchAdsOpportunity",
+    "MultiMediaAdsOpportunity",
+    "RemoveConflictingNegativeKeywordOpportunity",
+    "FixConversionGoalSettingsOpportunity",
+    "CreateConversionGoalOpportunity",
+]
+
+
+@dlt.resource(name="auto_apply_opt_in_status", write_disposition="replace")
+def auto_apply_opt_in_status(access_token, developer_token, customer_id, account_id):
+    """SDK: GetAutoApplyOptInStatus."""
+    c = _client(access_token, developer_token, customer_id, account_id)
+    yield from safe_rpc(
+        c,
+        _url("AutoApplyOptInStatus/Query"),
+        {"RecommendationTypesInputs": _AUTO_APPLY_RECOMMENDATION_TYPES},
+        "AutoApplyRecommendationsStatus",
     )
 
 
@@ -107,5 +129,6 @@ ALL_AD_INSIGHT_RESOURCES = [
     keyword_opportunities,
     recommendations,
     performance_insights,
-    keyword_ideas,
+    keyword_idea_categories,
+    auto_apply_opt_in_status,
 ]

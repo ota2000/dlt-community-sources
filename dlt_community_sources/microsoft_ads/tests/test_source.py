@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from dlt_community_sources.microsoft_ads.resources.ad_insight import (
     ALL_AD_INSIGHT_RESOURCES,
     auction_insight_data,
+    auto_apply_opt_in_status,
 )
 from dlt_community_sources.microsoft_ads.resources.campaign_management import (
     ALL_CAMPAIGN_MGMT_RESOURCES,
@@ -445,6 +446,29 @@ class TestResourceFunctions:
         result = list(customer_pilot_features("at", "dt", "ci", "ai"))
         assert len(result) == 2
         assert result[0]["feature_id"] == 100
+
+    @patch("dlt_community_sources.microsoft_ads.resources.ad_insight.make_client")
+    def test_auto_apply_opt_in_status(self, mock_make):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "AutoApplyRecommendationsStatus": [
+                {
+                    "AAROptInStatus": "OptedIn",
+                    "RecommendationType": "ResponsiveSearchAdsOpportunity",
+                },
+                {
+                    "AAROptInStatus": "OptedOut",
+                    "RecommendationType": "MultiMediaAdsOpportunity",
+                },
+            ]
+        }
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        mock_make.return_value = mock_client
+        result = list(auto_apply_opt_in_status("at", "dt", "ci", "ai"))
+        assert len(result) == 2
+        assert result[0]["AAROptInStatus"] == "OptedIn"
 
     @patch("dlt_community_sources.microsoft_ads.resources.customer_billing.make_client")
     def test_account_monthly_spend(self, mock_make):

@@ -7,7 +7,7 @@ Resources are organized by API service:
 - Campaign Management (33 resources)
 - Customer Management (10 resources)
 - Reporting (1 resource, 37 report types)
-- Ad Insight (7 resources)
+- Ad Insight (8 resources)
 - Customer Billing (3 resources)
 
 SDK reference: https://github.com/BingAds/BingAds-Python-SDK
@@ -43,7 +43,7 @@ def microsoft_ads_source(
 ) -> list[DltResource]:
     """A dlt source for Microsoft Advertising API.
 
-    Covers 54 resources across 5 API services:
+    Covers 55 resources across 5 API services:
     - Campaign Management: campaigns, ad_groups, ads, keywords, etc.
     - Customer Management: account_info, customer_info, users, etc.
     - Reporting: configurable report type with 37 options.
