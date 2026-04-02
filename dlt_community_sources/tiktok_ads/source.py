@@ -324,11 +324,18 @@ def advertiser_transactions(
     access_token: str,
     advertiser_id: str,
     last_date=dlt.sources.incremental(
-        "transaction_time", initial_value="2020-01-01 00:00:00"
+        "transaction_time", initial_value="2020-01-01T00:00:00.000Z"
     ),
     base_url: str = DEFAULT_BASE_URL,
 ):
-    """Fetch advertiser account transactions with incremental loading."""
+    """Fetch advertiser account transactions with incremental loading.
+
+    Note: TikTok's advertiser/transaction/get API does not support
+    server-side date filtering. The ``last_date`` incremental cursor is
+    applied client-side by dlt after yielding — rows with
+    ``transaction_time <= last_value`` are automatically deduplicated.
+    """
+    _ = last_date  # used by dlt framework for client-side dedup
     client = _make_client(access_token)
     page = 1
     while True:

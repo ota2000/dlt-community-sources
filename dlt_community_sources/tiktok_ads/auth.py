@@ -1,10 +1,6 @@
 """TikTok Marketing API authentication helpers."""
 
-import logging
-
 import requests
-
-logger = logging.getLogger(__name__)
 
 TOKEN_URL = "https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/"
 REFRESH_URL = "https://business-api.tiktok.com/open_api/v1.3/oauth2/refresh_token/"

@@ -58,7 +58,7 @@ load_info = pipeline.run(source)
 | apps | merge | app_id | Apps associated with the advertiser |
 | videos | merge | video_id | Ad video assets (via search) |
 | rule_results | append | — | Automated rule execution results |
-| report | merge | stat_time_day + entity_id (varies by data_level) | Daily performance report |
+| report | merge | stat_time_day + level-specific ID (e.g., campaign_id, adgroup_id, ad_id) | Daily performance report |
 
 ## Authentication
 
