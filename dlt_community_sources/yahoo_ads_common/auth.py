@@ -34,7 +34,6 @@ def refresh_access_token(
             "client_secret": client_secret,
             "refresh_token": refresh_token,
         },
-        timeout=30,
     )
     response.raise_for_status()
     return response.json()

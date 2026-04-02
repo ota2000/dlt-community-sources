@@ -1,10 +1,11 @@
-"""Yahoo Ads Search (SS) dlt source.
+"""Yahoo Ads Display (YDA) dlt source.
 
-API: https://ads-search.yahooapis.jp/api/v19
-Docs: https://ads-developers.yahoo.co.jp/reference/ads-search-api/
-SDK: https://github.com/yahoojp-marketing/ads-search-api-java-lib
+API: https://ads-display.yahooapis.jp/api/v19
+Docs: https://ads-developers.yahoo.co.jp/reference/ads-display-api/
+SDK: https://github.com/yahoojp-marketing/ads-display-api-java-lib
 
 All endpoints use POST RPC style. Pagination via startIndex/numberResults.
+Includes LINE placement data (YDA serves ads on LINE surfaces).
 """
 
 import logging
@@ -24,10 +25,10 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://ads-search.yahooapis.jp/api/v19"
+BASE_URL = "https://ads-display.yahooapis.jp/api/v19"
 
 # ---------------------------------------------------------------------------
-# Simple entity resources (all follow the same pattern)
+# Simple entity resources
 # ---------------------------------------------------------------------------
 
 _ENTITY_RESOURCES = [
@@ -36,85 +37,51 @@ _ENTITY_RESOURCES = [
     ("campaigns", "CampaignService/get", "merge", "campaignId"),
     ("ad_groups", "AdGroupService/get", "merge", "adGroupId"),
     ("ads", "AdGroupAdService/get", "merge", "adId"),
-    ("ad_group_criterions", "AdGroupCriterionService/get", "merge", "criterionId"),
-    ("campaign_criterions", "CampaignCriterionService/get", "merge", "criterionId"),
+    ("ad_group_targets", "AdGroupTargetService/get", "replace", "targetId"),
+    ("labels", "LabelService/get", "merge", "labelId"),
     ("bidding_strategies", "BiddingStrategyService/get", "merge", "biddingStrategyId"),
     ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId"),
-    ("labels", "LabelService/get", "merge", "labelId"),
-    ("assets", "AssetService/get", "merge", "assetId"),
     ("audience_lists", "AudienceListService/get", "merge", "audienceListId"),
     ("conversion_trackers", "ConversionTrackerService/get", "merge", "conversionTrackerId"),
-    ("account_shared", "AccountSharedService/get", "merge", "sharedListId"),
-    ("ad_group_bid_multipliers", "AdGroupBidMultiplierService/get", "replace", "adGroupId"),
-    ("campaign_targets", "CampaignTargetService/get", "replace", "targetId"),
-    ("page_feed_asset_sets", "PageFeedAssetSetService/get", "merge", "pageFeedAssetSetId"),
-    ("account_assets", "AccountAssetService/get", "merge", "assetId"),
-    ("campaign_assets", "CampaignAssetService/get", "merge", "assetId"),
-    ("ad_group_assets", "AdGroupAssetService/get", "merge", "assetId"),
-    ("customizer_attributes", "CustomizerAttributeService/get", "merge", "customizerAttributeId"),
+    ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId"),
+    ("media", "MediaService/get", "merge", "mediaId"),
+    ("videos", "VideoService/get", "merge", "mediaId"),
+    ("feeds", "FeedService/get", "merge", "feedId"),
+    ("feed_sets", "FeedSetService/get", "merge", "feedSetId"),
+    ("placement_url_lists", "PlacementUrlListService/get", "merge", "urlListId"),
+    ("contents_keyword_lists", "ContentsKeywordListService/get", "merge", "contentsKeywordListId"),
+    ("retargeting_tags", "RetargetingTagService/get", "merge", "retargetingTagId"),
+    ("account_authority", "AccountAuthorityService/get", "replace", "accountId"),
     ("account_tracking_urls", "AccountTrackingUrlService/get", "replace", "accountId"),
     ("ab_tests", "AbTestService/get", "merge", "abTestId"),
-    ("seasonality_adjustments", "BiddingSeasonalityAdjustmentService/get", "merge", "biddingSeasonalityAdjustmentId"),
-    ("learning_data_exclusions", "LearningDataExclusionService/get", "merge", "learningDataExclusionId"),
-    ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId"),
-    ("campaign_audience_lists", "CampaignAudienceListService/get", "replace", "campaignId"),
-    ("ad_group_audience_lists", "AdGroupAudienceListService/get", "replace", "adGroupId"),
+    ("brand_lift", "BrandLiftService/get", "merge", "brandLiftId"),
+    ("guaranteed_campaigns", "GuaranteedCampaignService/get", "merge", "campaignId"),
+    ("guaranteed_ad_groups", "GuaranteedAdGroupService/get", "merge", "adGroupId"),
+    ("guaranteed_ads", "GuaranteedAdGroupAdService/get", "merge", "adId"),
+    ("balance", "BalanceService/get", "replace", "accountId"),
+    ("budget_orders", "BudgetOrderService/get", "merge", "budgetOrderId"),
 ]
 
-# Report types available in Search Ads
+# Report types available in Display Ads
 REPORT_TYPES = [
-    "ACCOUNT",
-    "CAMPAIGN",
-    "ADGROUP",
     "AD",
-    "KEYWORDS",
-    "SEARCH_QUERY",
-    "GEO",
-    "FEED_ITEM",
-    "GEO_TARGET",
-    "SCHEDULE_TARGET",
-    "DEVICE_TARGET",
-    "AD_CUSTOMIZERS",
-    "BID_STRATEGY",
-    "TARGET_LIST",
-    "LANDING_PAGE_URL",
-    "KEYWORDLESS_QUERY",
+    "APP",
+    "AUDIENCE_LIST",
+    "CONTENT_KEYWORD_LIST",
+    "CONVERSION_PATH",
+    "CROSS_CAMPAIGN_REACHES",
+    "LABEL",
+    "MODEL_COMPARISON",
+    "PLACEMENT_LIST",
+    "PORTFOLIO_BIDDING",
+    "REACH",
+    "SEARCH_KEYWORD_LIST",
+    "SHARED_BUDGET",
+    "URL",
 ]
 
 # Default report fields per report type
 REPORT_FIELDS = {
-    "CAMPAIGN": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "CAMPAIGN_STATUS",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "ADGROUP": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "ADGROUP_STATUS",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
     "AD": [
         "DAY",
         "ACCOUNT_ID",
@@ -134,16 +101,15 @@ REPORT_FIELDS = {
         "CONV_RATE",
         "CONV_VALUE",
     ],
-    "KEYWORDS": [
+    "PLACEMENT_LIST": [
         "DAY",
         "ACCOUNT_ID",
         "CAMPAIGN_ID",
         "CAMPAIGN_NAME",
         "ADGROUP_ID",
         "ADGROUP_NAME",
-        "KEYWORD_ID",
-        "KEYWORD",
-        "KEYWORD_MATCH_TYPE",
+        "PLACEMENT_URL_LIST_NAME",
+        "PLACEMENT_URL_LIST_TYPE",
         "IMPS",
         "CLICKS",
         "CLICK_RATE",
@@ -151,7 +117,6 @@ REPORT_FIELDS = {
         "COST",
         "CONVERSIONS",
         "CONV_RATE",
-        "QUALITY_INDEX",
     ],
 }
 
@@ -213,27 +178,30 @@ def _build_entity_resources(
     ]
 
 
-@dlt.source(name="yahoo_ads_search")
-def yahoo_ads_search_source(
+@dlt.source(name="yahoo_ads_display")
+def yahoo_ads_display_source(
     client_id: str,
     client_secret: str,
     refresh_token: str,
     account_id: str,
-    report_type: str = "CAMPAIGN",
+    report_type: str = "AD",
     report_fields: Optional[list[str]] = None,
     attribution_window_days: int = 7,
     resources: Optional[list[str]] = None,
     start_date: Optional[str] = None,
     base_url: str = BASE_URL,
 ):
-    """Yahoo Ads Search (SS) source.
+    """Yahoo Ads Display (YDA) source.
+
+    Includes LINE placement data (YDA serves ads on LINE surfaces).
+    Use PLACEMENT_LIST report type to identify LINE placements.
 
     Args:
         client_id: Yahoo Ads API client ID.
         client_secret: Yahoo Ads API client secret.
         refresh_token: OAuth refresh token.
         account_id: Yahoo Ads account ID.
-        report_type: Report type (CAMPAIGN, ADGROUP, AD, KEYWORDS, etc.).
+        report_type: Report type (AD, PLACEMENT_LIST, etc.).
         report_fields: Custom report fields. Defaults per report type.
         attribution_window_days: Days to re-fetch for attribution window.
         resources: Resource names to load. None for all.
@@ -247,7 +215,7 @@ def yahoo_ads_search_source(
 
     # Report resource
     fields = report_fields or REPORT_FIELDS.get(
-        report_type, REPORT_FIELDS["CAMPAIGN"]
+        report_type, REPORT_FIELDS["AD"]
     )
 
     @dlt.resource(name="report", write_disposition="merge", primary_key="DAY")
