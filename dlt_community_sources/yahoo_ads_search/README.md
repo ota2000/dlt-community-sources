@@ -2,7 +2,7 @@
 
 A [dlt](https://dlthub.com) source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LY Ads Search Ads, formerly Yahoo! JAPAN Ads SS).
 
-Covers 27 entity resources and 1 configurable report resource with 16 report types.
+Covers 27 entity resources and 1 configurable report resource with 22 report types.
 
 ## Installation
 
@@ -98,7 +98,7 @@ source = yahoo_ads_search_source(
 |---|---|---|---|
 | `report` | merge | by DAY | Configurable performance report |
 
-Report types: `ACCOUNT`, `CAMPAIGN`, `ADGROUP`, `AD`, `KEYWORDS`, `SEARCH_QUERY`, `GEO`, `FEED_ITEM`, `GEO_TARGET`, `SCHEDULE_TARGET`, `DEVICE_TARGET`, `AD_CUSTOMIZERS`, `BID_STRATEGY`, `TARGET_LIST`, `LANDING_PAGE_URL`, `KEYWORDLESS_QUERY`
+Report types: `ACCOUNT`, `CAMPAIGN`, `ADGROUP`, `AD`, `KEYWORDS`, `SEARCH_QUERY`, `GEO`, `GEO_TARGET`, `SCHEDULE_TARGET`, `BID_STRATEGY`, `CAMPAIGN_TARGET_LIST`, `ADGROUP_TARGET_LIST`, `LANDING_PAGE_URL`, `KEYWORDLESS_QUERY`, `WEBPAGE_CRITERION`, `BID_MODIFIER`, `CAMPAIGN_ASSET`, `AD_GROUP_ASSET`, `ACCOUNT_ASSET`, `RESPONSIVE_ADS_FOR_SEARCH_ASSET`, `ASSET_COMBINATION`, `SHARED_BUDGET`
 
 ## Authentication
 
@@ -127,5 +127,5 @@ Yahoo Ads uses OAuth 2.0 Authorization Code Grant.
 - **POST RPC style**: All endpoints use POST with JSON body (not REST GET).
 - **Pagination**: Uses `startIndex` (1-based) and `numberResults` for offset pagination.
 - **Report primary key**: Dynamically derived from report fields — all non-metric fields become the composite primary key.
-- **Type conversion**: Report CSV values `--` are converted to `None`, numeric fields to int/float.
+- **Type conversion**: Report CSV values `--` are converted to `None`, numeric fields to int/Decimal.
 - **Permission errors**: Resources returning 403/404 are silently skipped.

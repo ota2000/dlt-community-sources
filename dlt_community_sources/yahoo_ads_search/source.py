@@ -421,44 +421,75 @@ def yahoo_ads_search_source(
     # Report resource
     fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["CAMPAIGN"])
     pk = derive_primary_key(fields)
+    has_day = "DAY" in fields
     initial = start_date or "2020-01-01"
 
-    @dlt.resource(
-        name="report",
-        write_disposition="merge",
-        primary_key=pk,
-        columns={"DAY": {"data_type": "date"}},
-    )
-    def _report(
-        last_date=dlt.sources.incremental("DAY", initial_value=initial),
-    ):
-        client = make_client(access_token, account_id)
-        last = last_date.last_value
-        window_start = date.fromisoformat(last) - timedelta(
-            days=attribution_window_days
+    if has_day:
+
+        @dlt.resource(
+            name="report",
+            write_disposition="merge",
+            primary_key=pk,
+            columns={"DAY": {"data_type": "date"}},
         )
-        start = window_start.isoformat()
-        end = (date.today() - timedelta(days=1)).isoformat()
+        def _report(
+            last_date=dlt.sources.incremental("DAY", initial_value=initial),
+        ):
+            client = make_client(access_token, account_id)
+            last = last_date.last_value
+            window_start = date.fromisoformat(last) - timedelta(
+                days=attribution_window_days
+            )
+            start = window_start.isoformat()
+            end = (date.today() - timedelta(days=1)).isoformat()
 
-        if start > end:
-            logger.info("report: already up to date")
-            return
+            if start > end:
+                logger.info("report: already up to date")
+                return
 
-        logger.info("report: %s from %s to %s", report_type, start, end)
+            logger.info("report: %s from %s to %s", report_type, start, end)
 
-        job_id = submit_report(
-            client, base_url, account_id, report_type, fields, start, end
+            job_id = submit_report(
+                client, base_url, account_id, report_type, fields, start, end
+            )
+            if not job_id:
+                logger.warning("report: no job ID returned")
+                return
+
+            status = poll_report(client, base_url, account_id, job_id)
+            if not status:
+                return
+
+            for row in download_report(client, base_url, account_id, job_id):
+                yield convert_report_types(row)
+
+    else:
+
+        @dlt.resource(
+            name="report",
+            write_disposition="replace",
+            primary_key=pk,
         )
-        if not job_id:
-            logger.warning("report: no job ID returned")
-            return
+        def _report():
+            client = make_client(access_token, account_id)
+            start = "2020-01-01"
+            end = (date.today() - timedelta(days=1)).isoformat()
 
-        status = poll_report(client, base_url, account_id, job_id)
-        if not status:
-            return
+            logger.info("report: %s (no DAY field, full replace)", report_type)
 
-        for row in download_report(client, base_url, account_id, job_id):
-            yield convert_report_types(row)
+            job_id = submit_report(
+                client, base_url, account_id, report_type, fields, start, end
+            )
+            if not job_id:
+                logger.warning("report: no job ID returned")
+                return
+
+            status = poll_report(client, base_url, account_id, job_id)
+            if not status:
+                return
+
+            for row in download_report(client, base_url, account_id, job_id):
+                yield convert_report_types(row)
 
     all_resources.append(_report)
 

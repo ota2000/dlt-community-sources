@@ -101,6 +101,7 @@ def get_entities(
     - Response contains rval.totalNumEntries and rval.values[]
     - Each value has an operationSucceeded flag
     """
+    page_size = min(page_size, MAX_PAGE_SIZE)
     start_index = 1
     while True:
         body = {

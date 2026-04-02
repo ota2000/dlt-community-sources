@@ -34,7 +34,7 @@ load_info = pipeline.run(source)
 
 ### LINE placement report
 
-Use `PLACEMENT_LIST` report type to identify LINE placements:
+Use `PLACEMENT_TARGET` report type to identify LINE placements:
 
 ```python
 source = yahoo_ads_display_source(
@@ -42,7 +42,7 @@ source = yahoo_ads_display_source(
     client_secret="YOUR_CLIENT_SECRET",
     refresh_token="YOUR_REFRESH_TOKEN",
     account_id="YOUR_ACCOUNT_ID",
-    report_type="PLACEMENT_LIST",
+    report_type="PLACEMENT_TARGET",
 )
 ```
 
@@ -86,7 +86,7 @@ source = yahoo_ads_display_source(
 |---|---|---|---|
 | `report` | merge | by DAY | Configurable performance report |
 
-Report types: `AD`, `APP`, `AUDIENCE_LIST`, `CONTENT_KEYWORD_LIST`, `CONVERSION_PATH`, `CROSS_CAMPAIGN_REACHES`, `LABEL`, `MODEL_COMPARISON`, `PLACEMENT_LIST`, `PORTFOLIO_BIDDING`, `REACH`, `SEARCH_KEYWORD_LIST`, `SHARED_BUDGET`, `URL`
+Report types: `AD`, `APP`, `AUDIENCE_LIST_TARGET`, `CONTENT_KEYWORD_LIST`, `CONVERSION_PATH`, `CROSS_CAMPAIGN_REACHES`, `LABEL`, `MODEL_COMPARISON`, `PLACEMENT_TARGET`, `PORTFOLIO_BIDDING`, `REACH`, `SEARCH_TARGET`, `CAMPAIGN_BUDGET`, `URL`
 
 ## Authentication
 
@@ -108,7 +108,7 @@ Same as Yahoo Ads Search — see [yahoo_ads_search README](../yahoo_ads_search/R
 
 ## Notes
 
-- **LINE placements**: YDA serves ads on LINE surfaces. Use `PLACEMENT_LIST` report type with `PLACEMENT_URL_LIST_NAME` and `PLACEMENT_URL_LIST_TYPE` fields to identify LINE placement data.
+- **LINE placements**: YDA serves ads on LINE surfaces. Use `PLACEMENT_TARGET` report type with `PLACEMENT_URL_LIST_NAME` and `PLACEMENT_URL_LIST_TYPE` fields to identify LINE placement data.
 - **POST RPC style**: All endpoints use POST with JSON body (not REST GET).
 - **Report primary key**: Dynamically derived from report fields — all non-metric fields become the composite primary key.
 - **Guaranteed campaigns**: Premium placement campaigns with reserved inventory (GuaranteedCampaignService).
