@@ -78,7 +78,7 @@ source = meta_ads_source(
 | activities | append | (none) | Account activity/change logs |
 | saved_audiences | merge | id | Saved audience configurations |
 | ad_leads | append | id | Lead form submissions (incremental) |
-| insights | merge | date_start + campaign_id/adset_id/ad_id (+ breakdowns) | Daily performance metrics (async report) |
+| insights | merge | date_start + date_stop + campaign_id/adset_id/ad_id (+ breakdowns) | Daily performance metrics (async report) |
 
 ## Authentication
 
@@ -97,7 +97,7 @@ Alternatively, use a long-lived User Access Token (expires in ~60 days).
 - Insights are fetched via async reports (POST → poll → GET results)
 - Attribution window: by default, re-fetches the last 28 days on each run to capture delayed conversions
 - Insights metrics (`impressions`, `clicks`, `spend`, etc.) are automatically converted from strings to numeric types
-- Insights primary key varies by level: `date_start` + `campaign_id`/`adset_id`/`ad_id`
+- Insights primary key varies by level: `date_start` + `date_stop` + `campaign_id`/`adset_id`/`ad_id`
 - When `breakdowns` are specified, they are appended to the primary key
 - Rate limiting: Meta uses a scoring system per ad account. The source respects 429 responses with retry
 - 403/404 responses are skipped gracefully (e.g., deleted campaigns)

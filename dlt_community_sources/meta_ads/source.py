@@ -653,13 +653,26 @@ def _poll_report(
 ) -> bool:
     """Poll async report until completion. Returns True if completed.
 
-    Note: 429 rate limit retry is handled by dlt's req.Client automatically
-    (exponential backoff, Retry-After header support, max 5 attempts).
+    Handles 429 rate limit responses with exponential backoff and
+    Retry-After header support.
     """
     elapsed = 0
+    backoff_wait = POLL_INTERVAL_SECONDS
     while elapsed < POLL_MAX_WAIT_SECONDS:
-        response = client.get(f"{base_url}/{report_run_id}")
-        response.raise_for_status()
+        try:
+            response = client.get(f"{base_url}/{report_run_id}")
+            response.raise_for_status()
+        except req.HTTPError as e:
+            if e.response is not None and e.response.status_code == 429:
+                retry_after = e.response.headers.get("Retry-After")
+                wait = int(retry_after) if retry_after else backoff_wait
+                logger.warning("Rate limited during poll, waiting %ds", wait)
+                time.sleep(wait)
+                elapsed += wait
+                backoff_wait = min(backoff_wait * 2, POLL_MAX_WAIT_SECONDS)
+                continue
+            raise
+        backoff_wait = POLL_INTERVAL_SECONDS  # reset on success
         data = response.json()
 
         status = data.get("async_status")
@@ -694,24 +707,52 @@ def _fetch_insights_pages(
 def _get_paginated(
     client: req.Client,
     url: str,
+    max_retries: int = 5,
 ) -> Generator[dict, None, None]:
     """Fetch all pages using cursor pagination.
 
-    Note: 429 rate limit retry is handled by dlt's req.Client automatically.
+    Handles 429 rate limit responses with exponential backoff (up to
+    *max_retries* attempts per page) and Retry-After header support.
     """
     while url:
-        try:
-            response = client.get(url)
-            response.raise_for_status()
-        except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (400, 403, 404):
-                logger.warning(
-                    "Request failed (%d) for %s. Skipping.",
-                    e.response.status_code,
-                    url,
-                )
-                return
-            raise
+        backoff_wait = POLL_INTERVAL_SECONDS
+        retries = 0
+        while True:
+            try:
+                response = client.get(url)
+                response.raise_for_status()
+                break  # success
+            except req.HTTPError as e:
+                if e.response is not None and e.response.status_code in (
+                    400,
+                    403,
+                    404,
+                ):
+                    logger.warning(
+                        "Request failed (%d) for %s. Skipping.",
+                        e.response.status_code,
+                        url,
+                    )
+                    return
+                if (
+                    e.response is not None
+                    and e.response.status_code == 429
+                    and retries < max_retries
+                ):
+                    retry_after = e.response.headers.get("Retry-After")
+                    wait = int(retry_after) if retry_after else backoff_wait
+                    logger.warning(
+                        "Rate limited on %s, waiting %ds (retry %d/%d)",
+                        url,
+                        wait,
+                        retries + 1,
+                        max_retries,
+                    )
+                    time.sleep(wait)
+                    backoff_wait = min(backoff_wait * 2, POLL_MAX_WAIT_SECONDS)
+                    retries += 1
+                    continue
+                raise
         data = response.json()
         yield from data.get("data", [])
         url = data.get("paging", {}).get("next")
@@ -745,7 +786,7 @@ def ad_leads(
     )
     ads_url = f"{base_url}/{act_id}/ads?{ads_params}"
     filtering = json.dumps(
-        [{"field": "created_time", "operator": "GREATER_THAN", "value": since}]
+        [{"field": "time_created", "operator": "GREATER_THAN", "value": since}]
     )
     for ad in _get_paginated(client, ads_url):
         ad_id = ad["id"]
