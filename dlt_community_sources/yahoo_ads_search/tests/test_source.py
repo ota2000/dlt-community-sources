@@ -9,6 +9,8 @@ from dlt_community_sources.yahoo_ads_common.auth import (
     refresh_access_token,
 )
 from dlt_community_sources.yahoo_ads_common.helpers import (
+    convert_report_types,
+    derive_primary_key,
     download_report,
     get_entities,
     make_client,
@@ -22,8 +24,6 @@ from dlt_community_sources.yahoo_ads_search.source import (
     BASE_URL,
     REPORT_FIELDS,
     REPORT_TYPES,
-    _convert_report_types,
-    _derive_primary_key,
 )
 
 
@@ -335,25 +335,28 @@ class TestSourceConfig:
         assert "KEYWORDS" in REPORT_TYPES
 
     def test_report_fields_have_day(self):
+        # BID_MODIFIER and ASSET_COMBINATION don't support DAY segmentation per API spec
+        no_day_types = {"BID_MODIFIER", "ASSET_COMBINATION"}
         for rt, fields in REPORT_FIELDS.items():
-            assert "DAY" in fields, f"{rt}: missing DAY field"
+            if rt not in no_day_types:
+                assert "DAY" in fields, f"{rt}: missing DAY field"
 
     def test_convert_report_types_int(self):
         row = {"IMPS": "1,234", "CLICKS": "56", "DAY": "2026-01-01"}
-        result = _convert_report_types(row)
+        result = convert_report_types(row)
         assert result["IMPS"] == 1234
         assert result["CLICKS"] == 56
         assert result["DAY"] == "2026-01-01"
 
     def test_convert_report_types_float(self):
         row = {"COST": "1,234.56", "AVG_CPC": "12.34"}
-        result = _convert_report_types(row)
+        result = convert_report_types(row)
         assert result["COST"] == 1234.56
         assert result["AVG_CPC"] == 12.34
 
     def test_convert_report_types_dash(self):
         row = {"IMPS": "--", "COST": ""}
-        result = _convert_report_types(row)
+        result = convert_report_types(row)
         assert result["IMPS"] is None
         assert result["COST"] is None
 
@@ -369,7 +372,7 @@ class TestDerivePrimaryKey:
             "CLICKS",
             "COST",
         ]
-        pk = _derive_primary_key(fields)
+        pk = derive_primary_key(fields)
         assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "CAMPAIGN_NAME"]
 
     def test_excludes_all_metrics(self):
@@ -384,7 +387,7 @@ class TestDerivePrimaryKey:
             "CONV_RATE",
             "CONV_VALUE",
         ]
-        pk = _derive_primary_key(fields)
+        pk = derive_primary_key(fields)
         assert pk == ["DAY"]
 
 

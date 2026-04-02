@@ -15,6 +15,8 @@ import dlt
 
 from dlt_community_sources.yahoo_ads_common.auth import refresh_access_token
 from dlt_community_sources.yahoo_ads_common.helpers import (
+    convert_report_types,
+    derive_primary_key,
     download_report,
     make_client,
     poll_report,
@@ -101,7 +103,7 @@ _ENTITY_RESOURCES = [
     ),
 ]
 
-# Report types available in Search Ads
+# Report types available in Search Ads (API v19 ReportDefinitionServiceReportType)
 REPORT_TYPES = [
     "ACCOUNT",
     "CAMPAIGN",
@@ -110,15 +112,21 @@ REPORT_TYPES = [
     "KEYWORDS",
     "SEARCH_QUERY",
     "GEO",
-    "FEED_ITEM",
     "GEO_TARGET",
     "SCHEDULE_TARGET",
-    "DEVICE_TARGET",
-    "AD_CUSTOMIZERS",
     "BID_STRATEGY",
-    "TARGET_LIST",
+    "CAMPAIGN_TARGET_LIST",
+    "ADGROUP_TARGET_LIST",
     "LANDING_PAGE_URL",
     "KEYWORDLESS_QUERY",
+    "WEBPAGE_CRITERION",
+    "BID_MODIFIER",
+    "CAMPAIGN_ASSET",
+    "AD_GROUP_ASSET",
+    "ACCOUNT_ASSET",
+    "RESPONSIVE_ADS_FOR_SEARCH_ASSET",
+    "ASSET_COMBINATION",
+    "SHARED_BUDGET",
 ]
 
 # Default report fields per report type
@@ -193,9 +201,155 @@ REPORT_FIELDS = {
         "CONV_RATE",
         "QUALITY_INDEX",
     ],
+    "CAMPAIGN_TARGET_LIST": [
+        "DAY",
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "TARGET_LIST_ID",
+        "TARGET_LIST_NAME",
+        "IMPS",
+        "CLICKS",
+        "CLICK_RATE",
+        "AVG_CPC",
+        "COST",
+        "CONVERSIONS",
+        "CONV_RATE",
+        "CONV_VALUE",
+    ],
+    "ADGROUP_TARGET_LIST": [
+        "DAY",
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "ADGROUP_ID",
+        "ADGROUP_NAME",
+        "TARGET_LIST_ID",
+        "TARGET_LIST_NAME",
+        "IMPS",
+        "CLICKS",
+        "CLICK_RATE",
+        "AVG_CPC",
+        "COST",
+        "CONVERSIONS",
+        "CONV_RATE",
+        "CONV_VALUE",
+    ],
+    "WEBPAGE_CRITERION": [
+        "DAY",
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "ADGROUP_ID",
+        "ADGROUP_NAME",
+        "CRITERION_ID",
+        "IMPS",
+        "CLICKS",
+        "CLICK_RATE",
+        "AVG_CPC",
+        "COST",
+        "CONVERSIONS",
+        "CONV_RATE",
+        "CONV_VALUE",
+    ],
+    "BID_MODIFIER": [
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "ADGROUP_ID",
+        "ADGROUP_NAME",
+        "DEVICE_TYPE",
+        "BID_MULTIPLIER",
+        "BID_MODIFIER_ATTACHMENT_LEVEL",
+    ],
+    "CAMPAIGN_ASSET": [
+        "DAY",
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "ASSET_ID",
+        "ASSET_ENTITY_TYPE",
+        "IMPS",
+        "CLICKS",
+        "CLICK_RATE",
+        "AVG_CPC",
+        "COST",
+        "CONVERSIONS",
+        "CONV_RATE",
+        "CONV_VALUE",
+    ],
+    "AD_GROUP_ASSET": [
+        "DAY",
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "ADGROUP_ID",
+        "ADGROUP_NAME",
+        "ASSET_ID",
+        "ASSET_ENTITY_TYPE",
+        "IMPS",
+        "CLICKS",
+        "CLICK_RATE",
+        "AVG_CPC",
+        "COST",
+        "CONVERSIONS",
+        "CONV_RATE",
+        "CONV_VALUE",
+    ],
+    "ACCOUNT_ASSET": [
+        "DAY",
+        "ACCOUNT_ID",
+        "ASSET_ID",
+        "ASSET_ENTITY_TYPE",
+        "IMPS",
+        "CLICKS",
+        "CLICK_RATE",
+        "AVG_CPC",
+        "COST",
+        "CONVERSIONS",
+        "CONV_RATE",
+        "CONV_VALUE",
+    ],
+    "RESPONSIVE_ADS_FOR_SEARCH_ASSET": [
+        "DAY",
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "ADGROUP_ID",
+        "ADGROUP_NAME",
+        "AD_ID",
+        "AD_NAME",
+        "ASSET_TEXT",
+        "ASSET_TYPE",
+        "PINNED_FIELD",
+        "PERFORMANCE",
+        "IMPS",
+    ],
+    "ASSET_COMBINATION": [
+        "ACCOUNT_ID",
+        "CAMPAIGN_ID",
+        "CAMPAIGN_NAME",
+        "ADGROUP_ID",
+        "ADGROUP_NAME",
+        "AD_ID",
+        "AD_NAME",
+        "IMPS",
+    ],
+    "SHARED_BUDGET": [
+        "DAY",
+        "ACCOUNT_ID",
+        "BUDGET_ID",
+        "BUDGET_NAME",
+        "IMPS",
+        "CLICKS",
+        "CLICK_RATE",
+        "COST",
+        "CONVERSIONS",
+        "CONV_RATE",
+        "CONV_VALUE",
+        "AVG_CPC",
+    ],
 }
-
-# Numeric fields for type conversion
 REPORT_INT_FIELDS = {"IMPS", "CLICKS", "CONVERSIONS"}
 REPORT_FLOAT_FIELDS = {"CLICK_RATE", "AVG_CPC", "COST", "CONV_RATE", "CONV_VALUE"}
 REPORT_METRIC_FIELDS = REPORT_INT_FIELDS | REPORT_FLOAT_FIELDS
@@ -263,10 +417,10 @@ def _build_entity_resources(
 
 @dlt.source(name="yahoo_ads_search")
 def yahoo_ads_search_source(
-    client_id: str,
-    client_secret: str,
-    refresh_token: str,
-    account_id: str,
+    client_id: str = dlt.secrets.value,
+    client_secret: str = dlt.secrets.value,
+    refresh_token: str = dlt.secrets.value,
+    account_id: str = dlt.config.value,
     report_type: str = "CAMPAIGN",
     report_fields: Optional[list[str]] = None,
     attribution_window_days: int = 7,
@@ -295,10 +449,15 @@ def yahoo_ads_search_source(
 
     # Report resource
     fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["CAMPAIGN"])
-    pk = _derive_primary_key(fields)
+    pk = derive_primary_key(fields)
     initial = start_date or "2020-01-01"
 
-    @dlt.resource(name="report", write_disposition="merge", primary_key=pk)
+    @dlt.resource(
+        name="report",
+        write_disposition="merge",
+        primary_key=pk,
+        columns={"DAY": {"data_type": "date"}},
+    )
     def _report(
         last_date=dlt.sources.incremental("DAY", initial_value=initial),
     ):
@@ -328,7 +487,7 @@ def yahoo_ads_search_source(
             return
 
         for row in download_report(client, base_url, account_id, job_id):
-            yield _convert_report_types(row)
+            yield convert_report_types(row)
 
     all_resources.append(_report)
 

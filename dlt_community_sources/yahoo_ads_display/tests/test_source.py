@@ -2,12 +2,12 @@
 
 from unittest.mock import patch
 
+from dlt_community_sources.yahoo_ads_common.helpers import convert_report_types
 from dlt_community_sources.yahoo_ads_display.source import (
     _ENTITY_RESOURCES,
     BASE_URL,
     REPORT_FIELDS,
     REPORT_TYPES,
-    _convert_report_types,
 )
 
 
@@ -39,21 +39,21 @@ class TestSourceConfig:
 
     def test_report_types(self):
         assert "AD" in REPORT_TYPES
-        assert "PLACEMENT_LIST" in REPORT_TYPES
-        assert "AUDIENCE_LIST" in REPORT_TYPES
+        assert "PLACEMENT_TARGET" in REPORT_TYPES
+        assert "AUDIENCE_LIST_TARGET" in REPORT_TYPES
 
     def test_report_fields_have_day(self):
         for rt, fields in REPORT_FIELDS.items():
             assert "DAY" in fields, f"{rt}: missing DAY field"
 
     def test_placement_report_fields(self):
-        fields = REPORT_FIELDS["PLACEMENT_LIST"]
+        fields = REPORT_FIELDS["PLACEMENT_TARGET"]
         assert "PLACEMENT_URL_LIST_NAME" in fields
         assert "PLACEMENT_URL_LIST_TYPE" in fields
 
     def test_convert_report_types(self):
         row = {"IMPS": "1,000", "COST": "500.50", "DAY": "2026-01-01", "CLICKS": "--"}
-        result = _convert_report_types(row)
+        result = convert_report_types(row)
         assert result["IMPS"] == 1000
         assert result["COST"] == 500.50
         assert result["DAY"] == "2026-01-01"

@@ -16,6 +16,38 @@ from typing import Optional
 
 from dlt.sources.helpers import requests as req
 
+# Numeric fields for type conversion (shared across SS/YDA)
+REPORT_INT_FIELDS = {"IMPS", "CLICKS", "CONVERSIONS"}
+REPORT_FLOAT_FIELDS = {"CLICK_RATE", "AVG_CPC", "COST", "CONV_RATE", "CONV_VALUE"}
+REPORT_METRIC_FIELDS = REPORT_INT_FIELDS | REPORT_FLOAT_FIELDS
+
+
+def derive_primary_key(fields: list[str]) -> list[str]:
+    """Derive primary key from report fields (all non-metric fields)."""
+    return [f for f in fields if f not in REPORT_METRIC_FIELDS]
+
+
+def convert_report_types(row: dict) -> dict:
+    """Convert report string values to appropriate numeric types."""
+    result = {}
+    for k, v in row.items():
+        if v == "--" or v == "":
+            result[k] = None
+        elif k in REPORT_INT_FIELDS:
+            try:
+                result[k] = int(v.replace(",", ""))
+            except (ValueError, AttributeError):
+                result[k] = v
+        elif k in REPORT_FLOAT_FIELDS:
+            try:
+                result[k] = float(v.replace(",", ""))
+            except (ValueError, AttributeError):
+                result[k] = v
+        else:
+            result[k] = v
+    return result
+
+
 logger = logging.getLogger(__name__)
 
 # Pagination defaults
@@ -180,7 +212,7 @@ def poll_report(
         logger.info("Report %s: status=%s", report_job_id, status)
         if status == "COMPLETED":
             return status
-        if status in ("FAILED", "CANCELED"):
+        if status in ("FAILED", "UNKNOWN"):
             logger.warning("Report %s: %s", report_job_id, status)
             return None
         time.sleep(POLL_INTERVAL_SECONDS)
