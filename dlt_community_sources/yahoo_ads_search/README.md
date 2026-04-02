@@ -1,6 +1,6 @@
 # Yahoo Ads Search
 
-A dlt source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LY Ads Search Ads, formerly Yahoo! JAPAN Ads SS).
+A [dlt](https://dlthub.com) source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LY Ads Search Ads, formerly Yahoo! JAPAN Ads SS).
 
 Covers 27 entity resources and 1 configurable report resource with 16 report types.
 
