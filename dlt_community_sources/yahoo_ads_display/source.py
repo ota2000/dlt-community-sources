@@ -72,6 +72,8 @@ _ENTITY_RESOURCES = [
     ("guaranteed_ads", "GuaranteedAdGroupAdService/get", "merge", "adId"),
     ("balance", "BalanceService/get", "replace", "accountId"),
     ("budget_orders", "BudgetOrderService/get", "merge", "budgetOrderId"),
+    ("account_links", "AccountLinkService/get", "replace", "accountId"),
+    ("app_links", "AppLinkService/get", "merge", "linkId"),
 ]
 
 # Report types available in Display Ads (API v19 ReportDefinitionServiceReportType)

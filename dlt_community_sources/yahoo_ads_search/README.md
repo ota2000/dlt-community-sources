@@ -2,7 +2,7 @@
 
 A [dlt](https://dlthub.com) source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LY Ads Search Ads, formerly Yahoo! JAPAN Ads SS).
 
-Covers 27 entity resources and 1 configurable report resource with 22 report types.
+Covers 40 entity resources and 1 configurable report resource with 22 report types.
 
 ## Installation
 
@@ -60,7 +60,7 @@ source = yahoo_ads_search_source(
 
 ## Resources
 
-### Entity Resources (27)
+### Entity Resources (40)
 
 | Resource | Write Disposition | Description |
 |---|---|---|
@@ -91,6 +91,19 @@ source = yahoo_ads_search_source(
 | `conversion_groups` | merge | Conversion groups |
 | `campaign_audience_lists` | replace | Campaign audience settings |
 | `ad_group_audience_lists` | replace | Ad group audience settings |
+| `balance` | replace | Account balance |
+| `budget_orders` | replace | Budget orders |
+| `shared_criterions` | merge | Shared negative keywords |
+| `campaign_shared_sets` | replace | Campaign-to-shared-list associations |
+| `page_feed_assets` | merge | Page feed assets |
+| `ad_group_webpages` | replace | Ad group webpage targeting |
+| `campaign_webpages` | replace | Campaign webpage exclusions |
+| `account_links` | replace | MCC account links |
+| `app_links` | merge | App conversion links |
+| `account_customizers` | replace | Account-level customizer values |
+| `campaign_customizers` | replace | Campaign-level customizer values |
+| `ad_group_customizers` | replace | Ad group-level customizer values |
+| `ad_group_criterion_customizers` | replace | Criterion-level customizer values |
 
 ### Report Resource
 

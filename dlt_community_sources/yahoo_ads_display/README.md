@@ -2,7 +2,7 @@
 
 A dlt source for [Yahoo Japan Ads Display API](https://ads-developers.yahoo.co.jp/reference/ads-display-api/) (LY Ads Display Ads, formerly Yahoo! JAPAN Ads YDA).
 
-Covers 27 entity resources and 1 configurable report resource with 14 report types. Includes LINE placement data (YDA serves ads on LINE surfaces).
+Covers 29 entity resources and 1 configurable report resource with 14 report types. Includes LINE placement data (YDA serves ads on LINE surfaces).
 
 ## Installation
 
@@ -48,7 +48,7 @@ source = yahoo_ads_display_source(
 
 ## Resources
 
-### Entity Resources (27)
+### Entity Resources (29)
 
 | Resource | Write Disposition | Description |
 |---|---|---|
@@ -79,6 +79,8 @@ source = yahoo_ads_display_source(
 | `guaranteed_ads` | merge | Guaranteed ads |
 | `balance` | replace | Account balance |
 | `budget_orders` | merge | Budget orders |
+| `account_links` | replace | MCC account links |
+| `app_links` | merge | App conversion links |
 
 ### Report Resource
 
