@@ -43,22 +43,62 @@ _ENTITY_RESOURCES = [
     ("labels", "LabelService/get", "merge", "labelId"),
     ("assets", "AssetService/get", "merge", "assetId"),
     ("audience_lists", "AudienceListService/get", "merge", "audienceListId"),
-    ("conversion_trackers", "ConversionTrackerService/get", "merge", "conversionTrackerId"),
+    (
+        "conversion_trackers",
+        "ConversionTrackerService/get",
+        "merge",
+        "conversionTrackerId",
+    ),
     ("account_shared", "AccountSharedService/get", "merge", "sharedListId"),
-    ("ad_group_bid_multipliers", "AdGroupBidMultiplierService/get", "replace", "adGroupId"),
+    (
+        "ad_group_bid_multipliers",
+        "AdGroupBidMultiplierService/get",
+        "replace",
+        "adGroupId",
+    ),
     ("campaign_targets", "CampaignTargetService/get", "replace", "targetId"),
-    ("page_feed_asset_sets", "PageFeedAssetSetService/get", "merge", "pageFeedAssetSetId"),
+    (
+        "page_feed_asset_sets",
+        "PageFeedAssetSetService/get",
+        "merge",
+        "pageFeedAssetSetId",
+    ),
     ("account_assets", "AccountAssetService/get", "merge", "assetId"),
     ("campaign_assets", "CampaignAssetService/get", "merge", "assetId"),
     ("ad_group_assets", "AdGroupAssetService/get", "merge", "assetId"),
-    ("customizer_attributes", "CustomizerAttributeService/get", "merge", "customizerAttributeId"),
+    (
+        "customizer_attributes",
+        "CustomizerAttributeService/get",
+        "merge",
+        "customizerAttributeId",
+    ),
     ("account_tracking_urls", "AccountTrackingUrlService/get", "replace", "accountId"),
     ("ab_tests", "AbTestService/get", "merge", "abTestId"),
-    ("seasonality_adjustments", "BiddingSeasonalityAdjustmentService/get", "merge", "biddingSeasonalityAdjustmentId"),
-    ("learning_data_exclusions", "LearningDataExclusionService/get", "merge", "learningDataExclusionId"),
+    (
+        "seasonality_adjustments",
+        "BiddingSeasonalityAdjustmentService/get",
+        "merge",
+        "biddingSeasonalityAdjustmentId",
+    ),
+    (
+        "learning_data_exclusions",
+        "LearningDataExclusionService/get",
+        "merge",
+        "learningDataExclusionId",
+    ),
     ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId"),
-    ("campaign_audience_lists", "CampaignAudienceListService/get", "replace", "campaignId"),
-    ("ad_group_audience_lists", "AdGroupAudienceListService/get", "replace", "adGroupId"),
+    (
+        "campaign_audience_lists",
+        "CampaignAudienceListService/get",
+        "replace",
+        "campaignId",
+    ),
+    (
+        "ad_group_audience_lists",
+        "AdGroupAudienceListService/get",
+        "replace",
+        "adGroupId",
+    ),
 ]
 
 # Report types available in Search Ads
@@ -214,7 +254,9 @@ def _build_entity_resources(
 ) -> list[dlt.sources.DltResource]:
     """Create dlt resources for all entity endpoints."""
     return [
-        _make_entity_resource(name, path, disposition, pk, access_token, account_id, base_url)
+        _make_entity_resource(
+            name, path, disposition, pk, access_token, account_id, base_url
+        )
         for name, path, disposition, pk in _ENTITY_RESOURCES
     ]
 
@@ -252,9 +294,7 @@ def yahoo_ads_search_source(
     all_resources = _build_entity_resources(access_token, account_id, base_url)
 
     # Report resource
-    fields = report_fields or REPORT_FIELDS.get(
-        report_type, REPORT_FIELDS["CAMPAIGN"]
-    )
+    fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["CAMPAIGN"])
     pk = _derive_primary_key(fields)
     initial = start_date or "2020-01-01"
 
