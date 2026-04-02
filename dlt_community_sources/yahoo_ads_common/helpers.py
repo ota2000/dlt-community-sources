@@ -12,6 +12,7 @@ import io
 import logging
 import time
 from collections.abc import Generator
+from decimal import Decimal
 from typing import Optional
 
 from dlt.sources.helpers import requests as req
@@ -40,7 +41,7 @@ def convert_report_types(row: dict) -> dict:
                 result[k] = v
         elif k in REPORT_FLOAT_FIELDS:
             try:
-                result[k] = float(v.replace(",", ""))
+                result[k] = Decimal(v.replace(",", ""))
             except (ValueError, AttributeError):
                 result[k] = v
         else:
