@@ -4,6 +4,7 @@ import json
 import logging
 import time
 from collections.abc import Generator
+from decimal import Decimal
 from typing import Optional, Sequence
 from urllib.parse import urlencode
 
@@ -482,10 +483,10 @@ POLL_INTERVAL_SECONDS = 10
 POLL_MAX_WAIT_SECONDS = 600
 
 INSIGHTS_PRIMARY_KEYS = {
-    "account": ["date_start"],
-    "campaign": ["date_start", "campaign_id"],
-    "adset": ["date_start", "adset_id"],
-    "ad": ["date_start", "ad_id"],
+    "account": ["date_start", "date_stop"],
+    "campaign": ["date_start", "date_stop", "campaign_id"],
+    "adset": ["date_start", "date_stop", "adset_id"],
+    "ad": ["date_start", "date_stop", "ad_id"],
 }
 
 
@@ -500,8 +501,8 @@ def _convert_insight_types(row: dict) -> dict:
     for field in INSIGHT_FLOAT_FIELDS:
         if field in row and row[field] is not None:
             try:
-                row[field] = float(row[field])
-            except (ValueError, TypeError):
+                row[field] = Decimal(str(row[field]))
+            except (ValueError, TypeError, ArithmeticError):
                 pass
     return row
 
@@ -534,6 +535,7 @@ def _rest_api_config(
             "endpoint": {
                 "data_selector": "data",
                 "response_actions": [
+                    {"status_code": 400, "action": "ignore"},
                     {"status_code": 403, "action": "ignore"},
                     {"status_code": 404, "action": "ignore"},
                 ],
@@ -702,7 +704,7 @@ def _get_paginated(
             response = client.get(url)
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
+            if e.response is not None and e.response.status_code in (400, 403, 404):
                 logger.warning(
                     "Request failed (%d) for %s. Skipping.",
                     e.response.status_code,
@@ -764,7 +766,9 @@ def insights(
     breakdowns: Optional[list[str]] = None,
     action_breakdowns: Optional[list[str]] = None,
     attribution_window_days: int = 28,
-    last_date=dlt.sources.incremental("date_start", initial_value="2020-01-01"),
+    last_date=dlt.sources.incremental(
+        "date_start", initial_value="2020-01-01", row_order="asc"
+    ),
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Fetch insights via async report with incremental loading and attribution window.
@@ -892,10 +896,26 @@ def meta_ads_source(
         breakdowns=breakdowns,
         action_breakdowns=action_breakdowns,
         attribution_window_days=attribution_window_days,
-        last_date=dlt.sources.incremental("date_start", initial_value=initial_value),
+        last_date=dlt.sources.incremental(
+            "date_start", initial_value=initial_value, row_order="asc"
+        ),
         base_url=url,
     )
-    insights_resource.apply_hints(primary_key=pk)
+    insights_resource.apply_hints(
+        primary_key=pk,
+        columns={
+            "date_start": {"data_type": "date"},
+            "date_stop": {"data_type": "date"},
+        },
+    )
+
+    # Apply timestamp column hints to master data resources
+    timestamp_columns = {
+        col: {"data_type": "timestamp"}
+        for col in ("created_time", "updated_time", "start_time", "stop_time")
+    }
+    for r in rest_resources:
+        r.apply_hints(columns=timestamp_columns)
 
     all_resources: list[DltResource] = rest_resources + [
         leads_resource,

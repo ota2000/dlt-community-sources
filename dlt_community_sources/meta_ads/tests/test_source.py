@@ -1,5 +1,7 @@
 """Tests for Meta Ads source configuration and helpers."""
 
+from decimal import Decimal
+
 from dlt_community_sources.meta_ads.source import (
     DEFAULT_FIELDS,
     DEFAULT_INSIGHT_FIELDS,
@@ -74,6 +76,7 @@ class TestRestApiConfig:
     def test_response_actions(self):
         actions = self.config["resource_defaults"]["endpoint"]["response_actions"]
         status_codes = [a["status_code"] for a in actions]
+        assert 400 in status_codes
         assert 403 in status_codes
         assert 404 in status_codes
 
@@ -143,16 +146,24 @@ class TestInsightsPrimaryKeys:
     """Test insights primary key mapping by level."""
 
     def test_account_level(self):
-        assert INSIGHTS_PRIMARY_KEYS["account"] == ["date_start"]
+        assert INSIGHTS_PRIMARY_KEYS["account"] == ["date_start", "date_stop"]
 
     def test_campaign_level(self):
-        assert INSIGHTS_PRIMARY_KEYS["campaign"] == ["date_start", "campaign_id"]
+        assert INSIGHTS_PRIMARY_KEYS["campaign"] == [
+            "date_start",
+            "date_stop",
+            "campaign_id",
+        ]
 
     def test_adset_level(self):
-        assert INSIGHTS_PRIMARY_KEYS["adset"] == ["date_start", "adset_id"]
+        assert INSIGHTS_PRIMARY_KEYS["adset"] == [
+            "date_start",
+            "date_stop",
+            "adset_id",
+        ]
 
     def test_ad_level(self):
-        assert INSIGHTS_PRIMARY_KEYS["ad"] == ["date_start", "ad_id"]
+        assert INSIGHTS_PRIMARY_KEYS["ad"] == ["date_start", "date_stop", "ad_id"]
 
 
 class TestConvertInsightTypes:
@@ -165,12 +176,12 @@ class TestConvertInsightTypes:
         assert result["clicks"] == 56
         assert result["reach"] == 789
 
-    def test_converts_float_fields(self):
+    def test_converts_float_fields_to_decimal(self):
         row = {"spend": "12.34", "cpc": "0.56", "cpm": "7.89", "ctr": "0.03"}
         result = _convert_insight_types(row)
-        assert result["spend"] == 12.34
-        assert result["cpc"] == 0.56
-        assert isinstance(result["spend"], float)
+        assert result["spend"] == Decimal("12.34")
+        assert result["cpc"] == Decimal("0.56")
+        assert isinstance(result["spend"], Decimal)
 
     def test_preserves_non_numeric_fields(self):
         row = {"campaign_name": "Test", "impressions": "100"}
