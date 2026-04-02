@@ -14,7 +14,9 @@ CUSTOMER_MGMT_URL = (
     "https://clientcenter.api.bingads.microsoft.com/CustomerManagement/v13"
 )
 AD_INSIGHT_URL = "https://adinsight.api.bingads.microsoft.com/AdInsight/v13"
-CUSTOMER_BILLING_URL = "https://clientcenter.api.bingads.microsoft.com/Billing/v13"
+CUSTOMER_BILLING_URL = (
+    "https://clientcenter.api.bingads.microsoft.com/CustomerBilling/v13"
+)
 
 # Polling config
 POLL_INTERVAL_SECONDS = 10
@@ -45,7 +47,7 @@ def build_headers(
         "Authorization": f"Bearer {access_token}",
         "DeveloperToken": developer_token,
         "CustomerId": customer_id,
-        "AccountId": account_id,
+        "CustomerAccountId": account_id,
         "Content-Type": "application/json",
     }
 

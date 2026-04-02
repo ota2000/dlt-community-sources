@@ -49,7 +49,7 @@ class TestBuildHeaders:
         assert headers["Authorization"] == "Bearer token"
         assert headers["DeveloperToken"] == "dev"
         assert headers["CustomerId"] == "cust"
-        assert headers["AccountId"] == "acct"
+        assert headers["CustomerAccountId"] == "acct"
 
     def test_content_type(self):
         headers = build_headers("t", "d", "c", "a")

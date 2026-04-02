@@ -1,6 +1,9 @@
 """Ad Insight API resources.
 
 SDK: bingads/v13/proxies/production/adinsight_service.xml
+
+REST URL pattern: {base}/{Entity}/{Action}
+See https://learn.microsoft.com/en-us/advertising/ad-insight-service/ad-insight-service-reference
 """
 
 import dlt
@@ -12,8 +15,8 @@ def _client(at, dt, ci, ai):
     return make_client(at, dt, ci, ai)
 
 
-def _url(op, base=AD_INSIGHT_URL):
-    return f"{base}/{op}"
+def _url(path, base=AD_INSIGHT_URL):
+    return f"{base}/{path}"
 
 
 @dlt.resource(name="auction_insight_data", write_disposition="replace")
@@ -22,7 +25,7 @@ def auction_insight_data(access_token, developer_token, customer_id, account_id)
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetAuctionInsightData"),
+        _url("AuctionInsightData/Query"),
         {"EntityType": "Account", "EntityIds": [account_id]},
         "Result",
     )
@@ -33,7 +36,10 @@ def bid_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetBidOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetBidOpportunities"), {"AccountId": account_id}, "Opportunities"
+        c,
+        _url("BidOpportunities/Query"),
+        {"AccountId": account_id},
+        "Opportunities",
     )
 
 
@@ -42,7 +48,10 @@ def budget_opportunities(access_token, developer_token, customer_id, account_id)
     """SDK: GetBudgetOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetBudgetOpportunities"), {"AccountId": account_id}, "Opportunities"
+        c,
+        _url("BudgetOpportunities/Query"),
+        {"AccountId": account_id},
+        "Opportunities",
     )
 
 
@@ -51,7 +60,10 @@ def keyword_opportunities(access_token, developer_token, customer_id, account_id
     """SDK: GetKeywordOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetKeywordOpportunities"), {"AccountId": account_id}, "Opportunities"
+        c,
+        _url("KeywordOpportunities/Query"),
+        {"AccountId": account_id},
+        "Opportunities",
     )
 
 
@@ -60,7 +72,10 @@ def recommendations(access_token, developer_token, customer_id, account_id):
     """SDK: GetRecommendations."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetRecommendations"), {"AccountId": account_id}, "Recommendations"
+        c,
+        _url("Recommendations/Query"),
+        {"AccountId": account_id},
+        "Recommendations",
     )
 
 
@@ -70,7 +85,7 @@ def performance_insights(access_token, developer_token, customer_id, account_id)
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetPerformanceInsightsDetailDataByAccountId"),
+        _url("PerformanceInsightsDetailData/QueryByAccountId"),
         {"AccountId": account_id},
         "PerformanceInsights",
     )
@@ -81,7 +96,7 @@ def keyword_ideas(access_token, developer_token, customer_id, account_id):
     """SDK: GetKeywordIdeaCategories."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetKeywordIdeaCategories"), {}, "KeywordIdeaCategories"
+        c, _url("KeywordIdeaCategories/Query"), {}, "KeywordIdeaCategories"
     )
 
 

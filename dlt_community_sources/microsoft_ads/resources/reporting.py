@@ -195,7 +195,7 @@ def _submit_report(
             },
         }
     }
-    data = post_rpc(client, f"{base_url}/SubmitGenerateReport", body)
+    data = post_rpc(client, f"{base_url}/GenerateReport/Submit", body)
     return data.get("ReportRequestId")
 
 
@@ -208,7 +208,7 @@ def _poll_report(
     elapsed = 0
     while elapsed < POLL_MAX_WAIT_SECONDS:
         data = post_rpc(
-            client, f"{base_url}/PollGenerateReport", {"ReportRequestId": request_id}
+            client, f"{base_url}/GenerateReport/Poll", {"ReportRequestId": request_id}
         )
         status_obj = data.get("ReportRequestStatus", {})
         status = status_obj.get("Status")

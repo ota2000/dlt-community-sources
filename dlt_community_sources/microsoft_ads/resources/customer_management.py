@@ -1,6 +1,9 @@
 """Customer Management API resources.
 
 SDK: bingads/v13/proxies/production/customermanagement_service.xml
+
+REST URL pattern: {base}/{Entity}/{Action}
+See https://learn.microsoft.com/en-us/advertising/customer-management-service/customer-management-service-reference
 """
 
 import dlt
@@ -12,15 +15,15 @@ def _client(at, dt, ci, ai):
     return make_client(at, dt, ci, ai)
 
 
-def _url(op, base=CUSTOMER_MGMT_URL):
-    return f"{base}/{op}"
+def _url(path, base=CUSTOMER_MGMT_URL):
+    return f"{base}/{path}"
 
 
 @dlt.resource(name="account_info", write_disposition="merge", primary_key="Id")
 def account_info(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccount."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    data = post_rpc(c, _url("GetAccount"), {"AccountId": account_id})
+    data = post_rpc(c, _url("Account/Query"), {"AccountId": account_id})
     account = data.get("Account")
     if account:
         yield account
@@ -31,7 +34,7 @@ def accounts_info(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountsInfo."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetAccountsInfo"), {"CustomerId": customer_id}, "AccountsInfo"
+        c, _url("AccountsInfo/Query"), {"CustomerId": customer_id}, "AccountsInfo"
     )
 
 
@@ -39,7 +42,7 @@ def accounts_info(access_token, developer_token, customer_id, account_id):
 def customer_info(access_token, developer_token, customer_id, account_id):
     """SDK: GetCustomer."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    data = post_rpc(c, _url("GetCustomer"), {"CustomerId": customer_id})
+    data = post_rpc(c, _url("Customer/Query"), {"CustomerId": customer_id})
     customer = data.get("Customer")
     if customer:
         yield customer
@@ -51,14 +54,14 @@ def customer_info(access_token, developer_token, customer_id, account_id):
 def customers_info(access_token, developer_token, customer_id, account_id):
     """SDK: GetCustomersInfo."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetCustomersInfo"), {}, "CustomersInfo")
+    yield from safe_rpc(c, _url("CustomersInfo/Query"), {}, "CustomersInfo")
 
 
 @dlt.resource(name="current_user", write_disposition="replace")
 def current_user(access_token, developer_token, customer_id, account_id):
     """SDK: GetCurrentUser."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    data = post_rpc(c, _url("GetCurrentUser"), {})
+    data = post_rpc(c, _url("User/QueryCurrent"), {})
     user = data.get("User")
     if user:
         yield user
@@ -69,7 +72,7 @@ def users_info(access_token, developer_token, customer_id, account_id):
     """SDK: GetUsersInfo."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetUsersInfo"), {"CustomerId": customer_id}, "UsersInfo"
+        c, _url("UsersInfo/Query"), {"CustomerId": customer_id}, "UsersInfo"
     )
 
 
@@ -77,7 +80,7 @@ def users_info(access_token, developer_token, customer_id, account_id):
 def customer_pilot_features(access_token, developer_token, customer_id, account_id):
     """SDK: GetCustomerPilotFeatures."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    data = post_rpc(c, _url("GetCustomerPilotFeatures"), {"CustomerId": customer_id})
+    data = post_rpc(c, _url("CustomerPilotFeatures/Query"), {"CustomerId": customer_id})
     features = data.get("FeaturePilotFlags", [])
     for f in features:
         yield {"customer_id": customer_id, "feature_id": f}
@@ -87,7 +90,7 @@ def customer_pilot_features(access_token, developer_token, customer_id, account_
 def account_pilot_features(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountPilotFeatures."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    data = post_rpc(c, _url("GetAccountPilotFeatures"), {"AccountId": account_id})
+    data = post_rpc(c, _url("AccountPilotFeatures/Query"), {"AccountId": account_id})
     features = data.get("FeaturePilotFlags", [])
     for f in features:
         yield {"account_id": account_id, "feature_id": f}
@@ -101,7 +104,7 @@ def linked_accounts_and_customers(
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetLinkedAccountsAndCustomersInfo"),
+        _url("LinkedAccountsAndCustomersInfo/Query"),
         {"CustomerId": customer_id},
         "AccountsInfo",
     )
@@ -111,7 +114,7 @@ def linked_accounts_and_customers(
 def notifications(access_token, developer_token, customer_id, account_id):
     """SDK: GetNotifications."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetNotifications"), {}, "Notifications")
+    yield from safe_rpc(c, _url("Notifications/Query"), {}, "Notifications")
 
 
 ALL_CUSTOMER_MGMT_RESOURCES = [

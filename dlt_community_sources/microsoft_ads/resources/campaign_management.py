@@ -2,6 +2,9 @@
 
 SDK: bingads/v13/proxies/production/campaignmanagement_service.xml
 All 70+ GET operations from the SDK are covered here.
+
+REST URL pattern: {base}/{Entity}/{Action}
+See https://learn.microsoft.com/en-us/advertising/campaign-management-service/campaign-management-service-reference
 """
 
 import dlt
@@ -13,8 +16,8 @@ def _client(at, dt, ci, ai):
     return make_client(at, dt, ci, ai)
 
 
-def _url(op, base=CAMPAIGN_MGMT_URL):
-    return f"{base}/{op}"
+def _url(path, base=CAMPAIGN_MGMT_URL):
+    return f"{base}/{path}"
 
 
 # --- Core entity resources ---
@@ -26,7 +29,7 @@ def campaigns(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetCampaignsByAccountId"),
+        _url("Campaigns/QueryByAccountId"),
         {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
         "Campaigns",
     )
@@ -38,14 +41,14 @@ def ad_groups(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     for camp in safe_rpc(
         c,
-        _url("GetCampaignsByAccountId"),
+        _url("Campaigns/QueryByAccountId"),
         {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
         "Campaigns",
     ):
         cid = camp.get("Id")
         if cid:
             yield from safe_rpc(
-                c, _url("GetAdGroupsByCampaignId"), {"CampaignId": cid}, "AdGroups"
+                c, _url("AdGroups/QueryByCampaignId"), {"CampaignId": cid}, "AdGroups"
             )
 
 
@@ -58,7 +61,7 @@ def ads(access_token, developer_token, customer_id, account_id):
         if ag_id:
             yield from safe_rpc(
                 c,
-                _url("GetAdsByAdGroupId"),
+                _url("Ads/QueryByAdGroupId"),
                 {
                     "AdGroupId": ag_id,
                     "AdTypes": "AppInstall DynamicSearch ExpandedText Product ResponsiveAd ResponsiveSearch",
@@ -75,7 +78,7 @@ def keywords(access_token, developer_token, customer_id, account_id):
         ag_id = ag.get("Id")
         if ag_id:
             yield from safe_rpc(
-                c, _url("GetKeywordsByAdGroupId"), {"AdGroupId": ag_id}, "Keywords"
+                c, _url("Keywords/QueryByAdGroupId"), {"AdGroupId": ag_id}, "Keywords"
             )
 
 
@@ -89,7 +92,7 @@ def ad_extensions(access_token, developer_token, customer_id, account_id):
     ext_types = "CallAdExtension CalloutAdExtension ImageAdExtension LocationAdExtension PriceAdExtension ReviewAdExtension SitelinkAdExtension StructuredSnippetAdExtension"
     id_data = safe_rpc(
         c,
-        _url("GetAdExtensionIdsByAccountId"),
+        _url("AdExtensionIds/QueryByAccountId"),
         {"AccountId": account_id, "AdExtensionType": ext_types},
         "AdExtensionIds",
     )
@@ -102,7 +105,7 @@ def ad_extensions(access_token, developer_token, customer_id, account_id):
     if ext_ids:
         yield from safe_rpc(
             c,
-            _url("GetAdExtensionsByIds"),
+            _url("AdExtensions/QueryByIds"),
             {
                 "AccountId": account_id,
                 "AdExtensionIds": ext_ids,
@@ -112,13 +115,13 @@ def ad_extensions(access_token, developer_token, customer_id, account_id):
         )
 
 
-@dlt.resource(name="ad_extension_associations", write_disposition="append")
+@dlt.resource(name="ad_extension_associations", write_disposition="replace")
 def ad_extension_associations(access_token, developer_token, customer_id, account_id):
     """SDK: GetAdExtensionsAssociations."""
     c = _client(access_token, developer_token, customer_id, account_id)
     for camp in safe_rpc(
         c,
-        _url("GetCampaignsByAccountId"),
+        _url("Campaigns/QueryByAccountId"),
         {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
         "Campaigns",
     ):
@@ -126,7 +129,7 @@ def ad_extension_associations(access_token, developer_token, customer_id, accoun
         if cid:
             yield from safe_rpc(
                 c,
-                _url("GetAdExtensionsAssociations"),
+                _url("AdExtensionsAssociations/Query"),
                 {
                     "AccountId": account_id,
                     "EntityIds": [cid],
@@ -139,13 +142,13 @@ def ad_extension_associations(access_token, developer_token, customer_id, accoun
 # --- Criterions ---
 
 
-@dlt.resource(name="campaign_criterions", write_disposition="merge")
+@dlt.resource(name="campaign_criterions", write_disposition="merge", primary_key="Id")
 def campaign_criterions(access_token, developer_token, customer_id, account_id):
     """SDK: GetCampaignCriterionsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
     for camp in safe_rpc(
         c,
-        _url("GetCampaignsByAccountId"),
+        _url("Campaigns/QueryByAccountId"),
         {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
         "Campaigns",
     ):
@@ -153,13 +156,13 @@ def campaign_criterions(access_token, developer_token, customer_id, account_id):
         if cid:
             yield from safe_rpc(
                 c,
-                _url("GetCampaignCriterionsByIds"),
+                _url("CampaignCriterions/QueryByIds"),
                 {"CampaignId": cid, "CriterionType": "Targets"},
                 "CampaignCriterions",
             )
 
 
-@dlt.resource(name="ad_group_criterions", write_disposition="merge")
+@dlt.resource(name="ad_group_criterions", write_disposition="merge", primary_key="Id")
 def ad_group_criterions(access_token, developer_token, customer_id, account_id):
     """SDK: GetAdGroupCriterionsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -168,7 +171,7 @@ def ad_group_criterions(access_token, developer_token, customer_id, account_id):
         if ag_id:
             yield from safe_rpc(
                 c,
-                _url("GetAdGroupCriterionsByIds"),
+                _url("AdGroupCriterions/QueryByIds"),
                 {"AdGroupId": ag_id, "CriterionType": "Targets"},
                 "AdGroupCriterions",
             )
@@ -183,7 +186,7 @@ def audiences(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetAudiencesByIds"),
+        _url("Audiences/QueryByIds"),
         {
             "Type": "Custom InMarket Product RemarketingList SimilarRemarketingList CombinedList CustomerList ImpressionBasedRemarketingList"
         },
@@ -195,7 +198,7 @@ def audiences(access_token, developer_token, customer_id, account_id):
 def audience_groups(access_token, developer_token, customer_id, account_id):
     """SDK: GetAudienceGroupsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetAudienceGroupsByIds"), {}, "AudienceGroups")
+    yield from safe_rpc(c, _url("AudienceGroups/QueryByIds"), {}, "AudienceGroups")
 
 
 # --- Asset Groups ---
@@ -207,7 +210,7 @@ def asset_groups(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     for camp in safe_rpc(
         c,
-        _url("GetCampaignsByAccountId"),
+        _url("Campaigns/QueryByAccountId"),
         {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
         "Campaigns",
     ):
@@ -215,7 +218,7 @@ def asset_groups(access_token, developer_token, customer_id, account_id):
         if cid:
             yield from safe_rpc(
                 c,
-                _url("GetAssetGroupsByCampaignId"),
+                _url("AssetGroups/QueryByCampaignId"),
                 {"CampaignId": cid},
                 "AssetGroups",
             )
@@ -230,7 +233,7 @@ def conversion_goals(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetConversionGoalsByIds"),
+        _url("ConversionGoals/QueryByIds"),
         {
             "ConversionGoalTypes": "Url Duration Event AppInstall InStoreTransaction OfflineConversion"
         },
@@ -246,7 +249,7 @@ def conversion_value_rules(access_token, developer_token, customer_id, account_i
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetConversionValueRulesByAccountId"),
+        _url("ConversionValueRules/QueryByAccountId"),
         {"AccountId": account_id},
         "ConversionValueRules",
     )
@@ -256,7 +259,7 @@ def conversion_value_rules(access_token, developer_token, customer_id, account_i
 def uet_tags(access_token, developer_token, customer_id, account_id):
     """SDK: GetUetTagsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetUetTagsByIds"), {}, "UetTags")
+    yield from safe_rpc(c, _url("UetTags/QueryByIds"), {}, "UetTags")
 
 
 @dlt.resource(name="offline_conversion_reports", write_disposition="append")
@@ -264,7 +267,7 @@ def offline_conversion_reports(access_token, developer_token, customer_id, accou
     """SDK: GetOfflineConversionReports."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetOfflineConversionReports"), {}, "OfflineConversionReports"
+        c, _url("OfflineConversionReports/Query"), {}, "OfflineConversionReports"
     )
 
 
@@ -275,10 +278,10 @@ def offline_conversion_reports(access_token, developer_token, customer_id, accou
 def labels(access_token, developer_token, customer_id, account_id):
     """SDK: GetLabelsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from get_entities_paginated(c, _url("GetLabelsByIds"), {}, "Labels")
+    yield from get_entities_paginated(c, _url("Labels/QueryByIds"), {}, "Labels")
 
 
-@dlt.resource(name="label_associations_by_entity", write_disposition="append")
+@dlt.resource(name="label_associations_by_entity", write_disposition="replace")
 def label_associations_by_entity(
     access_token, developer_token, customer_id, account_id
 ):
@@ -286,7 +289,7 @@ def label_associations_by_entity(
     c = _client(access_token, developer_token, customer_id, account_id)
     for camp in safe_rpc(
         c,
-        _url("GetCampaignsByAccountId"),
+        _url("Campaigns/QueryByAccountId"),
         {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
         "Campaigns",
     ):
@@ -294,7 +297,7 @@ def label_associations_by_entity(
         if cid:
             yield from safe_rpc(
                 c,
-                _url("GetLabelAssociationsByEntityIds"),
+                _url("LabelAssociations/QueryByEntityIds"),
                 {"EntityIds": [cid], "EntityType": "Campaign"},
                 "LabelAssociations",
             )
@@ -307,26 +310,26 @@ def label_associations_by_entity(
 def budgets(access_token, developer_token, customer_id, account_id):
     """SDK: GetBudgetsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetBudgetsByIds"), {}, "Budgets")
+    yield from safe_rpc(c, _url("Budgets/QueryByIds"), {}, "Budgets")
 
 
 @dlt.resource(name="bid_strategies", write_disposition="merge", primary_key="Id")
 def bid_strategies(access_token, developer_token, customer_id, account_id):
     """SDK: GetBidStrategiesByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetBidStrategiesByIds"), {}, "BidStrategies")
+    yield from safe_rpc(c, _url("BidStrategies/QueryByIds"), {}, "BidStrategies")
 
 
 # --- Negative Keywords & Sites ---
 
 
-@dlt.resource(name="negative_keywords", write_disposition="append")
+@dlt.resource(name="negative_keywords", write_disposition="replace")
 def negative_keywords(access_token, developer_token, customer_id, account_id):
     """SDK: GetNegativeKeywordsByEntityIds (campaigns)."""
     c = _client(access_token, developer_token, customer_id, account_id)
     for camp in safe_rpc(
         c,
-        _url("GetCampaignsByAccountId"),
+        _url("Campaigns/QueryByAccountId"),
         {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
         "Campaigns",
     ):
@@ -334,7 +337,7 @@ def negative_keywords(access_token, developer_token, customer_id, account_id):
         if cid:
             yield from safe_rpc(
                 c,
-                _url("GetNegativeKeywordsByEntityIds"),
+                _url("NegativeKeywords/QueryByEntityIds"),
                 {"EntityIds": [cid], "EntityType": "Campaign"},
                 "EntityNegativeKeywords",
             )
@@ -348,7 +351,7 @@ def negative_sites_campaigns(access_token, developer_token, customer_id, account
         camp.get("Id")
         for camp in safe_rpc(
             c,
-            _url("GetCampaignsByAccountId"),
+            _url("Campaigns/QueryByAccountId"),
             {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
             "Campaigns",
         )
@@ -357,7 +360,7 @@ def negative_sites_campaigns(access_token, developer_token, customer_id, account
     if camp_ids:
         yield from safe_rpc(
             c,
-            _url("GetNegativeSitesByCampaignIds"),
+            _url("NegativeSites/QueryByCampaignIds"),
             {"AccountId": account_id, "CampaignIds": camp_ids},
             "CampaignNegativeSites",
         )
@@ -372,19 +375,19 @@ def shared_entities(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetSharedEntitiesByAccountId"),
+        _url("SharedEntities/QueryByAccountId"),
         {"SharedEntityType": "NegativeKeywordList"},
         "SharedEntities",
     )
 
 
-@dlt.resource(name="shared_list_items", write_disposition="append")
+@dlt.resource(name="shared_list_items", write_disposition="replace")
 def shared_list_items(access_token, developer_token, customer_id, account_id):
     """SDK: GetListItemsBySharedList (iterates shared entities)."""
     c = _client(access_token, developer_token, customer_id, account_id)
     for entity in safe_rpc(
         c,
-        _url("GetSharedEntitiesByAccountId"),
+        _url("SharedEntities/QueryByAccountId"),
         {"SharedEntityType": "NegativeKeywordList"},
         "SharedEntities",
     ):
@@ -392,7 +395,7 @@ def shared_list_items(access_token, developer_token, customer_id, account_id):
         if eid:
             yield from safe_rpc(
                 c,
-                _url("GetListItemsBySharedList"),
+                _url("ListItems/QueryBySharedList"),
                 {"SharedList": {"Id": eid, "Type": "NegativeKeywordList"}},
                 "ListItems",
             )
@@ -407,7 +410,7 @@ def media(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetMediaMetaDataByAccountId"),
+        _url("MediaMetaData/QueryByAccountId"),
         {"MediaEnabledEntities": "ImageAdExtension ResponsiveAd"},
         "MediaMetaData",
     )
@@ -417,7 +420,7 @@ def media(access_token, developer_token, customer_id, account_id):
 def videos(access_token, developer_token, customer_id, account_id):
     """SDK: GetVideosByIds (all)."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetVideosByIds"), {}, "Videos")
+    yield from safe_rpc(c, _url("Videos/QueryByIds"), {}, "Videos")
 
 
 # --- Account Settings ---
@@ -431,7 +434,7 @@ def account_properties(access_token, developer_token, customer_id, account_id):
 
     data = post_rpc(
         c,
-        _url("GetAccountProperties"),
+        _url("AccountProperties/Query"),
         {"AccountPropertyNames": "TrackingUrlTemplate FinalUrlSuffix"},
     )
     props = data.get("AccountProperties", [])
@@ -445,7 +448,7 @@ def account_migration_statuses(access_token, developer_token, customer_id, accou
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetAccountMigrationStatuses"),
+        _url("AccountMigrationStatuses/Query"),
         {"AccountIds": [account_id]},
         "MigrationStatuses",
     )
@@ -462,7 +465,7 @@ def seasonality_adjustments(access_token, developer_token, customer_id, account_
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetSeasonalityAdjustmentsByAccountId"),
+        _url("SeasonalityAdjustments/QueryByAccountId"),
         {"AccountId": account_id},
         "SeasonalityAdjustments",
     )
@@ -474,7 +477,7 @@ def data_exclusions(access_token, developer_token, customer_id, account_id):
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
         c,
-        _url("GetDataExclusionsByAccountId"),
+        _url("DataExclusions/QueryByAccountId"),
         {"AccountId": account_id},
         "DataExclusions",
     )
@@ -484,7 +487,9 @@ def data_exclusions(access_token, developer_token, customer_id, account_id):
 def experiments(access_token, developer_token, customer_id, account_id):
     """SDK: GetExperimentsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from get_entities_paginated(c, _url("GetExperimentsByIds"), {}, "Experiments")
+    yield from get_entities_paginated(
+        c, _url("Experiments/QueryByIds"), {}, "Experiments"
+    )
 
 
 # --- Import ---
@@ -495,7 +500,10 @@ def import_jobs(access_token, developer_token, customer_id, account_id):
     """SDK: GetImportJobsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetImportJobsByIds"), {"ImportType": "GoogleImportJob"}, "ImportJobs"
+        c,
+        _url("ImportJobs/QueryByIds"),
+        {"ImportType": "GoogleImportJob"},
+        "ImportJobs",
     )
 
 
@@ -506,7 +514,7 @@ def import_jobs(access_token, developer_token, customer_id, account_id):
 def bmc_stores(access_token, developer_token, customer_id, account_id):
     """SDK: GetBMCStoresByCustomerId."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("GetBMCStoresByCustomerId"), {}, "BMCStores")
+    yield from safe_rpc(c, _url("BMCStores/QueryByCustomerId"), {}, "BMCStores")
 
 
 # --- Brand Kits ---
@@ -517,7 +525,10 @@ def brand_kits(access_token, developer_token, customer_id, account_id):
     """SDK: GetBrandKitsByAccountId."""
     c = _client(access_token, developer_token, customer_id, account_id)
     yield from safe_rpc(
-        c, _url("GetBrandKitsByAccountId"), {"AccountId": account_id}, "BrandKits"
+        c,
+        _url("BrandKits/QueryByAccountId"),
+        {"AccountId": account_id},
+        "BrandKits",
     )
 
 
