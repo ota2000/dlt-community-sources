@@ -42,14 +42,24 @@ _ENTITY_RESOURCES = [
     ("bidding_strategies", "BiddingStrategyService/get", "merge", "biddingStrategyId"),
     ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId"),
     ("audience_lists", "AudienceListService/get", "merge", "audienceListId"),
-    ("conversion_trackers", "ConversionTrackerService/get", "merge", "conversionTrackerId"),
+    (
+        "conversion_trackers",
+        "ConversionTrackerService/get",
+        "merge",
+        "conversionTrackerId",
+    ),
     ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId"),
     ("media", "MediaService/get", "merge", "mediaId"),
     ("videos", "VideoService/get", "merge", "mediaId"),
     ("feeds", "FeedService/get", "merge", "feedId"),
     ("feed_sets", "FeedSetService/get", "merge", "feedSetId"),
     ("placement_url_lists", "PlacementUrlListService/get", "merge", "urlListId"),
-    ("contents_keyword_lists", "ContentsKeywordListService/get", "merge", "contentsKeywordListId"),
+    (
+        "contents_keyword_lists",
+        "ContentsKeywordListService/get",
+        "merge",
+        "contentsKeywordListId",
+    ),
     ("retargeting_tags", "RetargetingTagService/get", "merge", "retargetingTagId"),
     ("account_authority", "AccountAuthorityService/get", "replace", "accountId"),
     ("account_tracking_urls", "AccountTrackingUrlService/get", "replace", "accountId"),
@@ -179,7 +189,9 @@ def _build_entity_resources(
 ) -> list[dlt.sources.DltResource]:
     """Create dlt resources for all entity endpoints."""
     return [
-        _make_entity_resource(name, path, disposition, pk, access_token, account_id, base_url)
+        _make_entity_resource(
+            name, path, disposition, pk, access_token, account_id, base_url
+        )
         for name, path, disposition, pk in _ENTITY_RESOURCES
     ]
 
@@ -220,9 +232,7 @@ def yahoo_ads_display_source(
     all_resources = _build_entity_resources(access_token, account_id, base_url)
 
     # Report resource
-    fields = report_fields or REPORT_FIELDS.get(
-        report_type, REPORT_FIELDS["AD"]
-    )
+    fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["AD"])
     pk = _derive_primary_key(fields)
     initial = start_date or "2020-01-01"
 
