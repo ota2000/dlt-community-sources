@@ -19,11 +19,11 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
 )
 from dlt_community_sources.yahoo_ads_search.source import (
     _ENTITY_RESOURCES,
-    _derive_primary_key,
     BASE_URL,
     REPORT_FIELDS,
     REPORT_TYPES,
     _convert_report_types,
+    _derive_primary_key,
 )
 
 
@@ -146,9 +146,7 @@ class TestGetEntities:
         )
         client = MagicMock()
         client.post.side_effect = [page1, page2]
-        results = list(
-            get_entities(client, "https://api/get", "123", page_size=2)
-        )
+        results = list(get_entities(client, "https://api/get", "123", page_size=2))
         assert len(results) == 3
 
     def test_empty_response(self):
@@ -224,7 +222,13 @@ class TestSubmitReport:
         client = MagicMock()
         client.post.return_value = _mock_response({"rval": {"values": []}})
         job_id = submit_report(
-            client, "https://api", "123", "CAMPAIGN", ["DAY"], "2026-01-01", "2026-01-31"
+            client,
+            "https://api",
+            "123",
+            "CAMPAIGN",
+            ["DAY"],
+            "2026-01-01",
+            "2026-01-31",
         )
         assert job_id is None
 
@@ -269,12 +273,8 @@ class TestPollReport:
         assert status is None
 
     @patch("dlt_community_sources.yahoo_ads_common.helpers.time.sleep")
-    @patch(
-        "dlt_community_sources.yahoo_ads_common.helpers.POLL_MAX_WAIT_SECONDS", 20
-    )
-    @patch(
-        "dlt_community_sources.yahoo_ads_common.helpers.POLL_INTERVAL_SECONDS", 10
-    )
+    @patch("dlt_community_sources.yahoo_ads_common.helpers.POLL_MAX_WAIT_SECONDS", 20)
+    @patch("dlt_community_sources.yahoo_ads_common.helpers.POLL_INTERVAL_SECONDS", 10)
     def test_timeout(self, mock_sleep):
         client = MagicMock()
         client.post.return_value = _mock_response(
@@ -360,12 +360,30 @@ class TestSourceConfig:
 
 class TestDerivePrimaryKey:
     def test_campaign_report(self):
-        fields = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "CAMPAIGN_NAME", "IMPS", "CLICKS", "COST"]
+        fields = [
+            "DAY",
+            "ACCOUNT_ID",
+            "CAMPAIGN_ID",
+            "CAMPAIGN_NAME",
+            "IMPS",
+            "CLICKS",
+            "COST",
+        ]
         pk = _derive_primary_key(fields)
         assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "CAMPAIGN_NAME"]
 
     def test_excludes_all_metrics(self):
-        fields = ["DAY", "IMPS", "CLICKS", "CLICK_RATE", "AVG_CPC", "COST", "CONVERSIONS", "CONV_RATE", "CONV_VALUE"]
+        fields = [
+            "DAY",
+            "IMPS",
+            "CLICKS",
+            "CLICK_RATE",
+            "AVG_CPC",
+            "COST",
+            "CONVERSIONS",
+            "CONV_RATE",
+            "CONV_VALUE",
+        ]
         pk = _derive_primary_key(fields)
         assert pk == ["DAY"]
 
