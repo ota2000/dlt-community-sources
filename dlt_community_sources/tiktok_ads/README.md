@@ -51,13 +51,13 @@ load_info = pipeline.run(source)
 | saved_audiences | merge | saved_audience_id | DMP saved audiences |
 | creative_portfolios | merge | creative_portfolio_id | Creative portfolios |
 | automated_rules | merge | rule_id | Automated optimization rules |
-| authorized_advertiser_ids | replace | advertiser_id | Advertiser IDs authorized for this token (standalone, requires app_id/secret) |
+| authorized_advertiser_ids | replace | advertiser_id | Advertiser IDs authorized for this token. **Standalone only** (not included in default source; requires app_id/secret) |
 | advertiser_info | merge | advertiser_id | Advertiser account info |
 | advertiser_balance | replace | advertiser_id | Advertiser account balance |
 | advertiser_transactions | append | — | Advertiser account transactions (incremental) |
 | apps | merge | app_id | Apps associated with the advertiser |
 | videos | merge | video_id | Ad video assets (via search) |
-| rule_results | append | — | Automated rule execution results |
+| rule_results | replace | — | Automated rule execution results (snapshot) |
 | report | merge | stat_time_day + level-specific ID (e.g., campaign_id, adgroup_id, ad_id) | Daily performance report |
 
 ## Authentication

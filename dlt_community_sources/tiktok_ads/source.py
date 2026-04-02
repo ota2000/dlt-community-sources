@@ -265,11 +265,15 @@ def authorized_advertiser_ids(
 ):
     """Fetch advertiser IDs authorized for this access token."""
     client = _make_client(access_token)
-    response = client.get(
-        f"{base_url}/oauth2/advertiser/get/",
-        params={"app_id": app_id, "secret": secret},
-    )
-    response.raise_for_status()
+    url = f"{base_url}/oauth2/advertiser/get/"
+    response = client.get(url, params={"app_id": app_id, "secret": secret})
+    try:
+        response.raise_for_status()
+    except req.HTTPError as e:
+        if e.response is not None and e.response.status_code in (403, 404):
+            logger.warning("Skipping %s: %d", url, e.response.status_code)
+            return
+        raise
     data = response.json()
     if _check_response(data, "authorized_advertiser_ids"):
         for adv_id in data.get("data", {}).get("list", []):
@@ -286,11 +290,18 @@ def advertiser_info(
 ):
     """Fetch advertiser account info."""
     client = _make_client(access_token)
+    url = f"{base_url}/advertiser/info/"
     response = client.get(
-        f"{base_url}/advertiser/info/",
+        url,
         params={"advertiser_ids": json.dumps([advertiser_id])},
     )
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except req.HTTPError as e:
+        if e.response is not None and e.response.status_code in (403, 404):
+            logger.warning("Skipping %s: %d", url, e.response.status_code)
+            return
+        raise
     data = response.json()
     if _check_response(data, "advertiser_info"):
         yield from data.get("data", {}).get("list", [])
@@ -306,11 +317,15 @@ def advertiser_balance(
 ):
     """Fetch advertiser account balance."""
     client = _make_client(access_token)
-    response = client.get(
-        f"{base_url}/advertiser/balance/get/",
-        params={"advertiser_id": advertiser_id},
-    )
-    response.raise_for_status()
+    url = f"{base_url}/advertiser/balance/get/"
+    response = client.get(url, params={"advertiser_id": advertiser_id})
+    try:
+        response.raise_for_status()
+    except req.HTTPError as e:
+        if e.response is not None and e.response.status_code in (403, 404):
+            logger.warning("Skipping %s: %d", url, e.response.status_code)
+            return
+        raise
     data = response.json()
     if _check_response(data, "advertiser_balance"):
         balance_data = data.get("data", {})
@@ -337,17 +352,24 @@ def advertiser_transactions(
     """
     _ = last_date  # used by dlt framework for client-side dedup
     client = _make_client(access_token)
+    url = f"{base_url}/advertiser/transaction/get/"
     page = 1
     while True:
         response = client.get(
-            f"{base_url}/advertiser/transaction/get/",
+            url,
             params={
                 "advertiser_id": advertiser_id,
                 "page": str(page),
                 "page_size": "100",
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except req.HTTPError as e:
+            if e.response is not None and e.response.status_code in (403, 404):
+                logger.warning("Skipping %s: %d", url, e.response.status_code)
+                return
+            raise
         data = response.json()
         if not _check_response(data, f"advertiser_transactions page {page}"):
             break
@@ -369,17 +391,21 @@ def apps(
 ):
     """Fetch apps associated with the advertiser."""
     client = _make_client(access_token)
-    response = client.get(
-        f"{base_url}/app/list/",
-        params={"advertiser_id": advertiser_id},
-    )
-    response.raise_for_status()
+    url = f"{base_url}/app/list/"
+    response = client.get(url, params={"advertiser_id": advertiser_id})
+    try:
+        response.raise_for_status()
+    except req.HTTPError as e:
+        if e.response is not None and e.response.status_code in (403, 404):
+            logger.warning("Skipping %s: %d", url, e.response.status_code)
+            return
+        raise
     data = response.json()
     if _check_response(data, "apps"):
         yield from data.get("data", {}).get("list", [])
 
 
-@dlt.resource(name="rule_results", write_disposition="append")
+@dlt.resource(name="rule_results", write_disposition="replace")
 def rule_results(
     access_token: str,
     advertiser_id: str,
@@ -387,17 +413,24 @@ def rule_results(
 ):
     """Fetch automated rule execution results."""
     client = _make_client(access_token)
+    url = f"{base_url}/optimizer/rule/result/list/"
     page = 1
     while True:
         response = client.get(
-            f"{base_url}/optimizer/rule/result/list/",
+            url,
             params={
                 "advertiser_id": advertiser_id,
                 "page": str(page),
                 "page_size": "100",
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except req.HTTPError as e:
+            if e.response is not None and e.response.status_code in (403, 404):
+                logger.warning("Skipping %s: %d", url, e.response.status_code)
+                return
+            raise
         data = response.json()
         if not _check_response(data, f"rule_results page {page}"):
             break
@@ -419,17 +452,24 @@ def videos(
 ):
     """Fetch ad video assets via file/video/ad/search/."""
     client = _make_client(access_token)
+    url = f"{base_url}/file/video/ad/search/"
     page = 1
     while True:
         response = client.get(
-            f"{base_url}/file/video/ad/search/",
+            url,
             params={
                 "advertiser_id": advertiser_id,
                 "page": str(page),
                 "page_size": "100",
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except req.HTTPError as e:
+            if e.response is not None and e.response.status_code in (403, 404):
+                logger.warning("Skipping %s: %d", url, e.response.status_code)
+                return
+            raise
         data = response.json()
         if not _check_response(data, f"videos page {page}"):
             break
@@ -503,8 +543,17 @@ def report(
                 "page": str(page),
                 "page_size": "1000",
             }
-            response = client.get(f"{base_url}/report/integrated/get/", params=params)
-            response.raise_for_status()
+            report_url = f"{base_url}/report/integrated/get/"
+            response = client.get(report_url, params=params)
+            try:
+                response.raise_for_status()
+            except req.HTTPError as e:
+                if e.response is not None and e.response.status_code in (403, 404):
+                    logger.warning(
+                        "Skipping %s: %d", report_url, e.response.status_code
+                    )
+                    return
+                raise
             data = response.json()
 
             if not _check_response(
