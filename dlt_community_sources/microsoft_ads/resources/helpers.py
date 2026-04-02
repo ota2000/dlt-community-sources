@@ -95,6 +95,7 @@ def get_entities_paginated(
 ) -> Generator[dict, None, None]:
     """Fetch entities with PageInfo-based pagination."""
     page_index = 0
+    body = dict(body)
     while True:
         body["PageInfo"] = {"Index": page_index, "Size": page_size}
         data = post_rpc(client, url, body)

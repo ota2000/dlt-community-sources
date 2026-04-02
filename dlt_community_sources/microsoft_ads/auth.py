@@ -31,6 +31,7 @@ def refresh_access_token(
             "refresh_token": refresh_token,
             "scope": "https://ads.microsoft.com/msads.manage offline_access",
         },
+        timeout=30,
     )
     response.raise_for_status()
     return response.json()

@@ -65,6 +65,8 @@ source = microsoft_ads_source(
 )
 ```
 
+> **Note:** The report primary key includes fields like `AccountId`, `CampaignId`, etc. Make sure your custom `report_columns` includes these fields for correct merge behavior.
+
 ## Resources
 
 ### Campaign Management (33 resources)
@@ -90,7 +92,7 @@ source = microsoft_ads_source(
 | `label_associations_by_entity` | replace | Label to entity associations |
 | `budgets` | merge | Shared budgets |
 | `bid_strategies` | merge | Bid strategies |
-| `negative_keywords` | merge | Shared negative keyword lists |
+| `negative_keywords` | replace | Shared negative keyword lists |
 | `negative_sites_campaigns` | replace | Negative sites per campaign |
 | `shared_entities` | merge | Shared entity lists |
 | `shared_list_items` | replace | Items in shared lists |

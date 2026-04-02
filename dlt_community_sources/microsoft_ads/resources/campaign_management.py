@@ -1,7 +1,7 @@
 """Campaign Management API resources.
 
 SDK: bingads/v13/proxies/production/campaignmanagement_service.xml
-All 70+ GET operations from the SDK are covered here.
+33 resources covering the key GET operations from the SDK.
 
 REST URL pattern: {base}/{Entity}/{Action}
 See https://learn.microsoft.com/en-us/advertising/campaign-management-service/campaign-management-service-reference
@@ -343,7 +343,7 @@ def negative_keywords(access_token, developer_token, customer_id, account_id):
             )
 
 
-@dlt.resource(name="negative_sites_campaigns", write_disposition="append")
+@dlt.resource(name="negative_sites_campaigns", write_disposition="replace")
 def negative_sites_campaigns(access_token, developer_token, customer_id, account_id):
     """SDK: GetNegativeSitesByCampaignIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
