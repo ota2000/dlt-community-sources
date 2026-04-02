@@ -535,7 +535,6 @@ def _rest_api_config(
             "endpoint": {
                 "data_selector": "data",
                 "response_actions": [
-                    {"status_code": 400, "action": "ignore"},
                     {"status_code": 403, "action": "ignore"},
                     {"status_code": 404, "action": "ignore"},
                 ],
@@ -724,7 +723,6 @@ def _get_paginated(
                 break  # success
             except req.HTTPError as e:
                 if e.response is not None and e.response.status_code in (
-                    400,
                     403,
                     404,
                 ):

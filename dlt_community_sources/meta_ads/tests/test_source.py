@@ -76,7 +76,7 @@ class TestRestApiConfig:
     def test_response_actions(self):
         actions = self.config["resource_defaults"]["endpoint"]["response_actions"]
         status_codes = [a["status_code"] for a in actions]
-        assert 400 in status_codes
+        assert 400 not in status_codes
         assert 403 in status_codes
         assert 404 in status_codes
 
