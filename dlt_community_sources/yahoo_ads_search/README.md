@@ -1,8 +1,8 @@
 # Yahoo Ads Search
 
-A [dlt](https://dlthub.com) source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LINEヤフー広告 検索広告, formerly Yahoo! JAPAN Ads SS).
+A dlt source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LY Ads Search Ads, formerly Yahoo! JAPAN Ads SS).
 
-41 entity resources and 1 configurable report resource with 22 report types.
+Covers 27 entity resources and 1 configurable report resource with 16 report types.
 
 ## Installation
 
@@ -23,8 +23,10 @@ pipeline = dlt.pipeline(
 )
 
 source = yahoo_ads_search_source(
-    base_account_id="YOUR_MCC_ACCOUNT_ID",
-    account_id="YOUR_AD_ACCOUNT_ID",
+    client_id="YOUR_CLIENT_ID",
+    client_secret="YOUR_CLIENT_SECRET",
+    refresh_token="YOUR_REFRESH_TOKEN",
+    account_id="YOUR_ACCOUNT_ID",
 )
 
 load_info = pipeline.run(source)
@@ -34,8 +36,10 @@ load_info = pipeline.run(source)
 
 ```python
 source = yahoo_ads_search_source(
-    base_account_id="YOUR_MCC_ACCOUNT_ID",
-    account_id="YOUR_AD_ACCOUNT_ID",
+    client_id="YOUR_CLIENT_ID",
+    client_secret="YOUR_CLIENT_SECRET",
+    refresh_token="YOUR_REFRESH_TOKEN",
+    account_id="YOUR_ACCOUNT_ID",
     resources=["campaigns", "ad_groups", "report"],
 )
 ```
@@ -44,53 +48,23 @@ source = yahoo_ads_search_source(
 
 ```python
 source = yahoo_ads_search_source(
-    base_account_id="YOUR_MCC_ACCOUNT_ID",
-    account_id="YOUR_AD_ACCOUNT_ID",
+    client_id="YOUR_CLIENT_ID",
+    client_secret="YOUR_CLIENT_SECRET",
+    refresh_token="YOUR_REFRESH_TOKEN",
+    account_id="YOUR_ACCOUNT_ID",
     report_type="KEYWORDS",
     report_fields=["DAY", "KEYWORD", "IMPS", "CLICKS", "COST"],
     attribution_window_days=7,
 )
 ```
 
-### Multiple accounts
-
-The source loads data for a single account per invocation. For multiple accounts, use `discover_accounts` to list child accounts under an MCC and run a separate pipeline per account. This ensures each account has its own incremental cursor.
-
-```python
-import dlt
-from dlt_community_sources.yahoo_ads_common import (
-    discover_accounts,
-    make_client,
-    refresh_access_token,
-)
-from dlt_community_sources.yahoo_ads_search import yahoo_ads_search_source
-
-tokens = refresh_access_token(client_id, client_secret, refresh_token)
-client = make_client(tokens["access_token"], base_account_id)
-accounts = discover_accounts(client, "https://ads-search.yahooapis.jp/api/v19")
-
-for account_id in accounts:
-    pipeline = dlt.pipeline(
-        pipeline_name=f"yahoo_ads_{account_id}",
-        destination="bigquery",
-        dataset_name="source_yahoo_ads",
-    )
-    source = yahoo_ads_search_source(
-        base_account_id=base_account_id,
-        account_id=account_id,
-    )
-    pipeline.run(source)
-```
-
-`discover_accounts` returns SERVING accounts only. To load data for an ENDED account, pass its `account_id` explicitly.
-
 ## Resources
 
-### Entity Resources (41)
+### Entity Resources (27)
 
 | Resource | Write Disposition | Description |
 |---|---|---|
-| `accounts` | merge | Account details (MCC-level, empty body) |
+| `accounts` | merge | Account details |
 | `campaigns` | merge | Campaigns |
 | `ad_groups` | merge | Ad groups |
 | `ads` | merge | Ads |
@@ -112,25 +86,11 @@ for account_id in accounts:
 | `customizer_attributes` | merge | Customizer attributes |
 | `account_tracking_urls` | replace | Account tracking URL settings |
 | `ab_tests` | merge | A/B tests |
-| `audit_logs` | append | Change history logs |
 | `seasonality_adjustments` | merge | Seasonality adjustments |
 | `learning_data_exclusions` | merge | Learning data exclusions |
 | `conversion_groups` | merge | Conversion groups |
 | `campaign_audience_lists` | replace | Campaign audience settings |
 | `ad_group_audience_lists` | replace | Ad group audience settings |
-| `balance` | replace | Account balance |
-| `budget_orders` | replace | Budget orders |
-| `shared_criterions` | merge | Shared negative keywords |
-| `campaign_shared_sets` | replace | Campaign-to-shared-list associations |
-| `page_feed_assets` | merge | Page feed assets |
-| `ad_group_webpages` | replace | Ad group webpage targeting |
-| `campaign_webpages` | replace | Campaign webpage exclusions |
-| `account_links` | replace | MCC account links (empty body) |
-| `app_links` | merge | App conversion links |
-| `account_customizers` | replace | Account-level customizer values |
-| `campaign_customizers` | replace | Campaign-level customizer values |
-| `ad_group_customizers` | replace | Ad group-level customizer values |
-| `ad_group_criterion_customizers` | replace | Criterion-level customizer values |
 
 ### Report Resource
 
@@ -138,7 +98,7 @@ for account_id in accounts:
 |---|---|---|---|
 | `report` | merge | by DAY | Configurable performance report |
 
-Report types: `ACCOUNT`, `CAMPAIGN`, `ADGROUP`, `AD`, `KEYWORDS`, `SEARCH_QUERY`, `GEO`, `GEO_TARGET`, `SCHEDULE_TARGET`, `BID_STRATEGY`, `CAMPAIGN_TARGET_LIST`, `ADGROUP_TARGET_LIST`, `LANDING_PAGE_URL`, `KEYWORDLESS_QUERY`, `WEBPAGE_CRITERION`, `BID_MODIFIER`, `CAMPAIGN_ASSET`, `ADGROUP_ASSET`, `ACCOUNT_ASSET`, `RESPONSIVE_ADS_FOR_SEARCH_ASSET`, `ASSET_COMBINATIONS`, `CAMPAIGN_BUDGET`
+Report types: `ACCOUNT`, `CAMPAIGN`, `ADGROUP`, `AD`, `KEYWORDS`, `SEARCH_QUERY`, `GEO`, `FEED_ITEM`, `GEO_TARGET`, `SCHEDULE_TARGET`, `DEVICE_TARGET`, `AD_CUSTOMIZERS`, `BID_STRATEGY`, `TARGET_LIST`, `LANDING_PAGE_URL`, `KEYWORDLESS_QUERY`
 
 ## Authentication
 
@@ -155,49 +115,17 @@ Yahoo Ads uses OAuth 2.0 Authorization Code Grant.
 | `client_id` | (required) | Yahoo Ads API client ID |
 | `client_secret` | (required) | Yahoo Ads API client secret |
 | `refresh_token` | (required) | OAuth refresh token |
-| `base_account_id` | (required) | MCC account ID (used in `x-z-base-account-id` header) |
-| `account_id` | (required) | Child account ID to load data from |
+| `account_id` | (required) | Yahoo Ads account ID |
 | `report_type` | `CAMPAIGN` | Report type |
-| `report_fields` | `None` | Custom report fields. If omitted, all available fields are fetched dynamically via `getReportFields` API |
+| `report_fields` | `None` | Custom report fields (defaults per report type) |
 | `attribution_window_days` | `7` | Days to re-fetch for attribution window |
 | `resources` | `None` | Resource names to load (None for all) |
 | `start_date` | `None` | Override incremental start date (YYYY-MM-DD) |
 
-## How it works
+## Notes
 
-### Dynamic report fields
-
-Report fields are not hardcoded. The source calls `getReportFields` API at runtime to discover all available fields for the given report type. When the API version changes and fields are added or removed, the source adapts automatically.
-
-Fields that conflict with each other (`impossibleCombinationFields`) are resolved by greedily removing the field with the most conflicts, producing the largest conflict-free field set.
-
-### Dynamic type conversion
-
-Report CSV values are all strings. Type conversion uses `fieldType` metadata from `getReportFields`:
-
-- `LONG` → `int`
-- `DOUBLE` / `BID` → `Decimal`
-- `STRING` / `ENUM` → as-is
-- `--` or empty → `None`
-
-### CSV column name mapping
-
-Report CSV headers use display names (e.g., `Account ID`) rather than API field names (e.g., `ACCOUNT_ID`). The source builds a mapping from `displayFieldNameEn` in `getReportFields` and renames columns after download for a consistent schema.
-
-### Report primary key
-
-Primary key includes only core identity fields: `DAY`, `ACCOUNT_ID`, `CAMPAIGN_ID`, `ADGROUP_ID`, `AD_ID`, `KEYWORD_ID`, etc. This avoids non-nullable PK errors from optional fields.
-
-### Body styles
-
-Yahoo Ads API services use different request body structures. Each entity resource has an appropriate `body_style`:
-
-- `standard`: `accountId` + `startIndex` + `numberResults` (most services)
-- `account_ids`: `accountIds` array, no pagination
-- `no_paging`: `accountId` only
-- `empty`: no body params (MCC-level services)
-
-### Error handling
-
-- HTTP 400/403/404 responses are silently skipped (some services are unavailable depending on account permissions)
-- Other HTTP errors are raised
+- **POST RPC style**: All endpoints use POST with JSON body (not REST GET).
+- **Pagination**: Uses `startIndex` (1-based) and `numberResults` for offset pagination.
+- **Report primary key**: Dynamically derived from report fields — all non-metric fields become the composite primary key.
+- **Type conversion**: Report CSV values `--` are converted to `None`, numeric fields to int/float.
+- **Permission errors**: Resources returning 403/404 are silently skipped.
