@@ -14,6 +14,7 @@ Community-maintained [dlt](https://dlthub.com/) sources for various APIs. Instal
 | [App Store Connect](dlt_community_sources/app_store_connect/) | `app-store-connect` | Apple App Store Connect API |
 | [Twilio](dlt_community_sources/twilio/) | `twilio` | Twilio SMS, Calls, Usage Records |
 | [NextDNS](dlt_community_sources/nextdns/) | `nextdns` | NextDNS logs and analytics |
+| [TikTok Ads](dlt_community_sources/tiktok_ads/) | `tiktok-ads` | TikTok Marketing API (Business API) |
 
 ## Installation
 
