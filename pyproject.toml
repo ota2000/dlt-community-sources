@@ -22,8 +22,11 @@ classifiers = [
 
 [project.optional-dependencies]
 app-store-connect = ["PyJWT[crypto]>=2.8.0"]
-twilio = []  # no extra dependencies, requests is included in dlt
+meta-ads = []  # no extra dependencies, requests is included in dlt
+microsoft-ads = []  # no extra dependencies, requests is included in dlt
 nextdns = []  # no extra dependencies, requests is included in dlt
+tiktok-ads = []  # no extra dependencies, requests is included in dlt
+twilio = []  # no extra dependencies, requests is included in dlt
 yahoo-ads-display = []  # no extra dependencies, requests is included in dlt
 yahoo-ads-search = []  # no extra dependencies, requests is included in dlt
 
