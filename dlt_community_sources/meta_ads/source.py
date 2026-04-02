@@ -881,6 +881,9 @@ def meta_ads_source(
         account_id=account_id,
         base_url=url,
     )
+    leads_resource.apply_hints(
+        columns={"created_time": {"data_type": "timestamp"}},
+    )
 
     # Insights resource (async reports)
     initial_value = start_date or "2020-01-01"
