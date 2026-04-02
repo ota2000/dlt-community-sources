@@ -1,5 +1,6 @@
 """Tests for Yahoo Ads Search source."""
 
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -351,8 +352,8 @@ class TestSourceConfig:
     def test_convert_report_types_float(self):
         row = {"COST": "1,234.56", "AVG_CPC": "12.34"}
         result = convert_report_types(row)
-        assert result["COST"] == 1234.56
-        assert result["AVG_CPC"] == 12.34
+        assert result["COST"] == Decimal("1234.56")
+        assert result["AVG_CPC"] == Decimal("12.34")
 
     def test_convert_report_types_dash(self):
         row = {"IMPS": "--", "COST": ""}

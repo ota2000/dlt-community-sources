@@ -1,5 +1,6 @@
 """Tests for Yahoo Ads Display source."""
 
+from decimal import Decimal
 from unittest.mock import patch
 
 from dlt_community_sources.yahoo_ads_common.helpers import convert_report_types
@@ -55,7 +56,7 @@ class TestSourceConfig:
         row = {"IMPS": "1,000", "COST": "500.50", "DAY": "2026-01-01", "CLICKS": "--"}
         result = convert_report_types(row)
         assert result["IMPS"] == 1000
-        assert result["COST"] == 500.50
+        assert result["COST"] == Decimal("500.50")
         assert result["DAY"] == "2026-01-01"
         assert result["CLICKS"] is None
 
