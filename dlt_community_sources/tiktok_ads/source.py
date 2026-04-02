@@ -438,7 +438,11 @@ def videos(
         page += 1
 
 
-@dlt.resource(name="report", write_disposition="merge")
+@dlt.resource(
+    name="report",
+    write_disposition="merge",
+    columns={"stat_time_day": {"data_type": "date"}},
+)
 def report(
     access_token: str,
     advertiser_id: str,
