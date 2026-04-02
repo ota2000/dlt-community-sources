@@ -51,6 +51,8 @@ load_info = pipeline.run(source)
 | saved_audiences | merge | saved_audience_id | DMP saved audiences |
 | creative_portfolios | merge | creative_portfolio_id | Creative portfolios |
 | automated_rules | merge | rule_id | Automated optimization rules |
+| pixels | merge | pixel_id | Event source / pixel list (for conversion tracking) |
+| identities | replace | — | Identities under an ad account (e.g., TikTok accounts, custom users) |
 | authorized_advertiser_ids | replace | advertiser_id | Advertiser IDs authorized for this token. **Standalone only** (not included in default source; requires app_id/secret) |
 | advertiser_info | merge | advertiser_id | Advertiser account info |
 | advertiser_balance | replace | advertiser_id | Advertiser account balance |
@@ -81,4 +83,6 @@ The API uses `Access-Token` header (not `Authorization: Bearer`).
 - TikTok API returns HTTP 200 for errors (`code != 0`) — handled gracefully
 - 429 rate limit retry handled by dlt's built-in HTTP client
 - Images: TikTok API has no list-all endpoint (`file/image/ad/info/` requires specific `image_ids`). Image metadata is available via ad creatives.
+- Catalogs: `catalog/get/` requires `bc_id` (Business Center ID), not `advertiser_id`. Not included in the default source.
+- Creative Assets: No list/get endpoint available in the API.
 - Default API version: v1.3

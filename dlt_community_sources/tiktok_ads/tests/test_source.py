@@ -14,6 +14,7 @@ from dlt_community_sources.tiktok_ads.source import (
     _flatten_report_row,
     _make_client,
     _rest_api_config,
+    tiktok_ads_source,
 )
 
 
@@ -185,3 +186,53 @@ class TestMakeClient:
     def test_no_bearer_header(self):
         client = _make_client("test_token")
         assert "Authorization" not in client.session.headers
+
+
+class TestSourceResourceNames:
+    """Test tiktok_ads_source() returns all expected resources."""
+
+    def test_all_resource_names(self):
+        source = tiktok_ads_source(
+            access_token="test_token",
+            advertiser_id="12345",
+        )
+        names = sorted(r.name for r in source.resources.values())
+        expected = sorted(
+            [
+                "campaigns",
+                "ad_groups",
+                "ads",
+                "custom_audiences",
+                "saved_audiences",
+                "creative_portfolios",
+                "automated_rules",
+                "advertiser_info",
+                "advertiser_balance",
+                "advertiser_transactions",
+                "apps",
+                "pixels",
+                "identities",
+                "videos",
+                "rule_results",
+                "report",
+            ]
+        )
+        assert names == expected
+
+    def test_pixels_resource_config(self):
+        source = tiktok_ads_source(
+            access_token="test_token",
+            advertiser_id="12345",
+            resources=["pixels"],
+        )
+        names = [r.name for r in source.resources.values()]
+        assert names == ["pixels"]
+
+    def test_identities_resource_config(self):
+        source = tiktok_ads_source(
+            access_token="test_token",
+            advertiser_id="12345",
+            resources=["identities"],
+        )
+        names = [r.name for r in source.resources.values()]
+        assert names == ["identities"]

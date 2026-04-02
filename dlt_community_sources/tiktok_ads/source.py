@@ -444,6 +444,88 @@ def rule_results(
         page += 1
 
 
+@dlt.resource(name="pixels", write_disposition="merge", primary_key="pixel_id")
+def pixels(
+    access_token: str,
+    advertiser_id: str,
+    base_url: str = DEFAULT_BASE_URL,
+):
+    """Fetch pixel (event source) list via pixel/list/."""
+    client = _make_client(access_token)
+    url = f"{base_url}/pixel/list/"
+    page = 1
+    while True:
+        response = client.get(
+            url,
+            params={
+                "advertiser_id": advertiser_id,
+                "page": str(page),
+                "page_size": "100",
+            },
+        )
+        try:
+            response.raise_for_status()
+        except req.HTTPError as e:
+            if e.response is not None and e.response.status_code in (403, 404):
+                logger.warning("Skipping %s: %d", url, e.response.status_code)
+                return
+            raise
+        data = response.json()
+        if not _check_response(data, f"pixels page {page}"):
+            break
+
+        rows = data.get("data", {}).get("pixels", [])
+        if not rows:
+            break
+        yield from rows
+
+        page_info = data.get("data", {}).get("page_info", {})
+        if page >= page_info.get("total_page", 1):
+            break
+        page += 1
+
+
+@dlt.resource(name="identities", write_disposition="replace")
+def identities(
+    access_token: str,
+    advertiser_id: str,
+    base_url: str = DEFAULT_BASE_URL,
+):
+    """Fetch identities under an ad account via identity/get/."""
+    client = _make_client(access_token)
+    url = f"{base_url}/identity/get/"
+    page = 1
+    while True:
+        response = client.get(
+            url,
+            params={
+                "advertiser_id": advertiser_id,
+                "page": str(page),
+                "page_size": "100",
+            },
+        )
+        try:
+            response.raise_for_status()
+        except req.HTTPError as e:
+            if e.response is not None and e.response.status_code in (403, 404):
+                logger.warning("Skipping %s: %d", url, e.response.status_code)
+                return
+            raise
+        data = response.json()
+        if not _check_response(data, f"identities page {page}"):
+            break
+
+        rows = data.get("data", {}).get("list", [])
+        if not rows:
+            break
+        yield from rows
+
+        page_info = data.get("data", {}).get("page_info", {})
+        if page >= page_info.get("total_page", 1):
+            break
+        page += 1
+
+
 @dlt.resource(name="videos", write_disposition="merge", primary_key="video_id")
 def videos(
     access_token: str,
@@ -626,6 +708,10 @@ def tiktok_ads_source(
             access_token=access_token, advertiser_id=advertiser_id, base_url=url
         ),
         apps(access_token=access_token, advertiser_id=advertiser_id, base_url=url),
+        pixels(access_token=access_token, advertiser_id=advertiser_id, base_url=url),
+        identities(
+            access_token=access_token, advertiser_id=advertiser_id, base_url=url
+        ),
         videos(access_token=access_token, advertiser_id=advertiser_id, base_url=url),
         rule_results(
             access_token=access_token, advertiser_id=advertiser_id, base_url=url
