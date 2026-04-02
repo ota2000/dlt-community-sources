@@ -18,7 +18,7 @@ class TestSourceConfig:
         assert "v19" in BASE_URL
 
     def test_entity_resources_count(self):
-        assert len(_ENTITY_RESOURCES) >= 25
+        assert len(_ENTITY_RESOURCES) >= 27
 
     def test_entity_resources_have_required_fields(self):
         for name, path, disposition, pk in _ENTITY_RESOURCES:
@@ -37,6 +37,11 @@ class TestSourceConfig:
         assert "placement_url_lists" in names
         assert "guaranteed_campaigns" in names
         assert "brand_lift" in names
+
+    def test_new_entity_resources_present(self):
+        names = [r[0] for r in _ENTITY_RESOURCES]
+        assert "account_links" in names
+        assert "app_links" in names
 
     def test_report_types(self):
         assert "AD" in REPORT_TYPES

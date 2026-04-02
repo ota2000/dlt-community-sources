@@ -101,6 +101,49 @@ _ENTITY_RESOURCES = [
         "replace",
         "adGroupId",
     ),
+    ("balance", "BalanceService/get", "replace", "accountId"),
+    ("budget_orders", "BudgetOrderService/get", "replace", "accountId"),
+    (
+        "shared_criterions",
+        "SharedCriterionService/get",
+        "merge",
+        "criterionId",
+    ),
+    (
+        "campaign_shared_sets",
+        "CampaignSharedSetService/get",
+        "replace",
+        "campaignId",
+    ),
+    ("page_feed_assets", "PageFeedAssetService/get", "merge", "pageFeedAssetId"),
+    ("ad_group_webpages", "AdGroupWebpageService/get", "replace", "adGroupId"),
+    ("campaign_webpages", "CampaignWebpageService/get", "replace", "campaignId"),
+    ("account_links", "AccountLinkService/get", "replace", "accountId"),
+    ("app_links", "AppLinkService/get", "merge", "appLinkId"),
+    (
+        "account_customizers",
+        "AccountCustomizerService/get",
+        "replace",
+        "customizerAttributeId",
+    ),
+    (
+        "campaign_customizers",
+        "CampaignCustomizerService/get",
+        "replace",
+        "customizerAttributeId",
+    ),
+    (
+        "ad_group_customizers",
+        "AdGroupCustomizerService/get",
+        "replace",
+        "customizerAttributeId",
+    ),
+    (
+        "ad_group_criterion_customizers",
+        "AdGroupCriterionCustomizerService/get",
+        "replace",
+        "criterionId",
+    ),
 ]
 
 # Report types available in Search Ads (API v19 ReportDefinitionServiceReportType)

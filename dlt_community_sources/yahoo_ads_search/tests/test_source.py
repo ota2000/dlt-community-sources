@@ -321,7 +321,7 @@ class TestSourceConfig:
         assert "v19" in BASE_URL
 
     def test_entity_resources_count(self):
-        assert len(_ENTITY_RESOURCES) >= 25
+        assert len(_ENTITY_RESOURCES) >= 38
 
     def test_entity_resources_have_required_fields(self):
         for name, path, disposition, pk in _ENTITY_RESOURCES:
@@ -329,6 +329,22 @@ class TestSourceConfig:
             assert "/" in path, f"{name}: path missing /"
             assert disposition in ("merge", "replace", "append")
             assert pk, f"{name}: primary_key is empty"
+
+    def test_new_entity_resources_present(self):
+        names = [r[0] for r in _ENTITY_RESOURCES]
+        assert "balance" in names
+        assert "budget_orders" in names
+        assert "shared_criterions" in names
+        assert "campaign_shared_sets" in names
+        assert "page_feed_assets" in names
+        assert "ad_group_webpages" in names
+        assert "campaign_webpages" in names
+        assert "account_links" in names
+        assert "app_links" in names
+        assert "account_customizers" in names
+        assert "campaign_customizers" in names
+        assert "ad_group_customizers" in names
+        assert "ad_group_criterion_customizers" in names
 
     def test_report_types(self):
         assert "CAMPAIGN" in REPORT_TYPES
