@@ -16,6 +16,8 @@ import dlt
 
 from dlt_community_sources.yahoo_ads_common.auth import refresh_access_token
 from dlt_community_sources.yahoo_ads_common.helpers import (
+    convert_report_types,
+    derive_primary_key,
     download_report,
     make_client,
     poll_report,
@@ -72,21 +74,21 @@ _ENTITY_RESOURCES = [
     ("budget_orders", "BudgetOrderService/get", "merge", "budgetOrderId"),
 ]
 
-# Report types available in Display Ads
+# Report types available in Display Ads (API v19 ReportDefinitionServiceReportType)
 REPORT_TYPES = [
     "AD",
     "APP",
-    "AUDIENCE_LIST",
+    "AUDIENCE_LIST_TARGET",
     "CONTENT_KEYWORD_LIST",
     "CONVERSION_PATH",
     "CROSS_CAMPAIGN_REACHES",
     "LABEL",
     "MODEL_COMPARISON",
-    "PLACEMENT_LIST",
+    "PLACEMENT_TARGET",
     "PORTFOLIO_BIDDING",
     "REACH",
-    "SEARCH_KEYWORD_LIST",
-    "SHARED_BUDGET",
+    "SEARCH_TARGET",
+    "CAMPAIGN_BUDGET",
     "URL",
 ]
 
@@ -111,7 +113,7 @@ REPORT_FIELDS = {
         "CONV_RATE",
         "CONV_VALUE",
     ],
-    "PLACEMENT_LIST": [
+    "PLACEMENT_TARGET": [
         "DAY",
         "ACCOUNT_ID",
         "CAMPAIGN_ID",
@@ -129,37 +131,6 @@ REPORT_FIELDS = {
         "CONV_RATE",
     ],
 }
-
-# Numeric fields for type conversion
-REPORT_INT_FIELDS = {"IMPS", "CLICKS", "CONVERSIONS"}
-REPORT_FLOAT_FIELDS = {"CLICK_RATE", "AVG_CPC", "COST", "CONV_RATE", "CONV_VALUE"}
-REPORT_METRIC_FIELDS = REPORT_INT_FIELDS | REPORT_FLOAT_FIELDS
-
-
-def _derive_primary_key(fields: list[str]) -> list[str]:
-    """Derive primary key from report fields (all non-metric fields)."""
-    return [f for f in fields if f not in REPORT_METRIC_FIELDS]
-
-
-def _convert_report_types(row: dict) -> dict:
-    """Convert report string values to appropriate numeric types."""
-    result = {}
-    for k, v in row.items():
-        if v == "--" or v == "":
-            result[k] = None
-        elif k in REPORT_INT_FIELDS:
-            try:
-                result[k] = int(v.replace(",", ""))
-            except (ValueError, AttributeError):
-                result[k] = v
-        elif k in REPORT_FLOAT_FIELDS:
-            try:
-                result[k] = float(v.replace(",", ""))
-            except (ValueError, AttributeError):
-                result[k] = v
-        else:
-            result[k] = v
-    return result
 
 
 def _make_entity_resource(
@@ -198,10 +169,10 @@ def _build_entity_resources(
 
 @dlt.source(name="yahoo_ads_display")
 def yahoo_ads_display_source(
-    client_id: str,
-    client_secret: str,
-    refresh_token: str,
-    account_id: str,
+    client_id: str = dlt.secrets.value,
+    client_secret: str = dlt.secrets.value,
+    refresh_token: str = dlt.secrets.value,
+    account_id: str = dlt.config.value,
     report_type: str = "AD",
     report_fields: Optional[list[str]] = None,
     attribution_window_days: int = 7,
@@ -212,14 +183,14 @@ def yahoo_ads_display_source(
     """Yahoo Ads Display (YDA) source.
 
     Includes LINE placement data (YDA serves ads on LINE surfaces).
-    Use PLACEMENT_LIST report type to identify LINE placements.
+    Use PLACEMENT_TARGET report type to identify LINE placements.
 
     Args:
         client_id: Yahoo Ads API client ID.
         client_secret: Yahoo Ads API client secret.
         refresh_token: OAuth refresh token.
         account_id: Yahoo Ads account ID.
-        report_type: Report type (AD, PLACEMENT_LIST, etc.).
+        report_type: Report type (AD, PLACEMENT_TARGET, etc.).
         report_fields: Custom report fields. Defaults per report type.
         attribution_window_days: Days to re-fetch for attribution window.
         resources: Resource names to load. None for all.
@@ -233,10 +204,15 @@ def yahoo_ads_display_source(
 
     # Report resource
     fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["AD"])
-    pk = _derive_primary_key(fields)
+    pk = derive_primary_key(fields)
     initial = start_date or "2020-01-01"
 
-    @dlt.resource(name="report", write_disposition="merge", primary_key=pk)
+    @dlt.resource(
+        name="report",
+        write_disposition="merge",
+        primary_key=pk,
+        columns={"DAY": {"data_type": "date"}},
+    )
     def _report(
         last_date=dlt.sources.incremental("DAY", initial_value=initial),
     ):
@@ -266,7 +242,7 @@ def yahoo_ads_display_source(
             return
 
         for row in download_report(client, base_url, account_id, job_id):
-            yield _convert_report_types(row)
+            yield convert_report_types(row)
 
     all_resources.append(_report)
 
