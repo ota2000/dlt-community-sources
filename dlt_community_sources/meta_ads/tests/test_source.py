@@ -44,6 +44,8 @@ class TestRestApiConfig:
     def test_resource_names(self):
         names = [r["name"] for r in self.config["resources"]]
         assert names == [
+            "ad_accounts",
+            "ad_labels",
             "campaigns",
             "ad_sets",
             "ads",
@@ -59,16 +61,16 @@ class TestRestApiConfig:
     def test_account_id_prefix(self):
         config = _rest_api_config("token", "123456", "https://example.com")
         paths = [r["endpoint"]["path"] for r in config["resources"]]
-        assert all(p.startswith("act_123456/") for p in paths)
+        assert all(p.startswith("act_123456") for p in paths)
 
     def test_account_id_already_prefixed(self):
         config = _rest_api_config("token", "act_123456", "https://example.com")
         paths = [r["endpoint"]["path"] for r in config["resources"]]
-        assert all(p.startswith("act_123456/") for p in paths)
+        assert all(p.startswith("act_123456") for p in paths)
         assert not any("act_act_" in p for p in paths)
 
     def test_campaign_fields(self):
-        campaigns = self.config["resources"][0]
+        campaigns = [r for r in self.config["resources"] if r["name"] == "campaigns"][0]
         fields_param = campaigns["endpoint"]["params"]["fields"]
         for field in DEFAULT_FIELDS["campaigns"]:
             assert field in fields_param
@@ -96,6 +98,36 @@ class TestRestApiConfig:
         ]
         assert activities["primary_key"] == ""
 
+    def test_ad_accounts_data_selector(self):
+        ad_accounts = [
+            r for r in self.config["resources"] if r["name"] == "ad_accounts"
+        ][0]
+        assert ad_accounts["endpoint"]["data_selector"] == "$"
+
+    def test_ad_accounts_endpoint_path(self):
+        ad_accounts = [
+            r for r in self.config["resources"] if r["name"] == "ad_accounts"
+        ][0]
+        assert ad_accounts["endpoint"]["path"] == "act_123456"
+
+    def test_ad_accounts_fields(self):
+        ad_accounts = [
+            r for r in self.config["resources"] if r["name"] == "ad_accounts"
+        ][0]
+        fields_param = ad_accounts["endpoint"]["params"]["fields"]
+        for field in DEFAULT_FIELDS["ad_accounts"]:
+            assert field in fields_param
+
+    def test_ad_labels_endpoint_path(self):
+        ad_labels = [r for r in self.config["resources"] if r["name"] == "ad_labels"][0]
+        assert ad_labels["endpoint"]["path"] == "act_123456/adlabels"
+
+    def test_ad_labels_fields(self):
+        ad_labels = [r for r in self.config["resources"] if r["name"] == "ad_labels"][0]
+        fields_param = ad_labels["endpoint"]["params"]["fields"]
+        for field in DEFAULT_FIELDS["ad_labels"]:
+            assert field in fields_param
+
     def test_custom_fields_override(self):
         config = _rest_api_config(
             "token",
@@ -103,7 +135,7 @@ class TestRestApiConfig:
             "https://example.com",
             custom_fields={"campaigns": ["id", "name"]},
         )
-        campaigns = config["resources"][0]
+        campaigns = [r for r in config["resources"] if r["name"] == "campaigns"][0]
         assert campaigns["endpoint"]["params"]["fields"] == "id,name"
 
 
@@ -112,6 +144,8 @@ class TestDefaultFields:
 
     def test_all_field_sets_exist(self):
         expected = [
+            "ad_accounts",
+            "ad_labels",
             "campaigns",
             "ad_sets",
             "ads",

@@ -67,6 +67,8 @@ source = meta_ads_source(
 
 | Resource | Write Disposition | Primary Key | Description |
 |---|---|---|---|
+| ad_accounts | merge | id | Ad account information |
+| ad_labels | merge | id | Ad label management |
 | campaigns | merge | id | Campaign master data |
 | ad_sets | merge | id | Ad set master data |
 | ads | merge | id | Ad master data |

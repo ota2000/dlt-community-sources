@@ -18,6 +18,26 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://graph.facebook.com/v25.0"
 DEFAULT_FIELDS = {
+    # SDK: facebook_business/adobjects/adaccount.py
+    "ad_accounts": [
+        "id",
+        "name",
+        "account_id",
+        "account_status",
+        "currency",
+        "timezone_name",
+        "business_name",
+        "amount_spent",
+        "balance",
+        "spend_cap",
+    ],
+    # SDK: facebook_business/adobjects/adlabel.py
+    "ad_labels": [
+        "id",
+        "name",
+        "created_time",
+        "updated_time",
+    ],
     # SDK: facebook_business/adobjects/campaign.py
     "campaigns": [
         "id",
@@ -541,6 +561,25 @@ def _rest_api_config(
             },
         },
         "resources": [
+            {
+                "name": "ad_accounts",
+                "endpoint": {
+                    "path": act_id,
+                    "params": {
+                        "fields": ",".join(fields["ad_accounts"]),
+                    },
+                    "data_selector": "$",
+                },
+            },
+            {
+                "name": "ad_labels",
+                "endpoint": {
+                    "path": f"{act_id}/adlabels",
+                    "params": {
+                        "fields": ",".join(fields["ad_labels"]),
+                    },
+                },
+            },
             {
                 "name": "campaigns",
                 "endpoint": {
