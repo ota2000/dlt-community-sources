@@ -2,6 +2,7 @@
 
 import io
 import zipfile
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from dlt_community_sources.microsoft_ads.resources.ad_insight import (
@@ -175,7 +176,7 @@ class TestConvertReportTypes:
     def test_converts_float_fields(self):
         row = {"Spend": "12.34", "Ctr": "0.03"}
         result = convert_report_types(row)
-        assert isinstance(result["Spend"], float)
+        assert isinstance(result["Spend"], Decimal)
 
     def test_handles_none(self):
         row = {"Impressions": None}
@@ -293,7 +294,7 @@ class TestDownloadCsvReport:
         assert len(rows) == 1
         assert rows[0]["TimePeriod"] == "2026-01-01"
         assert rows[0]["Impressions"] == 100
-        assert rows[0]["Spend"] == 12.34
+        assert rows[0]["Spend"] == Decimal("12.34")
 
 
 class TestSourceFunction:

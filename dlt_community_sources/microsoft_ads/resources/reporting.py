@@ -239,7 +239,11 @@ def _download_csv_report(client: req.Client, url: str) -> Generator[dict, None, 
                     yield convert_report_types(dict(row))
 
 
-@dlt.resource(name="report", write_disposition="merge")
+@dlt.resource(
+    name="report",
+    write_disposition="merge",
+    columns={"TimePeriod": {"data_type": "date"}},
+)
 def report(
     access_token: str,
     developer_token: str,

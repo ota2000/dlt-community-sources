@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Generator
+from decimal import Decimal
 
 from dlt.sources.helpers import requests as req
 
@@ -117,7 +118,7 @@ def convert_report_types(row: dict) -> dict:
     for field in REPORT_FLOAT_FIELDS:
         if field in row and row[field] is not None:
             try:
-                row[field] = float(row[field])
+                row[field] = Decimal(row[field])
             except (ValueError, TypeError):
                 pass
     return row
