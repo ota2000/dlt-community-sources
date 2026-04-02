@@ -24,6 +24,8 @@ classifiers = [
 app-store-connect = ["PyJWT[crypto]>=2.8.0"]
 twilio = []  # no extra dependencies, requests is included in dlt
 nextdns = []  # no extra dependencies, requests is included in dlt
+yahoo-ads-display = []  # no extra dependencies, requests is included in dlt
+yahoo-ads-search = []  # no extra dependencies, requests is included in dlt
 
 [project.urls]
 Homepage = "https://github.com/ota2000/dlt-community-sources"
