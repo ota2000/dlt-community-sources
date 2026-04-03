@@ -118,7 +118,8 @@ Same as Yahoo Ads Search — see [yahoo_ads_search README](../yahoo_ads_search/R
 | `base_account_id` | (required) | MCC account ID (used in `x-z-base-account-id` header) |
 | `account_id` | `None` | Child account ID. If omitted, auto-discovers all SERVING accounts under the MCC |
 | `report_type` | `AD` | Report type |
-| `report_fields` | `None` | Custom report fields (defaults per report type) |
+| `report_fields` | `None` | Custom report fields. If omitted, all available fields are fetched dynamically via `getReportFields` API |
+| `report_language` | `EN` | Report language (`EN` or `JA`) |
 | `attribution_window_days` | `7` | Days to re-fetch for attribution window |
 | `resources` | `None` | Resource names to load (None for all) |
 | `start_date` | `None` | Override incremental start date (YYYY-MM-DD) |

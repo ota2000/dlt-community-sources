@@ -19,6 +19,7 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
     derive_primary_key,
     discover_accounts,
     download_report,
+    get_report_fields,
     make_client,
     poll_report,
     safe_get_entities,
@@ -166,234 +167,12 @@ REPORT_TYPES = [
     "WEBPAGE_CRITERION",
     "BID_MODIFIER",
     "CAMPAIGN_ASSET",
-    "AD_GROUP_ASSET",
+    "ADGROUP_ASSET",
     "ACCOUNT_ASSET",
     "RESPONSIVE_ADS_FOR_SEARCH_ASSET",
-    "ASSET_COMBINATION",
-    "SHARED_BUDGET",
+    "ASSET_COMBINATIONS",
+    "CAMPAIGN_BUDGET",
 ]
-
-# Default report fields per report type
-REPORT_FIELDS = {
-    "CAMPAIGN": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "CAMPAIGN_STATUS",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "ADGROUP": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "ADGROUP_STATUS",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "AD": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "AD_ID",
-        "AD_NAME",
-        "AD_TYPE",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "KEYWORDS": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "KEYWORD_ID",
-        "KEYWORD",
-        "KEYWORD_MATCH_TYPE",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "QUALITY_INDEX",
-    ],
-    "CAMPAIGN_TARGET_LIST": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "TARGET_LIST_ID",
-        "TARGET_LIST_NAME",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "ADGROUP_TARGET_LIST": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "TARGET_LIST_ID",
-        "TARGET_LIST_NAME",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "WEBPAGE_CRITERION": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "CRITERION_ID",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "BID_MODIFIER": [
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "DEVICE_TYPE",
-        "BID_MULTIPLIER",
-        "BID_MODIFIER_ATTACHMENT_LEVEL",
-    ],
-    "CAMPAIGN_ASSET": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ASSET_ID",
-        "ASSET_ENTITY_TYPE",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "AD_GROUP_ASSET": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "ASSET_ID",
-        "ASSET_ENTITY_TYPE",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "ACCOUNT_ASSET": [
-        "DAY",
-        "ACCOUNT_ID",
-        "ASSET_ID",
-        "ASSET_ENTITY_TYPE",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "RESPONSIVE_ADS_FOR_SEARCH_ASSET": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "AD_ID",
-        "AD_NAME",
-        "ASSET_TEXT",
-        "ASSET_TYPE",
-        "PINNED_FIELD",
-        "PERFORMANCE",
-        "IMPS",
-    ],
-    "ASSET_COMBINATION": [
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "AD_ID",
-        "AD_NAME",
-        "IMPS",
-    ],
-    "SHARED_BUDGET": [
-        "DAY",
-        "ACCOUNT_ID",
-        "BUDGET_ID",
-        "BUDGET_NAME",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-        "AVG_CPC",
-    ],
-}
 
 
 def _make_entity_resource(
@@ -449,6 +228,7 @@ def yahoo_ads_search_source(
     account_id: Optional[str] = None,
     report_type: str = "CAMPAIGN",
     report_fields: Optional[list[str]] = None,
+    report_language: str = "EN",
     attribution_window_days: int = 7,
     resources: Optional[list[str]] = None,
     start_date: Optional[str] = None,
@@ -464,7 +244,9 @@ def yahoo_ads_search_source(
         account_id: Child account ID. If None, auto-discovers all SERVING
             accounts under the MCC via AccountService/get.
         report_type: Report type (CAMPAIGN, ADGROUP, AD, KEYWORDS, etc.).
-        report_fields: Custom report fields. Defaults per report type.
+        report_fields: Custom report fields. If omitted, all available fields
+            are fetched dynamically via getReportFields API.
+        report_language: Report language (EN or JA). Defaults to EN.
         attribution_window_days: Days to re-fetch for attribution window.
         resources: Resource names to load. None for all.
         start_date: Override incremental start date (YYYY-MM-DD).
@@ -484,7 +266,11 @@ def yahoo_ads_search_source(
     )
 
     # Report resource
-    fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["CAMPAIGN"])
+    if report_fields:
+        fields = report_fields
+    else:
+        # Dynamically fetch all available fields from the API
+        fields = get_report_fields(client, base_url, report_type)
     pk = derive_primary_key(fields)
     has_day = "DAY" in fields
     initial = start_date or "2020-01-01"
@@ -522,7 +308,14 @@ def yahoo_ads_search_source(
                 )
 
                 job_id = submit_report(
-                    rpt_client, base_url, aid, report_type, fields, start, end
+                    rpt_client,
+                    base_url,
+                    aid,
+                    report_type,
+                    fields,
+                    start,
+                    end,
+                    report_language=report_language,
                 )
                 if not job_id:
                     logger.warning("report: no job ID returned for account %s", aid)
@@ -555,7 +348,14 @@ def yahoo_ads_search_source(
                 )
 
                 job_id = submit_report(
-                    rpt_client, base_url, aid, report_type, fields, start, end
+                    rpt_client,
+                    base_url,
+                    aid,
+                    report_type,
+                    fields,
+                    start,
+                    end,
+                    report_language=report_language,
                 )
                 if not job_id:
                     logger.warning("report: no job ID returned for account %s", aid)
