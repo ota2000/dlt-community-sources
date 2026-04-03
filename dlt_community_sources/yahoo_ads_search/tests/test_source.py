@@ -16,6 +16,7 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
     download_report,
     get_entities,
     get_report_fields,
+    get_report_fields_with_types,
     make_client,
     poll_report,
     post_rpc,
@@ -470,21 +471,24 @@ class TestSourceConfig:
         assert "KEYWORDS" in REPORT_TYPES
 
     def test_convert_report_types_int(self):
+        field_type_map = {"IMPS": "LONG", "CLICKS": "LONG", "DAY": "STRING"}
         row = {"IMPS": "1,234", "CLICKS": "56", "DAY": "2026-01-01"}
-        result = convert_report_types(row)
+        result = convert_report_types(row, field_type_map)
         assert result["IMPS"] == 1234
         assert result["CLICKS"] == 56
         assert result["DAY"] == "2026-01-01"
 
     def test_convert_report_types_float(self):
+        field_type_map = {"COST": "DOUBLE", "AVG_CPC": "DOUBLE"}
         row = {"COST": "1,234.56", "AVG_CPC": "12.34"}
-        result = convert_report_types(row)
+        result = convert_report_types(row, field_type_map)
         assert result["COST"] == Decimal("1234.56")
         assert result["AVG_CPC"] == Decimal("12.34")
 
     def test_convert_report_types_dash(self):
+        field_type_map = {"IMPS": "LONG", "COST": "DOUBLE"}
         row = {"IMPS": "--", "COST": ""}
-        result = convert_report_types(row)
+        result = convert_report_types(row, field_type_map)
         assert result["IMPS"] is None
         assert result["COST"] is None
 
@@ -500,7 +504,16 @@ class TestDerivePrimaryKey:
             "CLICKS",
             "COST",
         ]
-        pk = derive_primary_key(fields)
+        field_type_map = {
+            "DAY": "STRING",
+            "ACCOUNT_ID": "STRING",
+            "CAMPAIGN_ID": "STRING",
+            "CAMPAIGN_NAME": "STRING",
+            "IMPS": "LONG",
+            "CLICKS": "LONG",
+            "COST": "LONG",
+        }
+        pk = derive_primary_key(fields, field_type_map)
         assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "CAMPAIGN_NAME"]
 
     def test_excludes_all_metrics(self):
@@ -515,7 +528,18 @@ class TestDerivePrimaryKey:
             "CONV_RATE",
             "CONV_VALUE",
         ]
-        pk = derive_primary_key(fields)
+        field_type_map = {
+            "DAY": "STRING",
+            "IMPS": "LONG",
+            "CLICKS": "LONG",
+            "CLICK_RATE": "DOUBLE",
+            "AVG_CPC": "DOUBLE",
+            "COST": "LONG",
+            "CONVERSIONS": "LONG",
+            "CONV_RATE": "DOUBLE",
+            "CONV_VALUE": "LONG",
+        }
+        pk = derive_primary_key(fields, field_type_map)
         assert pk == ["DAY"]
 
 
@@ -551,13 +575,71 @@ class TestGetReportFields:
         assert result == []
 
 
+class TestGetReportFieldsWithTypes:
+    def test_returns_fields_and_type_map(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response(
+            {
+                "rval": {
+                    "fields": [
+                        {"fieldName": "DAY", "fieldType": "STRING"},
+                        {"fieldName": "IMPS", "fieldType": "LONG"},
+                        {"fieldName": "COST", "fieldType": "DOUBLE"},
+                    ]
+                }
+            }
+        )
+        names, type_map = get_report_fields_with_types(
+            client, "https://api", "CAMPAIGN"
+        )
+        assert names == ["DAY", "IMPS", "COST"]
+        assert type_map == {"DAY": "STRING", "IMPS": "LONG", "COST": "DOUBLE"}
+
+    def test_defaults_to_string_when_field_type_missing(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response(
+            {
+                "rval": {
+                    "fields": [
+                        {"fieldName": "DAY"},
+                    ]
+                }
+            }
+        )
+        names, type_map = get_report_fields_with_types(
+            client, "https://api", "CAMPAIGN"
+        )
+        assert names == ["DAY"]
+        assert type_map == {"DAY": "STRING"}
+
+    def test_empty_fields(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response({"rval": {"fields": []}})
+        names, type_map = get_report_fields_with_types(
+            client, "https://api", "CAMPAIGN"
+        )
+        assert names == []
+        assert type_map == {}
+
+
 class TestSourceFunction:
-    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields")
+    _MOCK_FIELDS_RETURN = (
+        ["DAY", "CAMPAIGN_ID", "IMPS", "CLICKS", "COST"],
+        {
+            "DAY": "STRING",
+            "CAMPAIGN_ID": "LONG",
+            "IMPS": "LONG",
+            "CLICKS": "LONG",
+            "COST": "LONG",
+        },
+    )
+
+    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")
     @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
     def test_returns_source_with_account_id(self, mock_refresh, mock_get_fields):
         """When account_id is specified, use that single account."""
         mock_refresh.return_value = {"access_token": "at"}
-        mock_get_fields.return_value = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "IMPS"]
+        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
         from dlt_community_sources.yahoo_ads_search.source import (
             yahoo_ads_search_source,
         )
@@ -573,7 +655,7 @@ class TestSourceFunction:
         assert "campaigns" in source.resources
         mock_get_fields.assert_called_once()
 
-    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields")
+    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")
     @patch("dlt_community_sources.yahoo_ads_search.source.discover_accounts")
     @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
     def test_auto_discovers_accounts_when_account_id_none(
@@ -582,7 +664,7 @@ class TestSourceFunction:
         """When account_id is None, discover_accounts is called."""
         mock_refresh.return_value = {"access_token": "at"}
         mock_discover.return_value = ["111", "222"]
-        mock_get_fields.return_value = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "IMPS"]
+        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
         from dlt_community_sources.yahoo_ads_search.source import (
             yahoo_ads_search_source,
         )
@@ -598,11 +680,11 @@ class TestSourceFunction:
         assert "report" in source.resources
         assert "campaigns" in source.resources
 
-    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields")
+    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")
     @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
     def test_filter_resources(self, mock_refresh, mock_get_fields):
         mock_refresh.return_value = {"access_token": "at"}
-        mock_get_fields.return_value = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "IMPS"]
+        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
         from dlt_community_sources.yahoo_ads_search.source import (
             yahoo_ads_search_source,
         )
@@ -622,14 +704,14 @@ class TestSourceFunction:
 
     @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
     def test_skips_dynamic_fetch_when_report_fields_provided(self, mock_refresh):
-        """When report_fields is explicitly provided, get_report_fields is not called."""
+        """When report_fields is explicitly provided, get_report_fields_with_types is not called."""
         mock_refresh.return_value = {"access_token": "at"}
         from dlt_community_sources.yahoo_ads_search.source import (
             yahoo_ads_search_source,
         )
 
         with patch(
-            "dlt_community_sources.yahoo_ads_search.source.get_report_fields"
+            "dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types"
         ) as mock_get_fields:
             source = yahoo_ads_search_source(
                 client_id="cid",
