@@ -10,6 +10,7 @@ from dlt_community_sources.yahoo_ads_common.auth import (
     refresh_access_token,
 )
 from dlt_community_sources.yahoo_ads_common.helpers import (
+    ReportFieldMeta,
     convert_report_types,
     derive_primary_key,
     discover_accounts,
@@ -590,11 +591,10 @@ class TestGetReportFieldsWithTypes:
                 }
             }
         )
-        names, type_map = get_report_fields_with_types(
-            client, "https://api", "CAMPAIGN"
-        )
-        assert names == ["DAY", "IMPS", "COST"]
-        assert type_map == {"DAY": "STRING", "IMPS": "LONG", "COST": "DOUBLE"}
+        meta = get_report_fields_with_types(client, "https://api", "CAMPAIGN")
+        assert meta.field_names == ["DAY", "IMPS", "COST"]
+        assert meta.field_type_map == {"DAY": "STRING", "IMPS": "LONG", "COST": "DOUBLE"}
+        assert isinstance(meta.display_to_field, dict)
 
     def test_defaults_to_string_when_field_type_missing(self):
         client = MagicMock()
@@ -607,32 +607,29 @@ class TestGetReportFieldsWithTypes:
                 }
             }
         )
-        names, type_map = get_report_fields_with_types(
-            client, "https://api", "CAMPAIGN"
-        )
-        assert names == ["DAY"]
-        assert type_map == {"DAY": "STRING"}
+        meta = get_report_fields_with_types(client, "https://api", "CAMPAIGN")
+        assert meta.field_names == ["DAY"]
+        assert meta.field_type_map == {"DAY": "STRING"}
 
     def test_empty_fields(self):
         client = MagicMock()
         client.post.return_value = _mock_response({"rval": {"fields": []}})
-        names, type_map = get_report_fields_with_types(
-            client, "https://api", "CAMPAIGN"
-        )
-        assert names == []
-        assert type_map == {}
+        meta = get_report_fields_with_types(client, "https://api", "CAMPAIGN")
+        assert meta.field_names == []
+        assert meta.field_type_map == {}
 
 
 class TestSourceFunction:
-    _MOCK_FIELDS_RETURN = (
-        ["DAY", "CAMPAIGN_ID", "IMPS", "CLICKS", "COST"],
-        {
+    _MOCK_FIELDS_RETURN = ReportFieldMeta(
+        field_names=["DAY", "CAMPAIGN_ID", "IMPS", "CLICKS", "COST"],
+        field_type_map={
             "DAY": "STRING",
             "CAMPAIGN_ID": "LONG",
             "IMPS": "LONG",
             "CLICKS": "LONG",
             "COST": "LONG",
         },
+        display_to_field={"Day": "DAY", "CampaignID": "CAMPAIGN_ID", "Impressions": "IMPS", "Clicks": "CLICKS", "Cost": "COST"},
     )
 
     @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")

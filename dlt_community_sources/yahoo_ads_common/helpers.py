@@ -21,23 +21,78 @@ from dlt.sources.helpers import requests as req
 _METRIC_FIELD_TYPES = {"LONG", "DOUBLE", "BID"}
 
 
+class ReportFieldMeta:
+    """Metadata from getReportFields API."""
+
+    def __init__(
+        self,
+        field_names: list[str],
+        field_type_map: dict[str, str],
+        display_to_field: dict[str, str],
+    ):
+        self.field_names = field_names
+        self.field_type_map = field_type_map
+        self.display_to_field = display_to_field
+
+
 def get_report_fields_with_types(
     client: req.Client,
     base_url: str,
     report_type: str,
-) -> tuple[list[str], dict[str, str]]:
+    report_language: str = "EN",
+    compatible_only: bool = True,
+) -> ReportFieldMeta:
     """Fetch available report fields and their types from the API.
 
+    When compatible_only=True (default), excludes fields that conflict with
+    other fields using the impossibleCombinationFields metadata. This builds
+    the largest conflict-free field set by iteratively removing fields with
+    the most conflicts.
+
     Returns:
-        Tuple of (field_names, field_type_map).
-        field_type_map maps field name to fieldType (STRING, LONG, DOUBLE, ENUM, etc.)
+        ReportFieldMeta with field_names, field_type_map, and display_to_field mapping.
     """
     body = {"reportType": report_type}
     data = post_rpc(client, f"{base_url}/ReportDefinitionService/getReportFields", body)
-    fields = data.get("rval", {}).get("fields", [])
-    names = [f["fieldName"] for f in fields]
-    type_map = {f["fieldName"]: f.get("fieldType", "STRING") for f in fields}
-    return names, type_map
+    raw_fields = data.get("rval", {}).get("fields", [])
+    type_map = {f["fieldName"]: f.get("fieldType", "STRING") for f in raw_fields}
+
+    # Build display name → field name mapping
+    display_key = (
+        "displayFieldNameEn" if report_language == "EN" else "displayFieldNameJa"
+    )
+    display_to_field = {
+        f.get(display_key, f["fieldName"]): f["fieldName"] for f in raw_fields
+    }
+
+    if not compatible_only:
+        return ReportFieldMeta(
+            [f["fieldName"] for f in raw_fields], type_map, display_to_field
+        )
+
+    # Build conflict graph and greedily remove highest-conflict fields
+    conflict_map: dict[str, set[str]] = {
+        f["fieldName"]: set(f.get("impossibleCombinationFields") or [])
+        for f in raw_fields
+    }
+    candidates = set(conflict_map.keys())
+
+    while True:
+        # Find conflicts within current candidates
+        conflicts: dict[str, int] = {}
+        for name in candidates:
+            cnt = len(conflict_map.get(name, set()) & candidates)
+            if cnt > 0:
+                conflicts[name] = cnt
+        if not conflicts:
+            break
+        # Remove the field with the most conflicts
+        worst = max(conflicts, key=conflicts.get)  # type: ignore[arg-type]
+        candidates.discard(worst)
+
+    # Preserve original field order
+    names = [f["fieldName"] for f in raw_fields if f["fieldName"] in candidates]
+    return ReportFieldMeta(names, type_map, display_to_field)
 
 
 def get_report_fields(
@@ -45,9 +100,9 @@ def get_report_fields(
     base_url: str,
     report_type: str,
 ) -> list[str]:
-    """Fetch available report field names from the API dynamically."""
-    names, _ = get_report_fields_with_types(client, base_url, report_type)
-    return names
+    """Fetch compatible report field names from the API dynamically."""
+    meta = get_report_fields_with_types(client, base_url, report_type)
+    return meta.field_names
 
 
 def derive_primary_key(
@@ -319,8 +374,13 @@ def download_report(
     base_url: str,
     account_id: str,
     report_job_id: int,
+    display_to_field: Optional[dict[str, str]] = None,
 ) -> Generator[dict, None, None]:
-    """Download a completed report and yield rows as dicts."""
+    """Download a completed report and yield rows as dicts.
+
+    If display_to_field is provided, CSV column names (display names) are
+    mapped back to API field names for consistent schema.
+    """
     body = {
         "accountId": int(account_id),
         "reportJobId": report_job_id,
@@ -333,4 +393,7 @@ def download_report(
     text = response.text
     reader = csv.DictReader(io.StringIO(text))
     for row in reader:
-        yield dict(row)
+        if display_to_field:
+            yield {display_to_field.get(k, k): v for k, v in row.items()}
+        else:
+            yield dict(row)

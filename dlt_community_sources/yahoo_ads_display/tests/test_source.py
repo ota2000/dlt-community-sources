@@ -4,6 +4,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from dlt_community_sources.yahoo_ads_common.helpers import (
+    ReportFieldMeta,
     convert_report_types,
     get_report_fields,
     get_report_fields_with_types,
@@ -107,9 +108,10 @@ class TestGetReportFieldsWithTypes:
                 }
             }
         )
-        names, type_map = get_report_fields_with_types(client, "https://api", "AD")
-        assert names == ["DAY", "IMPS", "COST"]
-        assert type_map == {"DAY": "STRING", "IMPS": "LONG", "COST": "DOUBLE"}
+        meta = get_report_fields_with_types(client, "https://api", "AD")
+        assert meta.field_names == ["DAY", "IMPS", "COST"]
+        assert meta.field_type_map == {"DAY": "STRING", "IMPS": "LONG", "COST": "DOUBLE"}
+        assert isinstance(meta.display_to_field, dict)
 
     def test_defaults_to_string_when_field_type_missing(self):
         client = MagicMock()
@@ -122,21 +124,22 @@ class TestGetReportFieldsWithTypes:
                 }
             }
         )
-        names, type_map = get_report_fields_with_types(client, "https://api", "AD")
-        assert names == ["DAY"]
-        assert type_map == {"DAY": "STRING"}
+        meta = get_report_fields_with_types(client, "https://api", "AD")
+        assert meta.field_names == ["DAY"]
+        assert meta.field_type_map == {"DAY": "STRING"}
 
 
 class TestSourceFunction:
-    _MOCK_FIELDS_RETURN = (
-        ["DAY", "CAMPAIGN_ID", "IMPS", "CLICKS", "COST"],
-        {
+    _MOCK_FIELDS_RETURN = ReportFieldMeta(
+        field_names=["DAY", "CAMPAIGN_ID", "IMPS", "CLICKS", "COST"],
+        field_type_map={
             "DAY": "STRING",
             "CAMPAIGN_ID": "LONG",
             "IMPS": "LONG",
             "CLICKS": "LONG",
             "COST": "LONG",
         },
+        display_to_field={"Day": "DAY", "CampaignID": "CAMPAIGN_ID", "Impressions": "IMPS", "Clicks": "CLICKS", "Cost": "COST"},
     )
 
     @patch(
