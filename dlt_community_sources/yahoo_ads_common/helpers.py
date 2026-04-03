@@ -17,6 +17,8 @@ from typing import Optional
 
 from dlt.sources.helpers import requests as req
 
+logger = logging.getLogger(__name__)
+
 # Metric field types from getReportFields API (used for PK derivation)
 _METRIC_FIELD_TYPES = {"LONG", "DOUBLE", "BID"}
 
@@ -155,8 +157,6 @@ def convert_report_types(
             result[k] = v
     return result
 
-
-logger = logging.getLogger(__name__)
 
 # Pagination defaults
 DEFAULT_PAGE_SIZE = 500
