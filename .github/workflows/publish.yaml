@@ -1,6 +1,9 @@
 name: Publish to PyPI
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
@@ -31,21 +34,28 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Validate and normalize version
+      - name: Determine version
         id: version
         run: |
-          VERSION="${{ inputs.version }}"
-          VERSION="${VERSION#v}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Tag push: extract version from tag
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # workflow_dispatch: use input
+            VERSION="${{ inputs.version }}"
+            VERSION="${VERSION#v}"
+          fi
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([a-zA-Z0-9._-]+)?$ ]]; then
             echo "::error::Invalid version format: $VERSION (expected semver, e.g., 0.5.2)"
             exit 1
           fi
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create tag
+      - name: Create tag (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          git tag "v${{ steps.version.outputs.value }}"
-          git push origin "v${{ steps.version.outputs.value }}"
+          git tag "v${{ steps.version.outputs.value }}" || true
+          git push origin "v${{ steps.version.outputs.value }}" || true
 
       - run: uv build
 
@@ -62,6 +72,11 @@ jobs:
       - name: Create GitHub Release
         run: |
           VERSION="v${{ steps.version.outputs.value }}"
+          # Skip if release already exists (e.g., created manually before tag push)
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "Release $VERSION already exists, skipping"
+            exit 0
+          fi
           if [ -n "${{ inputs.notes }}" ]; then
             gh release create "$VERSION" \
               --title "$VERSION" \
