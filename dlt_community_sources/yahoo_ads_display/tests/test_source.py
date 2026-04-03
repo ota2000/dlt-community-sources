@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 from dlt_community_sources.yahoo_ads_common.helpers import (
     convert_report_types,
     get_report_fields,
+    get_report_fields_with_types,
 )
 from dlt_community_sources.yahoo_ads_display.source import (
     _ENTITY_RESOURCES,
@@ -51,8 +52,14 @@ class TestSourceConfig:
         assert "AUDIENCE_LIST_TARGET" in REPORT_TYPES
 
     def test_convert_report_types(self):
+        field_type_map = {
+            "IMPS": "LONG",
+            "COST": "DOUBLE",
+            "DAY": "STRING",
+            "CLICKS": "LONG",
+        }
         row = {"IMPS": "1,000", "COST": "500.50", "DAY": "2026-01-01", "CLICKS": "--"}
-        result = convert_report_types(row)
+        result = convert_report_types(row, field_type_map)
         assert result["IMPS"] == 1000
         assert result["COST"] == Decimal("500.50")
         assert result["DAY"] == "2026-01-01"
@@ -86,13 +93,60 @@ class TestGetReportFields:
         assert call_body["reportType"] == "AD"
 
 
+class TestGetReportFieldsWithTypes:
+    def test_returns_fields_and_type_map(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response(
+            {
+                "rval": {
+                    "fields": [
+                        {"fieldName": "DAY", "fieldType": "STRING"},
+                        {"fieldName": "IMPS", "fieldType": "LONG"},
+                        {"fieldName": "COST", "fieldType": "DOUBLE"},
+                    ]
+                }
+            }
+        )
+        names, type_map = get_report_fields_with_types(client, "https://api", "AD")
+        assert names == ["DAY", "IMPS", "COST"]
+        assert type_map == {"DAY": "STRING", "IMPS": "LONG", "COST": "DOUBLE"}
+
+    def test_defaults_to_string_when_field_type_missing(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response(
+            {
+                "rval": {
+                    "fields": [
+                        {"fieldName": "DAY"},
+                    ]
+                }
+            }
+        )
+        names, type_map = get_report_fields_with_types(client, "https://api", "AD")
+        assert names == ["DAY"]
+        assert type_map == {"DAY": "STRING"}
+
+
 class TestSourceFunction:
-    @patch("dlt_community_sources.yahoo_ads_display.source.get_report_fields")
+    _MOCK_FIELDS_RETURN = (
+        ["DAY", "CAMPAIGN_ID", "IMPS", "CLICKS", "COST"],
+        {
+            "DAY": "STRING",
+            "CAMPAIGN_ID": "LONG",
+            "IMPS": "LONG",
+            "CLICKS": "LONG",
+            "COST": "LONG",
+        },
+    )
+
+    @patch(
+        "dlt_community_sources.yahoo_ads_display.source.get_report_fields_with_types"
+    )
     @patch("dlt_community_sources.yahoo_ads_display.source.refresh_access_token")
     def test_returns_source_with_account_id(self, mock_refresh, mock_get_fields):
         """When account_id is specified, use that single account."""
         mock_refresh.return_value = {"access_token": "at"}
-        mock_get_fields.return_value = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "IMPS"]
+        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
         from dlt_community_sources.yahoo_ads_display.source import (
             yahoo_ads_display_source,
         )
@@ -109,7 +163,9 @@ class TestSourceFunction:
         assert "media" in source.resources
         mock_get_fields.assert_called_once()
 
-    @patch("dlt_community_sources.yahoo_ads_display.source.get_report_fields")
+    @patch(
+        "dlt_community_sources.yahoo_ads_display.source.get_report_fields_with_types"
+    )
     @patch("dlt_community_sources.yahoo_ads_display.source.discover_accounts")
     @patch("dlt_community_sources.yahoo_ads_display.source.refresh_access_token")
     def test_auto_discovers_accounts_when_account_id_none(
@@ -118,7 +174,7 @@ class TestSourceFunction:
         """When account_id is None, discover_accounts is called."""
         mock_refresh.return_value = {"access_token": "at"}
         mock_discover.return_value = ["111", "222"]
-        mock_get_fields.return_value = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "IMPS"]
+        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
         from dlt_community_sources.yahoo_ads_display.source import (
             yahoo_ads_display_source,
         )
@@ -134,11 +190,13 @@ class TestSourceFunction:
         assert "report" in source.resources
         assert "campaigns" in source.resources
 
-    @patch("dlt_community_sources.yahoo_ads_display.source.get_report_fields")
+    @patch(
+        "dlt_community_sources.yahoo_ads_display.source.get_report_fields_with_types"
+    )
     @patch("dlt_community_sources.yahoo_ads_display.source.refresh_access_token")
     def test_filter_resources(self, mock_refresh, mock_get_fields):
         mock_refresh.return_value = {"access_token": "at"}
-        mock_get_fields.return_value = ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "IMPS"]
+        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
         from dlt_community_sources.yahoo_ads_display.source import (
             yahoo_ads_display_source,
         )
@@ -158,14 +216,14 @@ class TestSourceFunction:
 
     @patch("dlt_community_sources.yahoo_ads_display.source.refresh_access_token")
     def test_skips_dynamic_fetch_when_report_fields_provided(self, mock_refresh):
-        """When report_fields is explicitly provided, get_report_fields is not called."""
+        """When report_fields is explicitly provided, get_report_fields_with_types is not called."""
         mock_refresh.return_value = {"access_token": "at"}
         from dlt_community_sources.yahoo_ads_display.source import (
             yahoo_ads_display_source,
         )
 
         with patch(
-            "dlt_community_sources.yahoo_ads_display.source.get_report_fields"
+            "dlt_community_sources.yahoo_ads_display.source.get_report_fields_with_types"
         ) as mock_get_fields:
             source = yahoo_ads_display_source(
                 client_id="cid",
