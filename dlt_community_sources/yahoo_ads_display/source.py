@@ -20,6 +20,7 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
     derive_primary_key,
     discover_accounts,
     download_report,
+    get_report_fields,
     make_client,
     poll_report,
     safe_get_entities,
@@ -95,46 +96,6 @@ REPORT_TYPES = [
     "URL",
 ]
 
-# Default report fields per report type
-REPORT_FIELDS = {
-    "AD": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "AD_ID",
-        "AD_NAME",
-        "AD_TYPE",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-        "CONV_VALUE",
-    ],
-    "PLACEMENT_TARGET": [
-        "DAY",
-        "ACCOUNT_ID",
-        "CAMPAIGN_ID",
-        "CAMPAIGN_NAME",
-        "ADGROUP_ID",
-        "ADGROUP_NAME",
-        "PLACEMENT_URL_LIST_NAME",
-        "PLACEMENT_URL_LIST_TYPE",
-        "IMPS",
-        "CLICKS",
-        "CLICK_RATE",
-        "AVG_CPC",
-        "COST",
-        "CONVERSIONS",
-        "CONV_RATE",
-    ],
-}
-
 
 def _make_entity_resource(
     name: str,
@@ -189,6 +150,7 @@ def yahoo_ads_display_source(
     account_id: Optional[str] = None,
     report_type: str = "AD",
     report_fields: Optional[list[str]] = None,
+    report_language: str = "EN",
     attribution_window_days: int = 7,
     resources: Optional[list[str]] = None,
     start_date: Optional[str] = None,
@@ -207,7 +169,9 @@ def yahoo_ads_display_source(
         account_id: Child account ID. If None, auto-discovers all SERVING
             accounts under the MCC via AccountService/get.
         report_type: Report type (AD, PLACEMENT_TARGET, etc.).
-        report_fields: Custom report fields. Defaults per report type.
+        report_fields: Custom report fields. If omitted, all available fields
+            are fetched dynamically via getReportFields API.
+        report_language: Report language (EN or JA). Defaults to EN.
         attribution_window_days: Days to re-fetch for attribution window.
         resources: Resource names to load. None for all.
         start_date: Override incremental start date (YYYY-MM-DD).
@@ -227,7 +191,11 @@ def yahoo_ads_display_source(
     )
 
     # Report resource
-    fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["AD"])
+    if report_fields:
+        fields = report_fields
+    else:
+        # Dynamically fetch all available fields from the API
+        fields = get_report_fields(client, base_url, report_type)
     pk = derive_primary_key(fields)
     has_day = "DAY" in fields
     initial = start_date or "2020-01-01"
@@ -265,7 +233,14 @@ def yahoo_ads_display_source(
                 )
 
                 job_id = submit_report(
-                    rpt_client, base_url, aid, report_type, fields, start, end
+                    rpt_client,
+                    base_url,
+                    aid,
+                    report_type,
+                    fields,
+                    start,
+                    end,
+                    report_language=report_language,
                 )
                 if not job_id:
                     logger.warning("report: no job ID returned for account %s", aid)
@@ -298,7 +273,14 @@ def yahoo_ads_display_source(
                 )
 
                 job_id = submit_report(
-                    rpt_client, base_url, aid, report_type, fields, start, end
+                    rpt_client,
+                    base_url,
+                    aid,
+                    report_type,
+                    fields,
+                    start,
+                    end,
+                    report_language=report_language,
                 )
                 if not job_id:
                     logger.warning("report: no job ID returned for account %s", aid)

@@ -28,6 +28,18 @@ def derive_primary_key(fields: list[str]) -> list[str]:
     return [f for f in fields if f not in REPORT_METRIC_FIELDS]
 
 
+def get_report_fields(
+    client: req.Client,
+    base_url: str,
+    report_type: str,
+) -> list[str]:
+    """Fetch available report fields from the API dynamically."""
+    body = {"reportType": report_type}
+    data = post_rpc(client, f"{base_url}/ReportDefinitionService/getReportFields", body)
+    fields = data.get("rval", {}).get("fields", [])
+    return [f["fieldName"] for f in fields]
+
+
 def convert_report_types(row: dict) -> dict:
     """Convert report string values to appropriate numeric types."""
     result = {}
@@ -210,6 +222,7 @@ def submit_report(
     start_date: str,
     end_date: str,
     report_download_format: str = "CSV",
+    report_language: str = "EN",
 ) -> Optional[int]:
     """Submit a report definition. Returns reportJobId or None."""
     body = {
@@ -217,6 +230,7 @@ def submit_report(
         "operand": [
             {
                 "accountId": int(account_id),
+                "reportName": f"dlt_{report_type.lower()}_{account_id}",
                 "fields": fields,
                 "reportDateRangeType": "CUSTOM_DATE",
                 "dateRange": {
@@ -226,6 +240,9 @@ def submit_report(
                 "reportType": report_type,
                 "reportDownloadFormat": report_download_format,
                 "reportDownloadEncode": "UTF8",
+                "reportLanguage": report_language,
+                "reportSkipReportSummary": "TRUE",
+                "reportSkipColumnHeader": "FALSE",
             }
         ],
     }

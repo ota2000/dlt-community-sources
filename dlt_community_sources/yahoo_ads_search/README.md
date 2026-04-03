@@ -125,7 +125,7 @@ source = yahoo_ads_search_source(
 |---|---|---|---|
 | `report` | merge | by DAY | Configurable performance report |
 
-Report types: `ACCOUNT`, `CAMPAIGN`, `ADGROUP`, `AD`, `KEYWORDS`, `SEARCH_QUERY`, `GEO`, `GEO_TARGET`, `SCHEDULE_TARGET`, `BID_STRATEGY`, `CAMPAIGN_TARGET_LIST`, `ADGROUP_TARGET_LIST`, `LANDING_PAGE_URL`, `KEYWORDLESS_QUERY`, `WEBPAGE_CRITERION`, `BID_MODIFIER`, `CAMPAIGN_ASSET`, `AD_GROUP_ASSET`, `ACCOUNT_ASSET`, `RESPONSIVE_ADS_FOR_SEARCH_ASSET`, `ASSET_COMBINATION`, `SHARED_BUDGET`
+Report types: `ACCOUNT`, `CAMPAIGN`, `ADGROUP`, `AD`, `KEYWORDS`, `SEARCH_QUERY`, `GEO`, `GEO_TARGET`, `SCHEDULE_TARGET`, `BID_STRATEGY`, `CAMPAIGN_TARGET_LIST`, `ADGROUP_TARGET_LIST`, `LANDING_PAGE_URL`, `KEYWORDLESS_QUERY`, `WEBPAGE_CRITERION`, `BID_MODIFIER`, `CAMPAIGN_ASSET`, `ADGROUP_ASSET`, `ACCOUNT_ASSET`, `RESPONSIVE_ADS_FOR_SEARCH_ASSET`, `ASSET_COMBINATIONS`, `CAMPAIGN_BUDGET`
 
 ## Authentication
 
@@ -145,7 +145,8 @@ Yahoo Ads uses OAuth 2.0 Authorization Code Grant.
 | `base_account_id` | (required) | MCC account ID (used in `x-z-base-account-id` header) |
 | `account_id` | `None` | Child account ID. If omitted, auto-discovers all SERVING accounts under the MCC |
 | `report_type` | `CAMPAIGN` | Report type |
-| `report_fields` | `None` | Custom report fields (defaults per report type) |
+| `report_fields` | `None` | Custom report fields. If omitted, all available fields are fetched dynamically via `getReportFields` API |
+| `report_language` | `EN` | Report language (`EN` or `JA`) |
 | `attribution_window_days` | `7` | Days to re-fetch for attribution window |
 | `resources` | `None` | Resource names to load (None for all) |
 | `start_date` | `None` | Override incremental start date (YYYY-MM-DD) |
