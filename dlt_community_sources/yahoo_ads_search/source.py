@@ -39,10 +39,11 @@ _ENTITY_RESOURCES = [
     # body_style: "standard" = accountId + paging (default)
     #             "account_ids" = accountIds array, no paging
     #             "no_paging" = accountId only, no paging
-    # Note: AccountService is MCC-level and handled by discover_accounts()
     # body_style "standard": accountId + startIndex + numberResults (most services)
     # body_style "account_ids": accountIds array, no paging
     # body_style "no_paging": accountId only, no paging params
+    # body_style "empty": no body params (MCC-level services)
+    ("accounts", "AccountService/get", "merge", "accountId", "empty"),
     ("campaigns", "CampaignService/get", "merge", "campaignId", "standard"),
     ("ad_groups", "AdGroupService/get", "merge", "adGroupId", "standard"),
     ("ads", "AdGroupAdService/get", "merge", "adId", "standard"),
@@ -124,6 +125,7 @@ _ENTITY_RESOURCES = [
         "account_ids",
     ),
     ("ab_tests", "AbTestService/get", "merge", "abTestId", "standard"),
+    ("audit_logs", "AuditLogService/get", "append", "updateDateTime", "standard"),
     (
         "seasonality_adjustments",
         "BiddingSeasonalityAdjustmentService/get",
