@@ -20,6 +20,19 @@ from dlt.sources.helpers import requests as req
 # Metric field types from getReportFields API (used for PK derivation)
 _METRIC_FIELD_TYPES = {"LONG", "DOUBLE", "BID"}
 
+# Primary key: only core identity fields (date + entity IDs)
+_PK_FIELDS = {
+    "DAY",
+    "ACCOUNT_ID",
+    "CAMPAIGN_ID",
+    "ADGROUP_ID",
+    "AD_ID",
+    "KEYWORD_ID",
+    "FEED_ITEM_ID",
+    "AD_DISPLAY_OPTION",
+    "MEDIA_ID",
+}
+
 
 class ReportFieldMeta:
     """Metadata from getReportFields API."""
@@ -113,14 +126,7 @@ def derive_primary_key(
     Uses field_type_map from getReportFields API to determine which fields
     are metrics (LONG, DOUBLE, BID) and exclude them from the primary key.
     """
-    if field_type_map:
-        return [
-            f
-            for f in fields
-            if field_type_map.get(f, "STRING") not in _METRIC_FIELD_TYPES
-        ]
-    # Fallback: treat all fields as dimensions
-    return list(fields)
+    return [f for f in fields if f in _PK_FIELDS]
 
 
 def convert_report_types(
