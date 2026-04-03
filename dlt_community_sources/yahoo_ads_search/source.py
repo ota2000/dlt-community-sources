@@ -36,13 +36,13 @@ BASE_URL = "https://ads-search.yahooapis.jp/api/v19"
 
 _ENTITY_RESOURCES = [
     # (resource_name, service_path, write_disposition, primary_key)
-    ("accounts", "AccountService/get", "merge", "accountId"),
+    # Note: AccountService is MCC-level and handled by discover_accounts()
     ("campaigns", "CampaignService/get", "merge", "campaignId"),
     ("ad_groups", "AdGroupService/get", "merge", "adGroupId"),
     ("ads", "AdGroupAdService/get", "merge", "adId"),
     ("ad_group_criterions", "AdGroupCriterionService/get", "merge", "criterionId"),
     ("campaign_criterions", "CampaignCriterionService/get", "merge", "criterionId"),
-    ("bidding_strategies", "BiddingStrategyService/get", "merge", "biddingStrategyId"),
+    ("bidding_strategies", "BiddingStrategyService/get", "merge", "portfolioBiddingId"),
     ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId"),
     ("labels", "LabelService/get", "merge", "labelId"),
     ("assets", "AssetService/get", "merge", "assetId"),
@@ -60,7 +60,7 @@ _ENTITY_RESOURCES = [
         "replace",
         "adGroupId",
     ),
-    ("campaign_targets", "CampaignTargetService/get", "replace", "targetId"),
+    ("campaign_targets", "CampaignTargetService/get", "replace", "campaignId"),
     (
         "page_feed_asset_sets",
         "PageFeedAssetSetService/get",

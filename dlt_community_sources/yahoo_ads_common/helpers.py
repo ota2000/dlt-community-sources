@@ -255,9 +255,9 @@ def get_entities(
             body.update(selector_fields)
 
         data = post_rpc(client, url, body)
-        rval = data.get("rval", {})
+        rval = data.get("rval") or {}
         total = rval.get("totalNumEntries", 0)
-        values = rval.get("values", [])
+        values = rval.get("values") or []
 
         for entry in values:
             if entry.get("operationSucceeded", True):
@@ -286,11 +286,11 @@ def safe_get_entities(
     selector_fields: Optional[dict] = None,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> Generator[dict, None, None]:
-    """Fetch entities with HTTP error handling (skip 403/404)."""
+    """Fetch entities with HTTP error handling (skip 400/403/404)."""
     try:
         yield from get_entities(client, url, account_id, selector_fields, page_size)
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
+        if e.response is not None and e.response.status_code in (400, 403, 404):
             logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
         else:
             raise
