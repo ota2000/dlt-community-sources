@@ -445,11 +445,12 @@ class TestSourceConfig:
         assert len(_ENTITY_RESOURCES) >= 38
 
     def test_entity_resources_have_required_fields(self):
-        for name, path, disposition, pk in _ENTITY_RESOURCES:
+        for name, path, disposition, pk, body_style in _ENTITY_RESOURCES:
             assert name, "resource name is empty"
             assert "/" in path, f"{name}: path missing /"
             assert disposition in ("merge", "replace", "append")
             assert pk, f"{name}: primary_key is empty"
+            assert body_style in ("standard", "account_ids", "no_paging")
 
     def test_new_entity_resources_present(self):
         names = [r[0] for r in _ENTITY_RESOURCES]
@@ -460,7 +461,6 @@ class TestSourceConfig:
         assert "page_feed_assets" in names
         assert "ad_group_webpages" in names
         assert "campaign_webpages" in names
-        assert "account_links" in names
         assert "app_links" in names
         assert "account_customizers" in names
         assert "campaign_customizers" in names

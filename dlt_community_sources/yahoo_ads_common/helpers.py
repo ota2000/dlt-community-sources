@@ -296,6 +296,76 @@ def safe_get_entities(
             raise
 
 
+def get_entities_by_account_ids(
+    client: req.Client,
+    url: str,
+    account_id: str,
+) -> Generator[dict, None, None]:
+    """Fetch entities using accountIds array (no pagination)."""
+    body = {"accountIds": [int(account_id)]}
+    data = post_rpc(client, url, body)
+    rval = data.get("rval") or {}
+    values = rval.get("values") or []
+    for entry in values:
+        if entry.get("operationSucceeded", True):
+            inner = {
+                k: v
+                for k, v in entry.items()
+                if k not in ("operationSucceeded", "errors")
+            }
+            keys = list(inner.keys())
+            if len(keys) == 1:
+                yield inner[keys[0]]
+            else:
+                yield inner
+
+
+def get_entities_no_paging(
+    client: req.Client,
+    url: str,
+    account_id: str,
+) -> Generator[dict, None, None]:
+    """Fetch entities with accountId only (no pagination params)."""
+    body = {"accountId": int(account_id)}
+    data = post_rpc(client, url, body)
+    rval = data.get("rval") or {}
+    values = rval.get("values") or []
+    for entry in values:
+        if entry.get("operationSucceeded", True):
+            inner = {
+                k: v
+                for k, v in entry.items()
+                if k not in ("operationSucceeded", "errors")
+            }
+            keys = list(inner.keys())
+            if len(keys) == 1:
+                yield inner[keys[0]]
+            else:
+                yield inner
+
+
+def safe_fetch_entities(
+    client: req.Client,
+    url: str,
+    account_id: str,
+    body_style: str = "standard",
+    page_size: int = DEFAULT_PAGE_SIZE,
+) -> Generator[dict, None, None]:
+    """Fetch entities with appropriate body style and error handling."""
+    try:
+        if body_style == "account_ids":
+            yield from get_entities_by_account_ids(client, url, account_id)
+        elif body_style == "no_paging":
+            yield from get_entities_no_paging(client, url, account_id)
+        else:
+            yield from get_entities(client, url, account_id, page_size=page_size)
+    except req.HTTPError as e:
+        if e.response is not None and e.response.status_code in (400, 403, 404):
+            logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
+        else:
+            raise
+
+
 def submit_report(
     client: req.Client,
     base_url: str,

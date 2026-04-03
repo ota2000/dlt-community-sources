@@ -22,7 +22,7 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
     get_report_fields_with_types,
     make_client,
     poll_report,
-    safe_get_entities,
+    safe_fetch_entities,
     submit_report,
 )
 
@@ -35,116 +35,196 @@ BASE_URL = "https://ads-search.yahooapis.jp/api/v19"
 # ---------------------------------------------------------------------------
 
 _ENTITY_RESOURCES = [
-    # (resource_name, service_path, write_disposition, primary_key)
+    # (resource_name, service_path, write_disposition, primary_key, body_style)
+    # body_style: "standard" = accountId + paging (default)
+    #             "account_ids" = accountIds array, no paging
+    #             "no_paging" = accountId only, no paging
     # Note: AccountService is MCC-level and handled by discover_accounts()
-    ("campaigns", "CampaignService/get", "merge", "campaignId"),
-    ("ad_groups", "AdGroupService/get", "merge", "adGroupId"),
-    ("ads", "AdGroupAdService/get", "merge", "adId"),
-    ("ad_group_criterions", "AdGroupCriterionService/get", "merge", "criterionId"),
-    ("campaign_criterions", "CampaignCriterionService/get", "merge", "criterionId"),
-    ("bidding_strategies", "BiddingStrategyService/get", "merge", "portfolioBiddingId"),
-    ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId"),
-    ("labels", "LabelService/get", "merge", "labelId"),
-    ("assets", "AssetService/get", "merge", "assetId"),
-    ("audience_lists", "AudienceListService/get", "merge", "audienceListId"),
+    # body_style "standard": accountId + startIndex + numberResults (most services)
+    # body_style "account_ids": accountIds array, no paging
+    # body_style "no_paging": accountId only, no paging params
+    ("campaigns", "CampaignService/get", "merge", "campaignId", "standard"),
+    ("ad_groups", "AdGroupService/get", "merge", "adGroupId", "standard"),
+    ("ads", "AdGroupAdService/get", "merge", "adId", "standard"),
+    (
+        "ad_group_criterions",
+        "AdGroupCriterionService/get",
+        "merge",
+        "criterionId",
+        "standard",
+    ),
+    (
+        "campaign_criterions",
+        "CampaignCriterionService/get",
+        "merge",
+        "criterionId",
+        "standard",
+    ),
+    (
+        "bidding_strategies",
+        "BiddingStrategyService/get",
+        "merge",
+        "portfolioBiddingId",
+        "standard",
+    ),
+    ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId", "standard"),
+    ("labels", "LabelService/get", "merge", "labelId", "standard"),
+    ("assets", "AssetService/get", "merge", "assetId", "standard"),
+    (
+        "audience_lists",
+        "AudienceListService/get",
+        "merge",
+        "audienceListId",
+        "standard",
+    ),
     (
         "conversion_trackers",
         "ConversionTrackerService/get",
         "merge",
         "conversionTrackerId",
+        "standard",
     ),
-    ("account_shared", "AccountSharedService/get", "merge", "sharedListId"),
+    ("account_shared", "AccountSharedService/get", "merge", "sharedListId", "standard"),
     (
         "ad_group_bid_multipliers",
         "AdGroupBidMultiplierService/get",
         "replace",
         "adGroupId",
+        "standard",
     ),
-    ("campaign_targets", "CampaignTargetService/get", "replace", "campaignId"),
+    (
+        "campaign_targets",
+        "CampaignTargetService/get",
+        "replace",
+        "campaignId",
+        "standard",
+    ),
     (
         "page_feed_asset_sets",
         "PageFeedAssetSetService/get",
         "merge",
         "pageFeedAssetSetId",
+        "standard",
     ),
-    ("account_assets", "AccountAssetService/get", "merge", "assetId"),
-    ("campaign_assets", "CampaignAssetService/get", "merge", "assetId"),
-    ("ad_group_assets", "AdGroupAssetService/get", "merge", "assetId"),
+    ("account_assets", "AccountAssetService/get", "merge", "assetId", "standard"),
+    ("campaign_assets", "CampaignAssetService/get", "merge", "assetId", "standard"),
+    ("ad_group_assets", "AdGroupAssetService/get", "merge", "assetId", "standard"),
     (
         "customizer_attributes",
         "CustomizerAttributeService/get",
         "merge",
         "customizerAttributeId",
+        "no_paging",
     ),
-    ("account_tracking_urls", "AccountTrackingUrlService/get", "replace", "accountId"),
-    ("ab_tests", "AbTestService/get", "merge", "abTestId"),
+    (
+        "account_tracking_urls",
+        "AccountTrackingUrlService/get",
+        "replace",
+        "accountId",
+        "account_ids",
+    ),
+    ("ab_tests", "AbTestService/get", "merge", "abTestId", "standard"),
     (
         "seasonality_adjustments",
         "BiddingSeasonalityAdjustmentService/get",
         "merge",
         "biddingSeasonalityAdjustmentId",
+        "standard",
     ),
     (
         "learning_data_exclusions",
         "LearningDataExclusionService/get",
         "merge",
         "learningDataExclusionId",
+        "standard",
     ),
-    ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId"),
+    (
+        "conversion_groups",
+        "ConversionGroupService/get",
+        "merge",
+        "conversionGroupId",
+        "standard",
+    ),
     (
         "campaign_audience_lists",
         "CampaignAudienceListService/get",
         "replace",
         "campaignId",
+        "standard",
     ),
     (
         "ad_group_audience_lists",
         "AdGroupAudienceListService/get",
         "replace",
         "adGroupId",
+        "standard",
     ),
-    ("balance", "BalanceService/get", "replace", "accountId"),
-    ("budget_orders", "BudgetOrderService/get", "replace", "accountId"),
+    ("balance", "BalanceService/get", "replace", "accountId", "account_ids"),
+    ("budget_orders", "BudgetOrderService/get", "replace", "accountId", "account_ids"),
     (
         "shared_criterions",
         "SharedCriterionService/get",
         "merge",
         "criterionId",
+        "standard",
     ),
     (
         "campaign_shared_sets",
         "CampaignSharedSetService/get",
         "replace",
         "campaignId",
+        "standard",
     ),
-    ("page_feed_assets", "PageFeedAssetService/get", "merge", "pageFeedAssetId"),
-    ("ad_group_webpages", "AdGroupWebpageService/get", "replace", "adGroupId"),
-    ("campaign_webpages", "CampaignWebpageService/get", "replace", "campaignId"),
-    ("account_links", "AccountLinkService/get", "replace", "accountId"),
-    ("app_links", "AppLinkService/get", "merge", "appLinkId"),
+    (
+        "page_feed_assets",
+        "PageFeedAssetService/get",
+        "merge",
+        "pageFeedAssetId",
+        "standard",
+    ),
+    (
+        "ad_group_webpages",
+        "AdGroupWebpageService/get",
+        "replace",
+        "adGroupId",
+        "standard",
+    ),
+    (
+        "campaign_webpages",
+        "CampaignWebpageService/get",
+        "replace",
+        "campaignId",
+        "standard",
+    ),
+    # AccountLinkService requires MCC-level access, not per-account
+    ("app_links", "AppLinkService/get", "merge", "appLinkId", "standard"),
     (
         "account_customizers",
         "AccountCustomizerService/get",
         "replace",
         "customizerAttributeId",
+        "standard",
     ),
     (
         "campaign_customizers",
         "CampaignCustomizerService/get",
         "replace",
         "customizerAttributeId",
+        "standard",
     ),
     (
         "ad_group_customizers",
         "AdGroupCustomizerService/get",
         "replace",
         "customizerAttributeId",
+        "standard",
     ),
     (
         "ad_group_criterion_customizers",
         "AdGroupCriterionCustomizerService/get",
         "replace",
         "criterionId",
+        "standard",
     ),
 ]
 
@@ -180,6 +260,7 @@ def _make_entity_resource(
     path: str,
     disposition: str,
     pk: str,
+    body_style: str,
     access_token: str,
     account_ids: list[str],
     base_account_id: str,
@@ -192,7 +273,7 @@ def _make_entity_resource(
     def _fetch():
         client = make_client(access_token, base_account_id)
         for aid in account_ids:
-            yield from safe_get_entities(client, url, aid)
+            yield from safe_fetch_entities(client, url, aid, body_style)
 
     return _fetch
 
@@ -210,12 +291,13 @@ def _build_entity_resources(
             path,
             disposition,
             pk,
+            body_style,
             access_token,
             account_ids,
             base_account_id,
             base_url,
         )
-        for name, path, disposition, pk in _ENTITY_RESOURCES
+        for name, path, disposition, pk, body_style in _ENTITY_RESOURCES
     ]
 
 
