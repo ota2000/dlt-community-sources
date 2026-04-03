@@ -17,15 +17,27 @@ from typing import Optional
 
 from dlt.sources.helpers import requests as req
 
-# Numeric fields for type conversion (shared across SS/YDA)
-REPORT_INT_FIELDS = {"IMPS", "CLICKS", "CONVERSIONS"}
-REPORT_FLOAT_FIELDS = {"CLICK_RATE", "AVG_CPC", "COST", "CONV_RATE", "CONV_VALUE"}
-REPORT_METRIC_FIELDS = REPORT_INT_FIELDS | REPORT_FLOAT_FIELDS
+# Metric field types from getReportFields API (used for PK derivation)
+_METRIC_FIELD_TYPES = {"LONG", "DOUBLE", "BID"}
 
 
-def derive_primary_key(fields: list[str]) -> list[str]:
-    """Derive primary key from report fields (all non-metric fields)."""
-    return [f for f in fields if f not in REPORT_METRIC_FIELDS]
+def get_report_fields_with_types(
+    client: req.Client,
+    base_url: str,
+    report_type: str,
+) -> tuple[list[str], dict[str, str]]:
+    """Fetch available report fields and their types from the API.
+
+    Returns:
+        Tuple of (field_names, field_type_map).
+        field_type_map maps field name to fieldType (STRING, LONG, DOUBLE, ENUM, etc.)
+    """
+    body = {"reportType": report_type}
+    data = post_rpc(client, f"{base_url}/ReportDefinitionService/getReportFields", body)
+    fields = data.get("rval", {}).get("fields", [])
+    names = [f["fieldName"] for f in fields]
+    type_map = {f["fieldName"]: f.get("fieldType", "STRING") for f in fields}
+    return names, type_map
 
 
 def get_report_fields(
@@ -33,25 +45,47 @@ def get_report_fields(
     base_url: str,
     report_type: str,
 ) -> list[str]:
-    """Fetch available report fields from the API dynamically."""
-    body = {"reportType": report_type}
-    data = post_rpc(client, f"{base_url}/ReportDefinitionService/getReportFields", body)
-    fields = data.get("rval", {}).get("fields", [])
-    return [f["fieldName"] for f in fields]
+    """Fetch available report field names from the API dynamically."""
+    names, _ = get_report_fields_with_types(client, base_url, report_type)
+    return names
 
 
-def convert_report_types(row: dict) -> dict:
-    """Convert report string values to appropriate numeric types."""
+def derive_primary_key(
+    fields: list[str], field_type_map: Optional[dict[str, str]] = None
+) -> list[str]:
+    """Derive primary key from report fields (all non-metric fields).
+
+    Uses field_type_map from getReportFields API to determine which fields
+    are metrics (LONG, DOUBLE, BID) and exclude them from the primary key.
+    """
+    if field_type_map:
+        return [
+            f
+            for f in fields
+            if field_type_map.get(f, "STRING") not in _METRIC_FIELD_TYPES
+        ]
+    # Fallback: treat all fields as dimensions
+    return list(fields)
+
+
+def convert_report_types(
+    row: dict, field_type_map: Optional[dict[str, str]] = None
+) -> dict:
+    """Convert report string values to appropriate numeric types.
+
+    Uses field_type_map from getReportFields API for dynamic type conversion.
+    If field_type_map is not provided, values are returned as-is (strings).
+    """
     result = {}
     for k, v in row.items():
         if v == "--" or v == "":
             result[k] = None
-        elif k in REPORT_INT_FIELDS:
+        elif field_type_map and field_type_map.get(k) == "LONG":
             try:
                 result[k] = int(v.replace(",", ""))
             except (ValueError, AttributeError):
                 result[k] = v
-        elif k in REPORT_FLOAT_FIELDS:
+        elif field_type_map and field_type_map.get(k) in ("DOUBLE", "BID"):
             try:
                 result[k] = Decimal(v.replace(",", ""))
             except (ValueError, AttributeError):
@@ -68,20 +102,12 @@ DEFAULT_PAGE_SIZE = 500
 MAX_PAGE_SIZE = 10000
 
 # Report polling
-POLL_INTERVAL_SECONDS = 10
+POLL_INTERVAL_SECONDS = 5
 POLL_MAX_WAIT_SECONDS = 600
 
 
-def make_client(
-    access_token: str,
-    base_account_id: str,
-) -> req.Client:
-    """Create an HTTP client with Yahoo Ads auth headers.
-
-    Args:
-        access_token: OAuth access token.
-        base_account_id: Base account ID (MCC) used in x-z-base-account-id header.
-    """
+def make_client(access_token: str, base_account_id: str) -> req.Client:
+    """Create an HTTP client with Yahoo Ads auth headers."""
     client = req.Client()
     client.session.headers.update(
         {
@@ -93,48 +119,6 @@ def make_client(
     return client
 
 
-def discover_accounts(
-    client: req.Client,
-    base_url: str,
-) -> list[str]:
-    """Discover child accounts under the MCC via AccountService/get.
-
-    Only returns accounts with accountStatus == SERVING.
-
-    Args:
-        client: HTTP client with MCC auth headers.
-        base_url: API base URL (SS or YDA).
-
-    Returns:
-        List of account IDs (as strings) in SERVING status.
-    """
-    url = f"{base_url}/AccountService/get"
-    body: dict = {"numberResults": 500, "startIndex": 1}
-    account_ids: list[str] = []
-
-    while True:
-        data = post_rpc(client, url, body)
-        rval = data.get("rval", {})
-        total = rval.get("totalNumEntries", 0)
-        values = rval.get("values", [])
-
-        for entry in values:
-            if not entry.get("operationSucceeded", True):
-                continue
-            account = entry.get("account", {})
-            if account.get("accountStatus") == "SERVING":
-                aid = account.get("accountId")
-                if aid is not None:
-                    account_ids.append(str(aid))
-
-        body["startIndex"] += len(values)
-        if body["startIndex"] > total or not values:
-            break
-
-    logger.info("Discovered %d SERVING accounts under MCC", len(account_ids))
-    return account_ids
-
-
 def post_rpc(
     client: req.Client,
     url: str,
@@ -144,6 +128,44 @@ def post_rpc(
     response = client.post(url, json=body or {})
     response.raise_for_status()
     return response.json()
+
+
+def discover_accounts(
+    client: req.Client,
+    base_url: str,
+) -> list[str]:
+    """Discover all SERVING child accounts under the MCC.
+
+    Uses AccountService/get to list accounts under the base account.
+    Returns list of account IDs with SERVING status.
+    """
+    account_ids: list[str] = []
+    start_index = 1
+    page_size = 500
+
+    while True:
+        body = {
+            "startIndex": start_index,
+            "numberResults": page_size,
+        }
+        data = post_rpc(client, f"{base_url}/AccountService/get", body)
+        rval = data.get("rval", {})
+        total = rval.get("totalNumEntries", 0)
+        values = rval.get("values", [])
+
+        for entry in values:
+            if not entry.get("operationSucceeded"):
+                continue
+            account = entry.get("account", {})
+            if account.get("accountStatus") == "SERVING":
+                account_ids.append(str(account["accountId"]))
+
+        start_index += len(values)
+        if start_index > total or not values:
+            break
+
+    logger.info("Discovered %d SERVING accounts under MCC", len(account_ids))
+    return account_ids
 
 
 def get_entities(
@@ -188,7 +210,7 @@ def get_entities(
                 keys = list(inner.keys())
                 if len(keys) == 1:
                     yield inner[keys[0]]
-                elif inner:
+                else:
                     yield inner
 
         start_index += len(values)
@@ -203,7 +225,7 @@ def safe_get_entities(
     selector_fields: Optional[dict] = None,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> Generator[dict, None, None]:
-    """Like get_entities but silently handles 403/404 errors."""
+    """Fetch entities with HTTP error handling (skip 403/404)."""
     try:
         yield from get_entities(client, url, account_id, selector_fields, page_size)
     except req.HTTPError as e:
@@ -250,7 +272,14 @@ def submit_report(
     values = data.get("rval", {}).get("values", [])
     if not values:
         return None
-    report_def = values[0].get("reportDefinition", {})
+    entry = values[0]
+    if not entry.get("operationSucceeded"):
+        errors = entry.get("errors", [])
+        logger.warning("Report submit failed: %s", errors)
+        return None
+    report_def = entry.get("reportDefinition")
+    if report_def is None:
+        return None
     return report_def.get("reportJobId")
 
 
