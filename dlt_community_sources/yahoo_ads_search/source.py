@@ -269,11 +269,15 @@ def yahoo_ads_search_source(
     if report_fields:
         fields = report_fields
         field_type_map = None
+        display_to_field = None
     else:
         # Dynamically fetch all available fields and types from the API
-        fields, field_type_map = get_report_fields_with_types(
-            client, base_url, report_type
+        meta = get_report_fields_with_types(
+            client, base_url, report_type, report_language=report_language
         )
+        fields = meta.field_names
+        field_type_map = meta.field_type_map
+        display_to_field = meta.display_to_field
     pk = derive_primary_key(fields, field_type_map)
     has_day = "DAY" in fields
     initial = start_date or "2020-01-01"
@@ -328,7 +332,9 @@ def yahoo_ads_search_source(
                 if not status:
                     continue
 
-                for row in download_report(rpt_client, base_url, aid, job_id):
+                for row in download_report(
+                    rpt_client, base_url, aid, job_id, display_to_field
+                ):
                     yield convert_report_types(row, field_type_map)
 
     else:
@@ -368,7 +374,9 @@ def yahoo_ads_search_source(
                 if not status:
                     continue
 
-                for row in download_report(rpt_client, base_url, aid, job_id):
+                for row in download_report(
+                    rpt_client, base_url, aid, job_id, display_to_field
+                ):
                     yield convert_report_types(row, field_type_map)
 
     all_resources.append(_report)
