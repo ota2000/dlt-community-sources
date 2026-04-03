@@ -98,7 +98,7 @@ Alternatively, use a long-lived User Access Token (expires in ~60 days).
 
 - Insights are fetched via async reports (POST → poll → GET results)
 - Attribution window: by default, re-fetches the last 28 days on each run to capture delayed conversions
-- Insights metrics (`impressions`, `clicks`, `spend`, etc.) are automatically converted from strings to numeric types
+- Insights metrics (`impressions`, `clicks`, `spend`, etc.) are automatically converted from strings to numeric types (`int` / `Decimal`). If Meta adds new numeric metrics, add them to `INSIGHT_INT_FIELDS` or `INSIGHT_FLOAT_FIELDS` in source.py, or handle conversion in your pipeline
 - Insights primary key varies by level: `date_start` + `date_stop` + `campaign_id`/`adset_id`/`ad_id`
 - When `breakdowns` are specified, they are appended to the primary key
 - Rate limiting: Meta uses a scoring system per ad account. The source respects 429 responses with retry
