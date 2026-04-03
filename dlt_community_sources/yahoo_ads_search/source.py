@@ -196,7 +196,7 @@ _ENTITY_RESOURCES = [
         "campaignId",
         "standard",
     ),
-    # AccountLinkService requires MCC-level access, not per-account
+    ("account_links", "AccountLinkService/get", "replace", "accountId", "empty"),
     ("app_links", "AppLinkService/get", "merge", "appLinkId", "standard"),
     (
         "account_customizers",

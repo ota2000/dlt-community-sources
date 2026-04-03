@@ -357,6 +357,19 @@ def safe_fetch_entities(
             yield from get_entities_by_account_ids(client, url, account_id)
         elif body_style == "no_paging":
             yield from get_entities_no_paging(client, url, account_id)
+        elif body_style == "empty":
+            # Some services (e.g. AccountLinkService) accept empty body
+            data = post_rpc(client, url, {})
+            rval = data.get("rval") or {}
+            for entry in rval.get("values") or []:
+                if entry.get("operationSucceeded", True):
+                    inner = {
+                        k: v
+                        for k, v in entry.items()
+                        if k not in ("operationSucceeded", "errors")
+                    }
+                    keys = list(inner.keys())
+                    yield inner[keys[0]] if len(keys) == 1 else inner
         else:
             yield from get_entities(client, url, account_id, page_size=page_size)
     except req.HTTPError as e:
