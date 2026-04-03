@@ -516,7 +516,7 @@ class TestDerivePrimaryKey:
             "COST": "LONG",
         }
         pk = derive_primary_key(fields, field_type_map)
-        assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID", "CAMPAIGN_NAME"]
+        assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID"]
 
     def test_excludes_all_metrics(self):
         fields = [
