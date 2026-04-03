@@ -26,10 +26,24 @@ source = yahoo_ads_display_source(
     client_id="YOUR_CLIENT_ID",
     client_secret="YOUR_CLIENT_SECRET",
     refresh_token="YOUR_REFRESH_TOKEN",
-    account_id="YOUR_ACCOUNT_ID",
+    base_account_id="YOUR_MCC_ACCOUNT_ID",
 )
 
 load_info = pipeline.run(source)
+```
+
+When `account_id` is omitted, the source auto-discovers all SERVING accounts under the MCC via `AccountService/get`.
+
+### Specify a single child account
+
+```python
+source = yahoo_ads_display_source(
+    client_id="YOUR_CLIENT_ID",
+    client_secret="YOUR_CLIENT_SECRET",
+    refresh_token="YOUR_REFRESH_TOKEN",
+    base_account_id="YOUR_MCC_ACCOUNT_ID",
+    account_id="YOUR_AD_ACCOUNT_ID",
+)
 ```
 
 ### LINE placement report
@@ -41,7 +55,7 @@ source = yahoo_ads_display_source(
     client_id="YOUR_CLIENT_ID",
     client_secret="YOUR_CLIENT_SECRET",
     refresh_token="YOUR_REFRESH_TOKEN",
-    account_id="YOUR_ACCOUNT_ID",
+    base_account_id="YOUR_MCC_ACCOUNT_ID",
     report_type="PLACEMENT_TARGET",
 )
 ```
@@ -101,7 +115,8 @@ Same as Yahoo Ads Search — see [yahoo_ads_search README](../yahoo_ads_search/R
 | `client_id` | (required) | Yahoo Ads API client ID |
 | `client_secret` | (required) | Yahoo Ads API client secret |
 | `refresh_token` | (required) | OAuth refresh token |
-| `account_id` | (required) | Yahoo Ads account ID |
+| `base_account_id` | (required) | MCC account ID (used in `x-z-base-account-id` header) |
+| `account_id` | `None` | Child account ID. If omitted, auto-discovers all SERVING accounts under the MCC |
 | `report_type` | `AD` | Report type |
 | `report_fields` | `None` | Custom report fields (defaults per report type) |
 | `attribution_window_days` | `7` | Days to re-fetch for attribution window |

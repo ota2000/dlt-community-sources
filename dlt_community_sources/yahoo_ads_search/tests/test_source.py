@@ -12,6 +12,7 @@ from dlt_community_sources.yahoo_ads_common.auth import (
 from dlt_community_sources.yahoo_ads_common.helpers import (
     convert_report_types,
     derive_primary_key,
+    discover_accounts,
     download_report,
     get_entities,
     make_client,
@@ -73,9 +74,9 @@ def test_token_url():
 
 class TestMakeClient:
     def test_creates_client_with_headers(self):
-        client = make_client("token123", "acct456")
+        client = make_client("token123", "base_acct789")
         assert client.session.headers["Authorization"] == "Bearer token123"
-        assert client.session.headers["x-z-base-account-id"] == "acct456"
+        assert client.session.headers["x-z-base-account-id"] == "base_acct789"
 
 
 class TestPostRpc:
@@ -84,6 +85,123 @@ class TestPostRpc:
         client.post.return_value = _mock_response({"rval": {"values": []}})
         result = post_rpc(client, "https://example.com/api", {"key": "val"})
         assert result == {"rval": {"values": []}}
+
+
+class TestDiscoverAccounts:
+    def test_returns_serving_accounts(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response(
+            {
+                "rval": {
+                    "totalNumEntries": 3,
+                    "values": [
+                        {
+                            "operationSucceeded": True,
+                            "account": {
+                                "accountId": 111,
+                                "accountStatus": "SERVING",
+                            },
+                        },
+                        {
+                            "operationSucceeded": True,
+                            "account": {
+                                "accountId": 222,
+                                "accountStatus": "ENDED",
+                            },
+                        },
+                        {
+                            "operationSucceeded": True,
+                            "account": {
+                                "accountId": 333,
+                                "accountStatus": "SERVING",
+                            },
+                        },
+                    ],
+                }
+            }
+        )
+        result = discover_accounts(client, "https://ads-search.yahooapis.jp/api/v19")
+        assert result == ["111", "333"]
+        assert "AccountService/get" in client.post.call_args[0][0]
+
+    def test_skips_failed_operations(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response(
+            {
+                "rval": {
+                    "totalNumEntries": 2,
+                    "values": [
+                        {
+                            "operationSucceeded": True,
+                            "account": {
+                                "accountId": 111,
+                                "accountStatus": "SERVING",
+                            },
+                        },
+                        {
+                            "operationSucceeded": False,
+                            "errors": [{"code": "V0001"}],
+                        },
+                    ],
+                }
+            }
+        )
+        result = discover_accounts(client, "https://ads-search.yahooapis.jp/api/v19")
+        assert result == ["111"]
+
+    def test_empty_response(self):
+        client = MagicMock()
+        client.post.return_value = _mock_response(
+            {"rval": {"totalNumEntries": 0, "values": []}}
+        )
+        result = discover_accounts(client, "https://ads-search.yahooapis.jp/api/v19")
+        assert result == []
+
+    def test_pagination(self):
+        page1 = _mock_response(
+            {
+                "rval": {
+                    "totalNumEntries": 3,
+                    "values": [
+                        {
+                            "operationSucceeded": True,
+                            "account": {
+                                "accountId": 111,
+                                "accountStatus": "SERVING",
+                            },
+                        },
+                        {
+                            "operationSucceeded": True,
+                            "account": {
+                                "accountId": 222,
+                                "accountStatus": "SERVING",
+                            },
+                        },
+                    ],
+                }
+            }
+        )
+        page2 = _mock_response(
+            {
+                "rval": {
+                    "totalNumEntries": 3,
+                    "values": [
+                        {
+                            "operationSucceeded": True,
+                            "account": {
+                                "accountId": 333,
+                                "accountStatus": "SERVING",
+                            },
+                        },
+                    ],
+                }
+            }
+        )
+        client = MagicMock()
+        client.post.side_effect = [page1, page2]
+        result = discover_accounts(client, "https://ads-search.yahooapis.jp/api/v19")
+        assert result == ["111", "222", "333"]
+        assert client.post.call_count == 2
 
 
 class TestGetEntities:
@@ -410,7 +528,8 @@ class TestDerivePrimaryKey:
 
 class TestSourceFunction:
     @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
-    def test_returns_source_with_resources(self, mock_refresh):
+    def test_returns_source_with_account_id(self, mock_refresh):
+        """When account_id is specified, use that single account."""
         mock_refresh.return_value = {"access_token": "at"}
         from dlt_community_sources.yahoo_ads_search.source import (
             yahoo_ads_search_source,
@@ -420,8 +539,31 @@ class TestSourceFunction:
             client_id="cid",
             client_secret="cs",
             refresh_token="rt",
+            base_account_id="mcc_456",
             account_id="123",
         )
+        assert "report" in source.resources
+        assert "campaigns" in source.resources
+
+    @patch("dlt_community_sources.yahoo_ads_search.source.discover_accounts")
+    @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
+    def test_auto_discovers_accounts_when_account_id_none(
+        self, mock_refresh, mock_discover
+    ):
+        """When account_id is None, discover_accounts is called."""
+        mock_refresh.return_value = {"access_token": "at"}
+        mock_discover.return_value = ["111", "222"]
+        from dlt_community_sources.yahoo_ads_search.source import (
+            yahoo_ads_search_source,
+        )
+
+        source = yahoo_ads_search_source(
+            client_id="cid",
+            client_secret="cs",
+            refresh_token="rt",
+            base_account_id="mcc_456",
+        )
+        mock_discover.assert_called_once()
         assert "report" in source.resources
         assert "campaigns" in source.resources
 
@@ -436,6 +578,7 @@ class TestSourceFunction:
             client_id="cid",
             client_secret="cs",
             refresh_token="rt",
+            base_account_id="mcc_456",
             account_id="123",
             resources=["campaigns", "report"],
         )

@@ -68,7 +68,8 @@ class TestSourceConfig:
 
 class TestSourceFunction:
     @patch("dlt_community_sources.yahoo_ads_display.source.refresh_access_token")
-    def test_returns_source_with_resources(self, mock_refresh):
+    def test_returns_source_with_account_id(self, mock_refresh):
+        """When account_id is specified, use that single account."""
         mock_refresh.return_value = {"access_token": "at"}
         from dlt_community_sources.yahoo_ads_display.source import (
             yahoo_ads_display_source,
@@ -78,11 +79,34 @@ class TestSourceFunction:
             client_id="cid",
             client_secret="cs",
             refresh_token="rt",
+            base_account_id="mcc_456",
             account_id="123",
         )
         assert "report" in source.resources
         assert "campaigns" in source.resources
         assert "media" in source.resources
+
+    @patch("dlt_community_sources.yahoo_ads_display.source.discover_accounts")
+    @patch("dlt_community_sources.yahoo_ads_display.source.refresh_access_token")
+    def test_auto_discovers_accounts_when_account_id_none(
+        self, mock_refresh, mock_discover
+    ):
+        """When account_id is None, discover_accounts is called."""
+        mock_refresh.return_value = {"access_token": "at"}
+        mock_discover.return_value = ["111", "222"]
+        from dlt_community_sources.yahoo_ads_display.source import (
+            yahoo_ads_display_source,
+        )
+
+        source = yahoo_ads_display_source(
+            client_id="cid",
+            client_secret="cs",
+            refresh_token="rt",
+            base_account_id="mcc_456",
+        )
+        mock_discover.assert_called_once()
+        assert "report" in source.resources
+        assert "campaigns" in source.resources
 
     @patch("dlt_community_sources.yahoo_ads_display.source.refresh_access_token")
     def test_filter_resources(self, mock_refresh):
@@ -95,6 +119,7 @@ class TestSourceFunction:
             client_id="cid",
             client_secret="cs",
             refresh_token="rt",
+            base_account_id="mcc_456",
             account_id="123",
             resources=["report", "media"],
         )

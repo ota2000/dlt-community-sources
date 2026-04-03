@@ -62,18 +62,65 @@ POLL_MAX_WAIT_SECONDS = 600
 
 def make_client(
     access_token: str,
-    account_id: str,
+    base_account_id: str,
 ) -> req.Client:
-    """Create an HTTP client with Yahoo Ads auth headers."""
+    """Create an HTTP client with Yahoo Ads auth headers.
+
+    Args:
+        access_token: OAuth access token.
+        base_account_id: Base account ID (MCC) used in x-z-base-account-id header.
+    """
     client = req.Client()
     client.session.headers.update(
         {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
-            "x-z-base-account-id": str(account_id),
+            "x-z-base-account-id": str(base_account_id),
         }
     )
     return client
+
+
+def discover_accounts(
+    client: req.Client,
+    base_url: str,
+) -> list[str]:
+    """Discover child accounts under the MCC via AccountService/get.
+
+    Only returns accounts with accountStatus == SERVING.
+
+    Args:
+        client: HTTP client with MCC auth headers.
+        base_url: API base URL (SS or YDA).
+
+    Returns:
+        List of account IDs (as strings) in SERVING status.
+    """
+    url = f"{base_url}/AccountService/get"
+    body: dict = {"numberResults": 500, "startIndex": 1}
+    account_ids: list[str] = []
+
+    while True:
+        data = post_rpc(client, url, body)
+        rval = data.get("rval", {})
+        total = rval.get("totalNumEntries", 0)
+        values = rval.get("values", [])
+
+        for entry in values:
+            if not entry.get("operationSucceeded", True):
+                continue
+            account = entry.get("account", {})
+            if account.get("accountStatus") == "SERVING":
+                aid = account.get("accountId")
+                if aid is not None:
+                    account_ids.append(str(aid))
+
+        body["startIndex"] += len(values)
+        if body["startIndex"] > total or not values:
+            break
+
+    logger.info("Discovered %d SERVING accounts under MCC", len(account_ids))
+    return account_ids
 
 
 def post_rpc(

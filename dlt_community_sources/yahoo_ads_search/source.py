@@ -17,6 +17,7 @@ from dlt_community_sources.yahoo_ads_common.auth import refresh_access_token
 from dlt_community_sources.yahoo_ads_common.helpers import (
     convert_report_types,
     derive_primary_key,
+    discover_accounts,
     download_report,
     make_client,
     poll_report,
@@ -401,7 +402,8 @@ def _make_entity_resource(
     disposition: str,
     pk: str,
     access_token: str,
-    account_id: str,
+    account_ids: list[str],
+    base_account_id: str,
     base_url: str,
 ) -> dlt.sources.DltResource:
     """Create a single dlt resource for an entity endpoint."""
@@ -409,21 +411,30 @@ def _make_entity_resource(
 
     @dlt.resource(name=name, write_disposition=disposition, primary_key=pk)
     def _fetch():
-        client = make_client(access_token, account_id)
-        yield from safe_get_entities(client, url, account_id)
+        client = make_client(access_token, base_account_id)
+        for aid in account_ids:
+            yield from safe_get_entities(client, url, aid)
 
     return _fetch
 
 
 def _build_entity_resources(
     access_token: str,
-    account_id: str,
+    account_ids: list[str],
+    base_account_id: str,
     base_url: str,
 ) -> list[dlt.sources.DltResource]:
     """Create dlt resources for all entity endpoints."""
     return [
         _make_entity_resource(
-            name, path, disposition, pk, access_token, account_id, base_url
+            name,
+            path,
+            disposition,
+            pk,
+            access_token,
+            account_ids,
+            base_account_id,
+            base_url,
         )
         for name, path, disposition, pk in _ENTITY_RESOURCES
     ]
@@ -434,7 +445,8 @@ def yahoo_ads_search_source(
     client_id: str = dlt.secrets.value,
     client_secret: str = dlt.secrets.value,
     refresh_token: str = dlt.secrets.value,
-    account_id: str = dlt.config.value,
+    base_account_id: str = dlt.config.value,
+    account_id: Optional[str] = None,
     report_type: str = "CAMPAIGN",
     report_fields: Optional[list[str]] = None,
     attribution_window_days: int = 7,
@@ -448,7 +460,9 @@ def yahoo_ads_search_source(
         client_id: Yahoo Ads API client ID.
         client_secret: Yahoo Ads API client secret.
         refresh_token: OAuth refresh token.
-        account_id: Yahoo Ads account ID.
+        base_account_id: MCC account ID (used in x-z-base-account-id header).
+        account_id: Child account ID. If None, auto-discovers all SERVING
+            accounts under the MCC via AccountService/get.
         report_type: Report type (CAMPAIGN, ADGROUP, AD, KEYWORDS, etc.).
         report_fields: Custom report fields. Defaults per report type.
         attribution_window_days: Days to re-fetch for attribution window.
@@ -459,7 +473,15 @@ def yahoo_ads_search_source(
     tokens = refresh_access_token(client_id, client_secret, refresh_token)
     access_token = tokens["access_token"]
 
-    all_resources = _build_entity_resources(access_token, account_id, base_url)
+    client = make_client(access_token, base_account_id)
+    if account_id:
+        account_ids = [account_id]
+    else:
+        account_ids = discover_accounts(client, base_url)
+
+    all_resources = _build_entity_resources(
+        access_token, account_ids, base_account_id, base_url
+    )
 
     # Report resource
     fields = report_fields or REPORT_FIELDS.get(report_type, REPORT_FIELDS["CAMPAIGN"])
@@ -478,7 +500,7 @@ def yahoo_ads_search_source(
         def _report(
             last_date=dlt.sources.incremental("DAY", initial_value=initial),
         ):
-            client = make_client(access_token, account_id)
+            rpt_client = make_client(access_token, base_account_id)
             last = last_date.last_value
             window_start = date.fromisoformat(last) - timedelta(
                 days=attribution_window_days
@@ -490,21 +512,28 @@ def yahoo_ads_search_source(
                 logger.info("report: already up to date")
                 return
 
-            logger.info("report: %s from %s to %s", report_type, start, end)
+            for aid in account_ids:
+                logger.info(
+                    "report: %s account=%s from %s to %s",
+                    report_type,
+                    aid,
+                    start,
+                    end,
+                )
 
-            job_id = submit_report(
-                client, base_url, account_id, report_type, fields, start, end
-            )
-            if not job_id:
-                logger.warning("report: no job ID returned")
-                return
+                job_id = submit_report(
+                    rpt_client, base_url, aid, report_type, fields, start, end
+                )
+                if not job_id:
+                    logger.warning("report: no job ID returned for account %s", aid)
+                    continue
 
-            status = poll_report(client, base_url, account_id, job_id)
-            if not status:
-                return
+                status = poll_report(rpt_client, base_url, aid, job_id)
+                if not status:
+                    continue
 
-            for row in download_report(client, base_url, account_id, job_id):
-                yield convert_report_types(row)
+                for row in download_report(rpt_client, base_url, aid, job_id):
+                    yield convert_report_types(row)
 
     else:
 
@@ -514,25 +543,30 @@ def yahoo_ads_search_source(
             primary_key=pk,
         )
         def _report():
-            client = make_client(access_token, account_id)
+            rpt_client = make_client(access_token, base_account_id)
             start = "2020-01-01"
             end = (date.today() - timedelta(days=1)).isoformat()
 
-            logger.info("report: %s (no DAY field, full replace)", report_type)
+            for aid in account_ids:
+                logger.info(
+                    "report: %s account=%s (no DAY field, full replace)",
+                    report_type,
+                    aid,
+                )
 
-            job_id = submit_report(
-                client, base_url, account_id, report_type, fields, start, end
-            )
-            if not job_id:
-                logger.warning("report: no job ID returned")
-                return
+                job_id = submit_report(
+                    rpt_client, base_url, aid, report_type, fields, start, end
+                )
+                if not job_id:
+                    logger.warning("report: no job ID returned for account %s", aid)
+                    continue
 
-            status = poll_report(client, base_url, account_id, job_id)
-            if not status:
-                return
+                status = poll_report(rpt_client, base_url, aid, job_id)
+                if not status:
+                    continue
 
-            for row in download_report(client, base_url, account_id, job_id):
-                yield convert_report_types(row)
+                for row in download_report(rpt_client, base_url, aid, job_id):
+                    yield convert_report_types(row)
 
     all_resources.append(_report)
 
