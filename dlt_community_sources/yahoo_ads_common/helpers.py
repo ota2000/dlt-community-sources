@@ -153,10 +153,8 @@ def get_entities(
     while True:
         body = {
             "accountId": int(account_id),
-            "paging": {
-                "startIndex": start_index,
-                "numberResults": page_size,
-            },
+            "startIndex": start_index,
+            "numberResults": page_size,
         }
         if selector_fields:
             body.update(selector_fields)
