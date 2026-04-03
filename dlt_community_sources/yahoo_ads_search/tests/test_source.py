@@ -507,16 +507,7 @@ class TestDerivePrimaryKey:
             "CLICKS",
             "COST",
         ]
-        field_type_map = {
-            "DAY": "STRING",
-            "ACCOUNT_ID": "STRING",
-            "CAMPAIGN_ID": "STRING",
-            "CAMPAIGN_NAME": "STRING",
-            "IMPS": "LONG",
-            "CLICKS": "LONG",
-            "COST": "LONG",
-        }
-        pk = derive_primary_key(fields, field_type_map)
+        pk = derive_primary_key(fields)
         assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID"]
 
     def test_excludes_all_metrics(self):
@@ -531,18 +522,7 @@ class TestDerivePrimaryKey:
             "CONV_RATE",
             "CONV_VALUE",
         ]
-        field_type_map = {
-            "DAY": "STRING",
-            "IMPS": "LONG",
-            "CLICKS": "LONG",
-            "CLICK_RATE": "DOUBLE",
-            "AVG_CPC": "DOUBLE",
-            "COST": "LONG",
-            "CONVERSIONS": "LONG",
-            "CONV_RATE": "DOUBLE",
-            "CONV_VALUE": "LONG",
-        }
-        pk = derive_primary_key(fields, field_type_map)
+        pk = derive_primary_key(fields)
         assert pk == ["DAY"]
 
 

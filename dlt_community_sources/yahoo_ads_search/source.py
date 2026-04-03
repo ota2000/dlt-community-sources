@@ -36,9 +36,6 @@ BASE_URL = "https://ads-search.yahooapis.jp/api/v19"
 
 _ENTITY_RESOURCES = [
     # (resource_name, service_path, write_disposition, primary_key, body_style)
-    # body_style: "standard" = accountId + paging (default)
-    #             "account_ids" = accountIds array, no paging
-    #             "no_paging" = accountId only, no paging
     # body_style "standard": accountId + startIndex + numberResults (most services)
     # body_style "account_ids": accountIds array, no paging
     # body_style "no_paging": accountId only, no paging params
@@ -362,9 +359,35 @@ def yahoo_ads_search_source(
         fields = meta.field_names
         field_type_map = meta.field_type_map
         display_to_field = meta.display_to_field
-    pk = derive_primary_key(fields, field_type_map)
+    pk = derive_primary_key(fields)
     has_day = "DAY" in fields
     initial = start_date or "2020-01-01"
+
+    def _fetch_report(rpt_client, start, end):
+        """Fetch report rows for all accounts in the given date range."""
+        for aid in account_ids:
+            job_id = submit_report(
+                rpt_client,
+                base_url,
+                aid,
+                report_type,
+                fields,
+                start,
+                end,
+                report_language=report_language,
+            )
+            if not job_id:
+                logger.warning("report: no job ID returned for account %s", aid)
+                continue
+
+            status = poll_report(rpt_client, base_url, aid, job_id)
+            if not status:
+                continue
+
+            for row in download_report(
+                rpt_client, base_url, aid, job_id, display_to_field
+            ):
+                yield convert_report_types(row, field_type_map)
 
     if has_day:
 
@@ -389,37 +412,14 @@ def yahoo_ads_search_source(
                 logger.info("report: already up to date")
                 return
 
-            for aid in account_ids:
-                logger.info(
-                    "report: %s account=%s from %s to %s",
-                    report_type,
-                    aid,
-                    start,
-                    end,
-                )
-
-                job_id = submit_report(
-                    rpt_client,
-                    base_url,
-                    aid,
-                    report_type,
-                    fields,
-                    start,
-                    end,
-                    report_language=report_language,
-                )
-                if not job_id:
-                    logger.warning("report: no job ID returned for account %s", aid)
-                    continue
-
-                status = poll_report(rpt_client, base_url, aid, job_id)
-                if not status:
-                    continue
-
-                for row in download_report(
-                    rpt_client, base_url, aid, job_id, display_to_field
-                ):
-                    yield convert_report_types(row, field_type_map)
+            logger.info(
+                "report: %s from %s to %s (%d accounts)",
+                report_type,
+                start,
+                end,
+                len(account_ids),
+            )
+            yield from _fetch_report(rpt_client, start, end)
 
     else:
 
@@ -433,35 +433,12 @@ def yahoo_ads_search_source(
             start = "2020-01-01"
             end = (date.today() - timedelta(days=1)).isoformat()
 
-            for aid in account_ids:
-                logger.info(
-                    "report: %s account=%s (no DAY field, full replace)",
-                    report_type,
-                    aid,
-                )
-
-                job_id = submit_report(
-                    rpt_client,
-                    base_url,
-                    aid,
-                    report_type,
-                    fields,
-                    start,
-                    end,
-                    report_language=report_language,
-                )
-                if not job_id:
-                    logger.warning("report: no job ID returned for account %s", aid)
-                    continue
-
-                status = poll_report(rpt_client, base_url, aid, job_id)
-                if not status:
-                    continue
-
-                for row in download_report(
-                    rpt_client, base_url, aid, job_id, display_to_field
-                ):
-                    yield convert_report_types(row, field_type_map)
+            logger.info(
+                "report: %s (no DAY field, full replace, %d accounts)",
+                report_type,
+                len(account_ids),
+            )
+            yield from _fetch_report(rpt_client, start, end)
 
     all_resources.append(_report)
 

@@ -19,9 +19,6 @@ from dlt.sources.helpers import requests as req
 
 logger = logging.getLogger(__name__)
 
-# Metric field types from getReportFields API (used for PK derivation)
-_METRIC_FIELD_TYPES = {"LONG", "DOUBLE", "BID"}
-
 # Primary key: only core identity fields (date + entity IDs)
 _PK_FIELDS = {
     "DAY",
@@ -34,6 +31,19 @@ _PK_FIELDS = {
     "AD_DISPLAY_OPTION",
     "MEDIA_ID",
 }
+
+
+def _extract_inner(entry: dict) -> Optional[dict]:
+    """Extract inner object from API response entry, skipping wrapper fields."""
+    if not entry.get("operationSucceeded", True):
+        return None
+    inner = {
+        k: v for k, v in entry.items() if k not in ("operationSucceeded", "errors")
+    }
+    keys = list(inner.keys())
+    if len(keys) == 1:
+        return inner[keys[0]]
+    return inner
 
 
 class ReportFieldMeta:
@@ -120,13 +130,11 @@ def get_report_fields(
     return meta.field_names
 
 
-def derive_primary_key(
-    fields: list[str], field_type_map: Optional[dict[str, str]] = None
-) -> list[str]:
-    """Derive primary key from report fields (all non-metric fields).
+def derive_primary_key(fields: list[str]) -> list[str]:
+    """Derive primary key from report fields using a whitelist of identity fields.
 
-    Uses field_type_map from getReportFields API to determine which fields
-    are metrics (LONG, DOUBLE, BID) and exclude them from the primary key.
+    Returns only fields present in _PK_FIELDS (date + entity IDs),
+    excluding metric and dimension fields.
     """
     return [f for f in fields if f in _PK_FIELDS]
 
@@ -260,19 +268,9 @@ def get_entities(
         values = rval.get("values") or []
 
         for entry in values:
-            if entry.get("operationSucceeded", True):
-                # Remove the wrapper and yield the inner object
-                inner = {
-                    k: v
-                    for k, v in entry.items()
-                    if k not in ("operationSucceeded", "errors")
-                }
-                # If there's a single inner key, yield its value directly
-                keys = list(inner.keys())
-                if len(keys) == 1:
-                    yield inner[keys[0]]
-                else:
-                    yield inner
+            obj = _extract_inner(entry)
+            if obj is not None:
+                yield obj
 
         start_index += len(values)
         if start_index > total or not values:
@@ -307,17 +305,9 @@ def get_entities_by_account_ids(
     rval = data.get("rval") or {}
     values = rval.get("values") or []
     for entry in values:
-        if entry.get("operationSucceeded", True):
-            inner = {
-                k: v
-                for k, v in entry.items()
-                if k not in ("operationSucceeded", "errors")
-            }
-            keys = list(inner.keys())
-            if len(keys) == 1:
-                yield inner[keys[0]]
-            else:
-                yield inner
+        obj = _extract_inner(entry)
+        if obj is not None:
+            yield obj
 
 
 def get_entities_no_paging(
@@ -331,17 +321,9 @@ def get_entities_no_paging(
     rval = data.get("rval") or {}
     values = rval.get("values") or []
     for entry in values:
-        if entry.get("operationSucceeded", True):
-            inner = {
-                k: v
-                for k, v in entry.items()
-                if k not in ("operationSucceeded", "errors")
-            }
-            keys = list(inner.keys())
-            if len(keys) == 1:
-                yield inner[keys[0]]
-            else:
-                yield inner
+        obj = _extract_inner(entry)
+        if obj is not None:
+            yield obj
 
 
 def safe_fetch_entities(
@@ -362,14 +344,9 @@ def safe_fetch_entities(
             data = post_rpc(client, url, {})
             rval = data.get("rval") or {}
             for entry in rval.get("values") or []:
-                if entry.get("operationSucceeded", True):
-                    inner = {
-                        k: v
-                        for k, v in entry.items()
-                        if k not in ("operationSucceeded", "errors")
-                    }
-                    keys = list(inner.keys())
-                    yield inner[keys[0]] if len(keys) == 1 else inner
+                obj = _extract_inner(entry)
+                if obj is not None:
+                    yield obj
         else:
             yield from get_entities(client, url, account_id, page_size=page_size)
     except req.HTTPError as e:
