@@ -19,7 +19,7 @@ from dlt_community_sources.yahoo_ads_common.helpers import (
     derive_primary_key,
     discover_accounts,
     download_report,
-    get_report_fields,
+    get_report_fields_with_types,
     make_client,
     poll_report,
     safe_get_entities,
@@ -268,10 +268,13 @@ def yahoo_ads_search_source(
     # Report resource
     if report_fields:
         fields = report_fields
+        field_type_map = None
     else:
-        # Dynamically fetch all available fields from the API
-        fields = get_report_fields(client, base_url, report_type)
-    pk = derive_primary_key(fields)
+        # Dynamically fetch all available fields and types from the API
+        fields, field_type_map = get_report_fields_with_types(
+            client, base_url, report_type
+        )
+    pk = derive_primary_key(fields, field_type_map)
     has_day = "DAY" in fields
     initial = start_date or "2020-01-01"
 
@@ -326,7 +329,7 @@ def yahoo_ads_search_source(
                     continue
 
                 for row in download_report(rpt_client, base_url, aid, job_id):
-                    yield convert_report_types(row)
+                    yield convert_report_types(row, field_type_map)
 
     else:
 
@@ -366,7 +369,7 @@ def yahoo_ads_search_source(
                     continue
 
                 for row in download_report(rpt_client, base_url, aid, job_id):
-                    yield convert_report_types(row)
+                    yield convert_report_types(row, field_type_map)
 
     all_resources.append(_report)
 

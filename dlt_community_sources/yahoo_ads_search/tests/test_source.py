@@ -313,10 +313,11 @@ class TestSubmitReport:
                 "rval": {
                     "values": [
                         {
+                            "operationSucceeded": True,
                             "reportDefinition": {
                                 "reportJobId": 12345,
                                 "reportJobStatus": "WAIT",
-                            }
+                            },
                         }
                     ]
                 }
