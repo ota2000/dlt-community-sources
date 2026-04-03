@@ -110,7 +110,11 @@ class TestGetReportFieldsWithTypes:
         )
         meta = get_report_fields_with_types(client, "https://api", "AD")
         assert meta.field_names == ["DAY", "IMPS", "COST"]
-        assert meta.field_type_map == {"DAY": "STRING", "IMPS": "LONG", "COST": "DOUBLE"}
+        assert meta.field_type_map == {
+            "DAY": "STRING",
+            "IMPS": "LONG",
+            "COST": "DOUBLE",
+        }
         assert isinstance(meta.display_to_field, dict)
 
     def test_defaults_to_string_when_field_type_missing(self):
@@ -139,7 +143,13 @@ class TestSourceFunction:
             "CLICKS": "LONG",
             "COST": "LONG",
         },
-        display_to_field={"Day": "DAY", "CampaignID": "CAMPAIGN_ID", "Impressions": "IMPS", "Clicks": "CLICKS", "Cost": "COST"},
+        display_to_field={
+            "Day": "DAY",
+            "CampaignID": "CAMPAIGN_ID",
+            "Impressions": "IMPS",
+            "Clicks": "CLICKS",
+            "Cost": "COST",
+        },
     )
 
     @patch(
