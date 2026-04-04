@@ -1,8 +1,8 @@
 # Yahoo Ads Search
 
-A [dlt](https://dlthub.com) source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LY Ads Search Ads, formerly Yahoo! JAPAN Ads SS).
+A [dlt](https://dlthub.com) source for [Yahoo Japan Ads Search API](https://ads-developers.yahoo.co.jp/reference/ads-search-api/) (LINEヤフー広告 検索広告, formerly Yahoo! JAPAN Ads SS).
 
-Covers 40 entity resources and 1 configurable report resource with 22 report types.
+41 entity resources and 1 configurable report resource with 22 report types.
 
 ## Installation
 
@@ -23,37 +23,19 @@ pipeline = dlt.pipeline(
 )
 
 source = yahoo_ads_search_source(
-    client_id="YOUR_CLIENT_ID",
-    client_secret="YOUR_CLIENT_SECRET",
-    refresh_token="YOUR_REFRESH_TOKEN",
-    base_account_id="YOUR_MCC_ACCOUNT_ID",
-)
-
-load_info = pipeline.run(source)
-```
-
-When `account_id` is omitted, the source auto-discovers all SERVING accounts under the MCC via `AccountService/get`.
-
-### Specify a single child account
-
-```python
-source = yahoo_ads_search_source(
-    client_id="YOUR_CLIENT_ID",
-    client_secret="YOUR_CLIENT_SECRET",
-    refresh_token="YOUR_REFRESH_TOKEN",
     base_account_id="YOUR_MCC_ACCOUNT_ID",
     account_id="YOUR_AD_ACCOUNT_ID",
 )
+
+load_info = pipeline.run(source)
 ```
 
 ### Load specific resources
 
 ```python
 source = yahoo_ads_search_source(
-    client_id="YOUR_CLIENT_ID",
-    client_secret="YOUR_CLIENT_SECRET",
-    refresh_token="YOUR_REFRESH_TOKEN",
     base_account_id="YOUR_MCC_ACCOUNT_ID",
+    account_id="YOUR_AD_ACCOUNT_ID",
     resources=["campaigns", "ad_groups", "report"],
 )
 ```
@@ -62,23 +44,53 @@ source = yahoo_ads_search_source(
 
 ```python
 source = yahoo_ads_search_source(
-    client_id="YOUR_CLIENT_ID",
-    client_secret="YOUR_CLIENT_SECRET",
-    refresh_token="YOUR_REFRESH_TOKEN",
     base_account_id="YOUR_MCC_ACCOUNT_ID",
+    account_id="YOUR_AD_ACCOUNT_ID",
     report_type="KEYWORDS",
     report_fields=["DAY", "KEYWORD", "IMPS", "CLICKS", "COST"],
     attribution_window_days=7,
 )
 ```
 
+### Multiple accounts
+
+The source loads data for a single account per invocation. For multiple accounts, use `discover_accounts` to list child accounts under an MCC and run a separate pipeline per account. This ensures each account has its own incremental cursor.
+
+```python
+import dlt
+from dlt_community_sources.yahoo_ads_common import (
+    discover_accounts,
+    make_client,
+    refresh_access_token,
+)
+from dlt_community_sources.yahoo_ads_search import yahoo_ads_search_source
+
+tokens = refresh_access_token(client_id, client_secret, refresh_token)
+client = make_client(tokens["access_token"], base_account_id)
+accounts = discover_accounts(client, "https://ads-search.yahooapis.jp/api/v19")
+
+for account_id in accounts:
+    pipeline = dlt.pipeline(
+        pipeline_name=f"yahoo_ads_{account_id}",
+        destination="bigquery",
+        dataset_name="source_yahoo_ads",
+    )
+    source = yahoo_ads_search_source(
+        base_account_id=base_account_id,
+        account_id=account_id,
+    )
+    pipeline.run(source)
+```
+
+`discover_accounts` returns SERVING accounts only. To load data for an ENDED account, pass its `account_id` explicitly.
+
 ## Resources
 
-### Entity Resources (40)
+### Entity Resources (41)
 
 | Resource | Write Disposition | Description |
 |---|---|---|
-| `accounts` | merge | Account details |
+| `accounts` | merge | Account details (MCC-level, empty body) |
 | `campaigns` | merge | Campaigns |
 | `ad_groups` | merge | Ad groups |
 | `ads` | merge | Ads |
@@ -100,6 +112,7 @@ source = yahoo_ads_search_source(
 | `customizer_attributes` | merge | Customizer attributes |
 | `account_tracking_urls` | replace | Account tracking URL settings |
 | `ab_tests` | merge | A/B tests |
+| `audit_logs` | append | Change history logs |
 | `seasonality_adjustments` | merge | Seasonality adjustments |
 | `learning_data_exclusions` | merge | Learning data exclusions |
 | `conversion_groups` | merge | Conversion groups |
@@ -112,7 +125,7 @@ source = yahoo_ads_search_source(
 | `page_feed_assets` | merge | Page feed assets |
 | `ad_group_webpages` | replace | Ad group webpage targeting |
 | `campaign_webpages` | replace | Campaign webpage exclusions |
-| `account_links` | replace | MCC account links |
+| `account_links` | replace | MCC account links (empty body) |
 | `app_links` | merge | App conversion links |
 | `account_customizers` | replace | Account-level customizer values |
 | `campaign_customizers` | replace | Campaign-level customizer values |
@@ -143,18 +156,48 @@ Yahoo Ads uses OAuth 2.0 Authorization Code Grant.
 | `client_secret` | (required) | Yahoo Ads API client secret |
 | `refresh_token` | (required) | OAuth refresh token |
 | `base_account_id` | (required) | MCC account ID (used in `x-z-base-account-id` header) |
-| `account_id` | `None` | Child account ID. If omitted, auto-discovers all SERVING accounts under the MCC |
+| `account_id` | (required) | Child account ID to load data from |
 | `report_type` | `CAMPAIGN` | Report type |
 | `report_fields` | `None` | Custom report fields. If omitted, all available fields are fetched dynamically via `getReportFields` API |
-| `report_language` | `EN` | Report language (`EN` or `JA`) |
 | `attribution_window_days` | `7` | Days to re-fetch for attribution window |
 | `resources` | `None` | Resource names to load (None for all) |
 | `start_date` | `None` | Override incremental start date (YYYY-MM-DD) |
 
-## Notes
+## How it works
 
-- **POST RPC style**: All endpoints use POST with JSON body (not REST GET).
-- **Pagination**: Uses `startIndex` (1-based) and `numberResults` for offset pagination.
-- **Report primary key**: Dynamically derived from report fields — all non-metric fields become the composite primary key.
-- **Type conversion**: Report CSV values `--` are converted to `None`, numeric fields to int/Decimal.
-- **Permission errors**: Resources returning 403/404 are silently skipped.
+### Dynamic report fields
+
+Report fields are not hardcoded. The source calls `getReportFields` API at runtime to discover all available fields for the given report type. When the API version changes and fields are added or removed, the source adapts automatically.
+
+Fields that conflict with each other (`impossibleCombinationFields`) are resolved by greedily removing the field with the most conflicts, producing the largest conflict-free field set.
+
+### Dynamic type conversion
+
+Report CSV values are all strings. Type conversion uses `fieldType` metadata from `getReportFields`:
+
+- `LONG` → `int`
+- `DOUBLE` / `BID` → `Decimal`
+- `STRING` / `ENUM` → as-is
+- `--` or empty → `None`
+
+### CSV column name mapping
+
+Report CSV headers use display names (e.g., `Account ID`) rather than API field names (e.g., `ACCOUNT_ID`). The source builds a mapping from `displayFieldNameEn` in `getReportFields` and renames columns after download for a consistent schema.
+
+### Report primary key
+
+Primary key includes only core identity fields: `DAY`, `ACCOUNT_ID`, `CAMPAIGN_ID`, `ADGROUP_ID`, `AD_ID`, `KEYWORD_ID`, etc. This avoids non-nullable PK errors from optional fields.
+
+### Body styles
+
+Yahoo Ads API services use different request body structures. Each entity resource has an appropriate `body_style`:
+
+- `standard`: `accountId` + `startIndex` + `numberResults` (most services)
+- `account_ids`: `accountIds` array, no pagination
+- `no_paging`: `accountId` only
+- `empty`: no body params (MCC-level services)
+
+### Error handling
+
+- HTTP 400/403/404 responses are silently skipped (some services are unavailable depending on account permissions)
+- Other HTTP errors are raised

@@ -645,31 +645,6 @@ class TestSourceFunction:
         mock_get_fields.assert_called_once()
 
     @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")
-    @patch("dlt_community_sources.yahoo_ads_search.source.discover_accounts")
-    @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
-    def test_auto_discovers_accounts_when_account_id_none(
-        self, mock_refresh, mock_discover, mock_get_fields
-    ):
-        """When account_id is None, discover_accounts is called."""
-        mock_refresh.return_value = {"access_token": "at"}
-        mock_discover.return_value = ["111", "222"]
-        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
-        from dlt_community_sources.yahoo_ads_search.source import (
-            yahoo_ads_search_source,
-        )
-
-        source = yahoo_ads_search_source(
-            client_id="cid",
-            client_secret="cs",
-            refresh_token="rt",
-            base_account_id="mcc_456",
-        )
-        mock_discover.assert_called_once()
-        mock_get_fields.assert_called_once()
-        assert "report" in source.resources
-        assert "campaigns" in source.resources
-
-    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")
     @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
     def test_filter_resources(self, mock_refresh, mock_get_fields):
         mock_refresh.return_value = {"access_token": "at"}

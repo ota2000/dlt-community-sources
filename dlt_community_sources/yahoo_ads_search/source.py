@@ -17,7 +17,6 @@ from dlt_community_sources.yahoo_ads_common.auth import refresh_access_token
 from dlt_community_sources.yahoo_ads_common.helpers import (
     convert_report_types,
     derive_primary_key,
-    discover_accounts,
     download_report,
     get_report_fields_with_types,
     make_client,
@@ -306,10 +305,9 @@ def yahoo_ads_search_source(
     client_secret: str = dlt.secrets.value,
     refresh_token: str = dlt.secrets.value,
     base_account_id: str = dlt.config.value,
-    account_id: Optional[str] = None,
+    account_id: str = dlt.config.value,
     report_type: str = "CAMPAIGN",
     report_fields: Optional[list[str]] = None,
-    report_language: str = "EN",
     attribution_window_days: int = 7,
     resources: Optional[list[str]] = None,
     start_date: Optional[str] = None,
@@ -322,12 +320,10 @@ def yahoo_ads_search_source(
         client_secret: Yahoo Ads API client secret.
         refresh_token: OAuth refresh token.
         base_account_id: MCC account ID (used in x-z-base-account-id header).
-        account_id: Child account ID. If None, auto-discovers all SERVING
-            accounts under the MCC via AccountService/get.
+        account_id: Child account ID to load data from.
         report_type: Report type (CAMPAIGN, ADGROUP, AD, KEYWORDS, etc.).
         report_fields: Custom report fields. If omitted, all available fields
             are fetched dynamically via getReportFields API.
-        report_language: Report language (EN or JA). Defaults to EN.
         attribution_window_days: Days to re-fetch for attribution window.
         resources: Resource names to load. None for all.
         start_date: Override incremental start date (YYYY-MM-DD).
@@ -336,11 +332,8 @@ def yahoo_ads_search_source(
     tokens = refresh_access_token(client_id, client_secret, refresh_token)
     access_token = tokens["access_token"]
 
+    account_ids = [account_id]
     client = make_client(access_token, base_account_id)
-    if account_id:
-        account_ids = [account_id]
-    else:
-        account_ids = discover_accounts(client, base_url)
 
     all_resources = _build_entity_resources(
         access_token, account_ids, base_account_id, base_url
@@ -354,7 +347,7 @@ def yahoo_ads_search_source(
     else:
         # Dynamically fetch all available fields and types from the API
         meta = get_report_fields_with_types(
-            client, base_url, report_type, report_language=report_language
+            client, base_url, report_type, report_language="EN"
         )
         fields = meta.field_names
         field_type_map = meta.field_type_map
@@ -374,7 +367,7 @@ def yahoo_ads_search_source(
                 fields,
                 start,
                 end,
-                report_language=report_language,
+                report_language="EN",
             )
             if not job_id:
                 logger.warning("report: no job ID returned for account %s", aid)
