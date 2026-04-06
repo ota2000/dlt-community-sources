@@ -22,7 +22,38 @@ from .resources.ad_insight import ALL_AD_INSIGHT_RESOURCES
 from .resources.campaign_management import ALL_CAMPAIGN_MGMT_RESOURCES
 from .resources.customer_billing import ALL_CUSTOMER_BILLING_RESOURCES
 from .resources.customer_management import ALL_CUSTOMER_MGMT_RESOURCES
+from .resources.helpers import CUSTOMER_MGMT_URL, post_rpc
 from .resources.reporting import report
+
+
+def discover_accounts(
+    access_token: str,
+    developer_token: str,
+    customer_id: str = "",
+) -> list[dict]:
+    """Discover all ad accounts accessible by the token.
+
+    Returns a list of dicts with 'Id', 'Name', 'Number',
+    'AccountLifeCycleStatus' for each account.
+
+    Only Active accounts are included by default. Paused/Suspended
+    accounts are excluded. To access them, pass their account_id
+    directly to the source.
+    """
+    from .resources.helpers import make_client
+
+    client = make_client(access_token, developer_token, customer_id, "")
+    data = post_rpc(
+        client,
+        f"{CUSTOMER_MGMT_URL}/AccountsInfo/Query",
+        {},
+    )
+    accounts = data.get("AccountsInfo") or []
+    return [
+        {"id": str(a["Id"]), "name": a.get("Name", ""), "number": a.get("Number", "")}
+        for a in accounts
+        if a.get("AccountLifeCycleStatus") == "Active"
+    ]
 
 
 @dlt.source(name="microsoft_ads")
