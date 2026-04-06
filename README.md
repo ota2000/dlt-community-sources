@@ -15,6 +15,7 @@ Community-maintained [dlt](https://dlthub.com/) sources for various APIs. Instal
 | [Twilio](dlt_community_sources/twilio/) | `twilio` | Twilio SMS, Calls, Usage Records |
 | [Meta Ads](dlt_community_sources/meta_ads/) | `meta-ads` | Meta (Facebook) Ads campaigns, ad sets, ads, and insights |
 | [NextDNS](dlt_community_sources/nextdns/) | `nextdns` | NextDNS logs and analytics |
+| [Microsoft Ads](dlt_community_sources/microsoft_ads/) | `microsoft-ads` | Microsoft Advertising (Bing Ads) with certificate auth support |
 | [TikTok Ads](dlt_community_sources/tiktok_ads/) | `tiktok-ads` | TikTok Marketing API (Business API) |
 | [Yahoo Ads Search](dlt_community_sources/yahoo_ads_search/) | `yahoo-ads-search` | Yahoo Japan Ads Search API (SS) with MCC support |
 
