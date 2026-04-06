@@ -504,7 +504,7 @@ dependencies = [
 app-store-connect = [
     { name = "pyjwt", extra = ["crypto"] },
 ]
-microsoft-ads-cert = [
+microsoft-ads = [
     { name = "msal" },
 ]
 
@@ -521,10 +521,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dlt", specifier = ">=1.0.0" },
-    { name = "msal", marker = "extra == 'microsoft-ads-cert'", specifier = ">=1.28.0" },
+    { name = "msal", marker = "extra == 'microsoft-ads'", specifier = ">=1.28.0" },
     { name = "pyjwt", extras = ["crypto"], marker = "extra == 'app-store-connect'", specifier = ">=2.8.0" },
 ]
-provides-extras = ["app-store-connect", "meta-ads", "microsoft-ads", "microsoft-ads-cert", "nextdns", "tiktok-ads", "twilio", "yahoo-ads-search"]
+provides-extras = ["app-store-connect", "meta-ads", "microsoft-ads", "nextdns", "tiktok-ads", "twilio", "yahoo-ads-search"]
 
 [package.metadata.requires-dev]
 dev = [

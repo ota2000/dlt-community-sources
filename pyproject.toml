@@ -23,8 +23,7 @@ classifiers = [
 [project.optional-dependencies]
 app-store-connect = ["PyJWT[crypto]>=2.8.0"]
 meta-ads = []  # no extra dependencies, requests is included in dlt
-microsoft-ads = []  # base: client_secret auth only
-microsoft-ads-cert = ["msal>=1.28.0"]  # certificate auth support
+microsoft-ads = ["msal>=1.28.0"]  # includes certificate auth support
 nextdns = []  # no extra dependencies, requests is included in dlt
 tiktok-ads = []  # no extra dependencies, requests is included in dlt
 twilio = []  # no extra dependencies, requests is included in dlt
