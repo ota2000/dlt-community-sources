@@ -201,6 +201,36 @@ def _make_client(access_token: str) -> req.Client:
     return client
 
 
+def discover_advertisers(
+    access_token: str,
+    app_id: str,
+    secret: str,
+    base_url: str = DEFAULT_BASE_URL,
+) -> list[str]:
+    """Discover advertiser IDs authorized for this access token.
+
+    Returns a list of advertiser ID strings that can be passed to
+    ``tiktok_ads_source(advertiser_id=...)``.
+    """
+    client = _make_client(access_token)
+    url = f"{base_url}/oauth2/advertiser/get/"
+    response = client.get(url, params={"app_id": app_id, "secret": secret})
+    response.raise_for_status()
+    data = response.json()
+    if data.get("code", -1) != 0:
+        logger.warning(
+            "discover_advertisers: API error code=%s, message=%s",
+            data.get("code"),
+            data.get("message"),
+        )
+        return []
+    return [
+        str(item["advertiser_id"])
+        for item in data.get("data", {}).get("list", [])
+        if "advertiser_id" in item
+    ]
+
+
 def _parse_invalid_fields(message: str) -> set[str]:
     """Parse invalid field names from TikTok API error message.
 
