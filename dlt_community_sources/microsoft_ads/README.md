@@ -67,6 +67,55 @@ source = microsoft_ads_source(
 
 > **Note:** The report primary key includes fields like `AccountId`, `CampaignId`, etc. Make sure your custom `report_columns` includes these fields for correct merge behavior.
 
+### Multiple accounts
+
+Use `discover_accounts` to list all active ad accounts, then run a separate pipeline per account:
+
+```python
+from dlt_community_sources.microsoft_ads import (
+    discover_accounts,
+    refresh_access_token,
+    microsoft_ads_source,
+)
+
+tokens = refresh_access_token(client_id, client_secret, refresh_token, tenant_id)
+accounts = discover_accounts(tokens["access_token"], developer_token)
+
+for account in accounts:
+    pipeline = dlt.pipeline(
+        pipeline_name=f"microsoft_ads_{account['id']}",
+        destination="bigquery",
+        dataset_name="microsoft_ads",
+    )
+    source = microsoft_ads_source(
+        access_token=tokens["access_token"],
+        developer_token=developer_token,
+        account_id=account["id"],
+        customer_id=customer_id,
+    )
+    pipeline.run(source)
+```
+
+`discover_accounts` returns only Active accounts. To access Paused accounts, pass their account_id directly.
+
+### Certificate authentication
+
+For long-lived authentication without client_secret rotation, use certificate-based auth:
+
+```python
+from dlt_community_sources.microsoft_ads import refresh_access_token_with_certificate
+
+tokens = refresh_access_token_with_certificate(
+    client_id="YOUR_CLIENT_ID",
+    tenant_id="YOUR_TENANT_ID",
+    refresh_token="YOUR_REFRESH_TOKEN",
+    private_key=open("private_key.pem").read(),
+    thumbprint="YOUR_CERT_THUMBPRINT",
+)
+```
+
+Certificates can have up to 100-year validity, eliminating the need for periodic client_secret rotation. Upload the certificate (.pem) to your Azure App Registration under Certificates & secrets.
+
 ## Resources
 
 ### Campaign Management (33 resources)

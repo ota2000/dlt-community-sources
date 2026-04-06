@@ -40,6 +40,35 @@ source = tiktok_ads_source(
 load_info = pipeline.run(source)
 ```
 
+### Multiple advertisers
+
+Use `discover_advertisers` to list all advertiser IDs authorized for the token, then run a separate pipeline per advertiser:
+
+```python
+from dlt_community_sources.tiktok_ads import (
+    discover_advertisers,
+    refresh_access_token,
+    tiktok_ads_source,
+)
+
+tokens = refresh_access_token(app_id, secret, refresh_token)
+advertisers = discover_advertisers(tokens["access_token"], app_id, secret)
+
+for advertiser_id in advertisers:
+    pipeline = dlt.pipeline(
+        pipeline_name=f"tiktok_ads_{advertiser_id}",
+        destination="bigquery",
+        dataset_name="tiktok_ads",
+    )
+    source = tiktok_ads_source(
+        access_token=tokens["access_token"],
+        advertiser_id=advertiser_id,
+    )
+    pipeline.run(source)
+```
+
+Running separate pipelines per advertiser ensures each has its own incremental cursor.
+
 ## Resources
 
 | Resource | Write Disposition | Primary Key | Description |
