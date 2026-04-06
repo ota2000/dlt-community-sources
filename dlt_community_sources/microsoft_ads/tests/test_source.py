@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 from dlt_community_sources.microsoft_ads.resources.ad_insight import (
     ALL_AD_INSIGHT_RESOURCES,
-    auction_insight_data,
     auto_apply_opt_in_status,
 )
 from dlt_community_sources.microsoft_ads.resources.campaign_management import (
@@ -97,7 +96,7 @@ class TestResourceCounts:
         assert len(ALL_CUSTOMER_MGMT_RESOURCES) >= 8
 
     def test_ad_insight_resources(self):
-        assert len(ALL_AD_INSIGHT_RESOURCES) >= 5
+        assert len(ALL_AD_INSIGHT_RESOURCES) >= 4
 
     def test_customer_billing_resources(self):
         assert len(ALL_CUSTOMER_BILLING_RESOURCES) >= 3
@@ -388,17 +387,6 @@ class TestSourceFunction:
 
 class TestResourceFunctions:
     """Test individual resource functions with mocked clients."""
-
-    @patch("dlt_community_sources.microsoft_ads.resources.ad_insight.make_client")
-    def test_auction_insight_data(self, mock_make):
-        mock_client = MagicMock()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {"Result": [{"Id": 1}]}
-        mock_resp.raise_for_status.return_value = None
-        mock_client.post.return_value = mock_resp
-        mock_make.return_value = mock_client
-        result = list(auction_insight_data("at", "dt", "ci", "ai"))
-        assert result == [{"Id": 1}]
 
     @patch(
         "dlt_community_sources.microsoft_ads.resources.customer_management.make_client"

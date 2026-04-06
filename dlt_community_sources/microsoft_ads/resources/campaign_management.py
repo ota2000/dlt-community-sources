@@ -192,7 +192,6 @@ def campaign_criterions(access_token, developer_token, customer_id, account_id):
                 "Location",
                 "LocationIntent",
                 "Radius",
-                "Audience",
                 "Webpage",
                 "ProductScope",
             ):
@@ -303,7 +302,6 @@ def conversion_goals(access_token, developer_token, customer_id, account_id):
         "Event",
         "AppInstall",
         "OfflineConversion",
-        "InStoreTransaction",
     ):
         yield from safe_rpc(
             c,

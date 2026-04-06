@@ -19,18 +19,6 @@ def _url(path, base=AD_INSIGHT_URL):
     return f"{base}/{path}"
 
 
-@dlt.resource(name="auction_insight_data", write_disposition="replace")
-def auction_insight_data(access_token, developer_token, customer_id, account_id):
-    """SDK: GetAuctionInsightData."""
-    c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
-        c,
-        _url("AuctionInsightData/Query"),
-        {"EntityType": "Account", "EntityIds": [account_id]},
-        "Result",
-    )
-
-
 @dlt.resource(name="bid_opportunities", write_disposition="replace")
 def bid_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetBidOpportunities."""
@@ -62,37 +50,17 @@ def keyword_opportunities(access_token, developer_token, customer_id, account_id
     yield from safe_rpc(
         c,
         _url("KeywordOpportunities/Query"),
-        {"AccountId": account_id},
+        {"AccountId": account_id, "OpportunityType": "BroadMatch"},
         "Opportunities",
     )
 
 
-@dlt.resource(name="recommendations", write_disposition="replace")
-def recommendations(access_token, developer_token, customer_id, account_id):
-    """SDK: GetRecommendations."""
-    c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
-        c,
-        _url("Recommendations/Query"),
-        {"AccountId": account_id},
-        "Recommendations",
-    )
-
-
-@dlt.resource(name="performance_insights", write_disposition="replace")
-def performance_insights(access_token, developer_token, customer_id, account_id):
-    """SDK: GetPerformanceInsightsDetailDataByAccountId."""
-    c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
-        c,
-        _url("PerformanceInsightsDetailData/QueryByAccountId"),
-        {"AccountId": account_id},
-        "PerformanceInsights",
-    )
-
-
-# NOTE: keyword_idea_categories (GetKeywordIdeaCategories) has been removed
-# because the endpoint is deprecated by Microsoft.
+# NOTE: The following resources have been removed because they require
+# analysis-specific input parameters that cannot be generalized:
+# - auction_insight_data: requires SearchParameters with specific keywords/URLs
+# - recommendations: requires specific RecommendationType selection
+# - performance_insights: requires specific EntityType and date format
+# - keyword_idea_categories: endpoint deprecated by Microsoft
 
 
 # All known recommendation types for auto-apply opt-in status
@@ -118,11 +86,8 @@ def auto_apply_opt_in_status(access_token, developer_token, customer_id, account
 
 
 ALL_AD_INSIGHT_RESOURCES = [
-    auction_insight_data,
     bid_opportunities,
     budget_opportunities,
     keyword_opportunities,
-    recommendations,
-    performance_insights,
     auto_apply_opt_in_status,
 ]
