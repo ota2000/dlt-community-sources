@@ -295,14 +295,22 @@ def asset_groups(access_token, developer_token, customer_id, account_id):
 def conversion_goals(access_token, developer_token, customer_id, account_id):
     """SDK: GetConversionGoalsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
-        c,
-        _url("ConversionGoals/QueryByIds"),
-        {
-            "ConversionGoalTypes": "Url,Duration,PagesViewedPerVisit,Event,AppInstall,OfflineConversion,InStoreTransaction",
-        },
-        "ConversionGoals",
-    )
+    # The API accepts only a single goal type string per request (not comma-separated).
+    for goal_type in (
+        "Url",
+        "Duration",
+        "PagesViewedPerVisit",
+        "Event",
+        "AppInstall",
+        "OfflineConversion",
+        "InStoreTransaction",
+    ):
+        yield from safe_rpc(
+            c,
+            _url("ConversionGoals/QueryByIds"),
+            {"ConversionGoalTypes": goal_type},
+            "ConversionGoals",
+        )
 
 
 @dlt.resource(

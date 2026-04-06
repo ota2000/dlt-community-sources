@@ -54,7 +54,7 @@ def customer_info(access_token, developer_token, customer_id, account_id):
 def customers_info(access_token, developer_token, customer_id, account_id):
     """SDK: GetCustomersInfo."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(c, _url("CustomersInfo/Query"), {}, "CustomersInfo")
+    yield from safe_rpc(c, _url("CustomersInfo/Query"), {"TopN": 100}, "CustomersInfo")
 
 
 @dlt.resource(name="current_user", write_disposition="replace")
