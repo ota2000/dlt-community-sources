@@ -30,7 +30,10 @@ def campaigns(access_token, developer_token, customer_id, account_id):
     yield from safe_rpc(
         c,
         _url("Campaigns/QueryByAccountId"),
-        {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+        {
+            "AccountId": account_id,
+            "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+        },
         "Campaigns",
     )
 
@@ -42,7 +45,10 @@ def ad_groups(access_token, developer_token, customer_id, account_id):
     for camp in safe_rpc(
         c,
         _url("Campaigns/QueryByAccountId"),
-        {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+        {
+            "AccountId": account_id,
+            "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+        },
         "Campaigns",
     ):
         cid = camp.get("Id")
@@ -64,7 +70,14 @@ def ads(access_token, developer_token, customer_id, account_id):
                 _url("Ads/QueryByAdGroupId"),
                 {
                     "AdGroupId": ag_id,
-                    "AdTypes": "AppInstall DynamicSearch ExpandedText Product ResponsiveAd ResponsiveSearch",
+                    "AdTypes": [
+                        "AppInstall",
+                        "DynamicSearch",
+                        "ExpandedText",
+                        "Product",
+                        "ResponsiveAd",
+                        "ResponsiveSearch",
+                    ],
                 },
                 "Ads",
             )
@@ -89,7 +102,7 @@ def keywords(access_token, developer_token, customer_id, account_id):
 def ad_extensions(access_token, developer_token, customer_id, account_id):
     """SDK: GetAdExtensionIdsByAccountId + GetAdExtensionsByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    ext_types = "CallAdExtension CalloutAdExtension ImageAdExtension LocationAdExtension PriceAdExtension ReviewAdExtension SitelinkAdExtension StructuredSnippetAdExtension"
+    ext_types = "CallAdExtension,CalloutAdExtension,ImageAdExtension,LocationAdExtension,PriceAdExtension,ReviewAdExtension,SitelinkAdExtension,StructuredSnippetAdExtension"
     id_data = safe_rpc(
         c,
         _url("AdExtensionIds/QueryByAccountId"),
@@ -122,7 +135,10 @@ def ad_extension_associations(access_token, developer_token, customer_id, accoun
     for camp in safe_rpc(
         c,
         _url("Campaigns/QueryByAccountId"),
-        {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+        {
+            "AccountId": account_id,
+            "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+        },
         "Campaigns",
     ):
         cid = camp.get("Id")
@@ -149,7 +165,10 @@ def campaign_criterions(access_token, developer_token, customer_id, account_id):
     for camp in safe_rpc(
         c,
         _url("Campaigns/QueryByAccountId"),
-        {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+        {
+            "AccountId": account_id,
+            "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+        },
         "Campaigns",
     ):
         cid = camp.get("Id")
@@ -211,7 +230,10 @@ def asset_groups(access_token, developer_token, customer_id, account_id):
     for camp in safe_rpc(
         c,
         _url("Campaigns/QueryByAccountId"),
-        {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+        {
+            "AccountId": account_id,
+            "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+        },
         "Campaigns",
     ):
         cid = camp.get("Id")
@@ -290,7 +312,10 @@ def label_associations_by_entity(
     for camp in safe_rpc(
         c,
         _url("Campaigns/QueryByAccountId"),
-        {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+        {
+            "AccountId": account_id,
+            "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+        },
         "Campaigns",
     ):
         cid = camp.get("Id")
@@ -330,7 +355,10 @@ def negative_keywords(access_token, developer_token, customer_id, account_id):
     for camp in safe_rpc(
         c,
         _url("Campaigns/QueryByAccountId"),
-        {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+        {
+            "AccountId": account_id,
+            "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+        },
         "Campaigns",
     ):
         cid = camp.get("Id")
@@ -352,7 +380,10 @@ def negative_sites_campaigns(access_token, developer_token, customer_id, account
         for camp in safe_rpc(
             c,
             _url("Campaigns/QueryByAccountId"),
-            {"AccountId": account_id, "CampaignType": "Search Shopping Audience"},
+            {
+                "AccountId": account_id,
+                "CampaignType": "Search,Shopping,Audience,DynamicSearchAds",
+            },
             "Campaigns",
         )
         if camp.get("Id")

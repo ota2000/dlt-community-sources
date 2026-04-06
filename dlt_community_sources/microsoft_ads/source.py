@@ -34,6 +34,7 @@ def microsoft_ads_source(
     refresh_token: str = dlt.secrets.value,
     account_id: str = dlt.secrets.value,
     customer_id: str = dlt.secrets.value,
+    tenant_id: str = "common",
     report_type: str = "CampaignPerformanceReportRequest",
     report_columns: Optional[list[str]] = None,
     aggregation: str = "Daily",
@@ -69,7 +70,7 @@ def microsoft_ads_source(
         The caller is responsible for persisting the new refresh_token.
     """
     # Refresh token → access_token (token rotation)
-    tokens = refresh_access_token(client_id, client_secret, refresh_token)
+    tokens = refresh_access_token(client_id, client_secret, refresh_token, tenant_id)
     access_token = tokens["access_token"]
     # tokens["refresh_token"] should be persisted by the caller
 

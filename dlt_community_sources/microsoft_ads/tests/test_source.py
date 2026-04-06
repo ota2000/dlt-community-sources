@@ -275,7 +275,8 @@ class TestPollReport:
 
 
 class TestDownloadCsvReport:
-    def test_parses_csv_from_zip(self):
+    @patch("dlt_community_sources.microsoft_ads.resources.reporting.requests")
+    def test_parses_csv_from_zip(self, mock_requests):
         # Build an in-memory ZIP containing a CSV
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -285,12 +286,12 @@ class TestDownloadCsvReport:
             )
         buf.seek(0)
 
-        mock_client = MagicMock()
         mock_resp = MagicMock()
         mock_resp.content = buf.getvalue()
         mock_resp.raise_for_status.return_value = None
-        mock_client.get.return_value = mock_resp
+        mock_requests.get.return_value = mock_resp
 
+        mock_client = MagicMock()  # unused but required by signature
         rows = list(_download_csv_report(mock_client, "https://example.com/r.zip"))
         assert len(rows) == 1
         assert rows[0]["TimePeriod"] == "2026-01-01"

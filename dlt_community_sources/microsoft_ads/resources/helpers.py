@@ -80,7 +80,7 @@ def safe_rpc(client: req.Client, url: str, body: dict, key: str) -> list:
         data = post_rpc(client, url, body)
         return data.get(key, [])
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
+        if e.response is not None and e.response.status_code in (400, 403, 404):
             logger.warning("Skipping %s: %d", url, e.response.status_code)
             return []
         raise
@@ -120,6 +120,6 @@ def convert_report_types(row: dict) -> dict:
         if field in row and row[field] is not None:
             try:
                 row[field] = Decimal(row[field])
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, ArithmeticError):
                 pass
     return row

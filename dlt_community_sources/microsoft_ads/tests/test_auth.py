@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dlt_community_sources.microsoft_ads.auth import (
-    MSFT_TOKEN_URL,
+    MSFT_TOKEN_URL_TEMPLATE,
     refresh_access_token,
 )
 
@@ -47,4 +47,4 @@ class TestRefreshAccessToken:
 
 
 def test_token_url():
-    assert "oauth2/v2.0/token" in MSFT_TOKEN_URL
+    assert "oauth2/v2.0/token" in MSFT_TOKEN_URL_TEMPLATE

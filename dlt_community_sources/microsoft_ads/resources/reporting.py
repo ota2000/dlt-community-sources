@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 import dlt
+import requests
 from dlt.sources.helpers import requests as req
 
 from .helpers import (
@@ -225,8 +226,12 @@ def _poll_report(
 
 
 def _download_csv_report(client: req.Client, url: str) -> Generator[dict, None, None]:
-    """Download ZIP-compressed CSV report and yield rows."""
-    response = client.get(url)
+    """Download ZIP-compressed CSV report and yield rows.
+
+    Uses plain requests without auth headers because the download URL
+    is a pre-signed Azure Blob Storage SAS URL.
+    """
+    response = requests.get(url, timeout=300)
     response.raise_for_status()
     with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
         for name in zf.namelist():
