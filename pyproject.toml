@@ -27,6 +27,7 @@ microsoft-ads = []  # no extra dependencies, requests is included in dlt
 nextdns = []  # no extra dependencies, requests is included in dlt
 tiktok-ads = []  # no extra dependencies, requests is included in dlt
 twilio = []  # no extra dependencies, requests is included in dlt
+yahoo-ads-search = []  # no extra dependencies, requests is included in dlt
 
 [project.urls]
 Homepage = "https://github.com/ota2000/dlt-community-sources"
