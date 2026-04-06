@@ -300,7 +300,6 @@ class TestDownloadCsvReport:
 
 
 class TestSourceFunction:
-    @patch("dlt_community_sources.microsoft_ads.source.refresh_access_token")
     @patch(
         "dlt_community_sources.microsoft_ads.source.ALL_CAMPAIGN_MGMT_RESOURCES",
         [],
@@ -317,24 +316,17 @@ class TestSourceFunction:
         "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_BILLING_RESOURCES",
         [],
     )
-    def test_returns_report_resource(self, mock_refresh):
-        mock_refresh.return_value = {
-            "access_token": "at",
-            "refresh_token": "rt_new",
-        }
+    def test_returns_report_resource(self):
         from dlt_community_sources.microsoft_ads.source import microsoft_ads_source
 
         source = microsoft_ads_source(
-            client_id="cid",
-            client_secret="cs",
+            access_token="at",
             developer_token="dt",
-            refresh_token="rt",
             account_id="aid",
             customer_id="cuid",
         )
         assert "report" in source.resources
 
-    @patch("dlt_community_sources.microsoft_ads.source.refresh_access_token")
     @patch(
         "dlt_community_sources.microsoft_ads.source.ALL_CAMPAIGN_MGMT_RESOURCES",
         [],
@@ -351,25 +343,18 @@ class TestSourceFunction:
         "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_BILLING_RESOURCES",
         [],
     )
-    def test_filter_by_resource_name(self, mock_refresh):
-        mock_refresh.return_value = {
-            "access_token": "at",
-            "refresh_token": "rt_new",
-        }
+    def test_filter_by_resource_name(self):
         from dlt_community_sources.microsoft_ads.source import microsoft_ads_source
 
         source = microsoft_ads_source(
-            client_id="cid",
-            client_secret="cs",
+            access_token="at",
             developer_token="dt",
-            refresh_token="rt",
             account_id="aid",
             customer_id="cuid",
             resources=["report"],
         )
         assert "report" in source.resources
 
-    @patch("dlt_community_sources.microsoft_ads.source.refresh_access_token")
     @patch(
         "dlt_community_sources.microsoft_ads.source.ALL_CAMPAIGN_MGMT_RESOURCES",
         [],
@@ -386,18 +371,12 @@ class TestSourceFunction:
         "dlt_community_sources.microsoft_ads.source.ALL_CUSTOMER_BILLING_RESOURCES",
         [],
     )
-    def test_filter_excludes_unknown(self, mock_refresh):
-        mock_refresh.return_value = {
-            "access_token": "at",
-            "refresh_token": "rt_new",
-        }
+    def test_filter_excludes_unknown(self):
         from dlt_community_sources.microsoft_ads.source import microsoft_ads_source
 
         source = microsoft_ads_source(
-            client_id="cid",
-            client_secret="cs",
+            access_token="at",
             developer_token="dt",
-            refresh_token="rt",
             account_id="aid",
             customer_id="cuid",
             resources=["nonexistent"],

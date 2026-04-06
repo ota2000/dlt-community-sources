@@ -18,7 +18,6 @@ from typing import Optional, Sequence
 import dlt
 from dlt.sources import DltResource
 
-from .auth import refresh_access_token
 from .resources.ad_insight import ALL_AD_INSIGHT_RESOURCES
 from .resources.campaign_management import ALL_CAMPAIGN_MGMT_RESOURCES
 from .resources.customer_billing import ALL_CUSTOMER_BILLING_RESOURCES
@@ -28,13 +27,10 @@ from .resources.reporting import report
 
 @dlt.source(name="microsoft_ads")
 def microsoft_ads_source(
-    client_id: str = dlt.secrets.value,
-    client_secret: str = dlt.secrets.value,
+    access_token: str = dlt.secrets.value,
     developer_token: str = dlt.secrets.value,
-    refresh_token: str = dlt.secrets.value,
     account_id: str = dlt.secrets.value,
     customer_id: str = dlt.secrets.value,
-    tenant_id: str = "common",
     report_type: str = "CampaignPerformanceReportRequest",
     report_columns: Optional[list[str]] = None,
     aggregation: str = "Daily",
@@ -44,18 +40,15 @@ def microsoft_ads_source(
 ) -> list[DltResource]:
     """A dlt source for Microsoft Advertising API.
 
-    Covers 55 resources across 5 API services:
-    - Campaign Management: campaigns, ad_groups, ads, keywords, etc.
-    - Customer Management: account_info, customer_info, users, etc.
-    - Reporting: configurable report type with 37 options.
-    - Ad Insight: bid/budget/keyword opportunities, recommendations.
-    - Customer Billing: monthly spend, billing docs, insertion orders.
+    Token management is the caller's responsibility. Use
+    ``refresh_access_token()`` from ``dlt_community_sources.microsoft_ads``
+    to obtain a fresh ``access_token`` before calling this source.
+    Microsoft rotates refresh_tokens on each use, so the caller must
+    persist the new refresh_token (e.g., to Secret Manager).
 
     Args:
-        client_id: Azure AD app client ID.
-        client_secret: Azure AD app client secret.
+        access_token: Microsoft access token (obtained via refresh_access_token).
         developer_token: Microsoft Advertising developer token.
-        refresh_token: OAuth refresh token (rotated on each use).
         account_id: Microsoft Advertising account ID.
         customer_id: Microsoft Advertising customer ID.
         report_type: Report type (e.g., CampaignPerformanceReportRequest).
@@ -67,12 +60,7 @@ def microsoft_ads_source(
 
     Returns:
         List of dlt resources.
-        The caller is responsible for persisting the new refresh_token.
     """
-    # Refresh token → access_token (token rotation)
-    tokens = refresh_access_token(client_id, client_secret, refresh_token, tenant_id)
-    access_token = tokens["access_token"]
-    # tokens["refresh_token"] should be persisted by the caller
 
     auth_args = (access_token, developer_token, customer_id, account_id)
 
