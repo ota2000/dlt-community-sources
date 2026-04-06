@@ -38,6 +38,31 @@ source = meta_ads_source(
 )
 ```
 
+### Multiple accounts
+
+Use `discover_accounts` to list all active ad accounts accessible by the token, then run a separate pipeline per account:
+
+```python
+import dlt
+from dlt_community_sources.meta_ads import discover_accounts, meta_ads_source
+
+accounts = discover_accounts(access_token="your_system_user_token")
+
+for account_id in accounts:
+    pipeline = dlt.pipeline(
+        pipeline_name=f"meta_ads_{account_id}",
+        destination="bigquery",
+        dataset_name="meta_ads",
+    )
+    source = meta_ads_source(
+        access_token="your_system_user_token",
+        account_id=account_id,
+    )
+    pipeline.run(source)
+```
+
+`discover_accounts` returns only ACTIVE accounts. To access disabled accounts, pass their `account_id` directly.
+
 ### Customize insights
 
 ```python
