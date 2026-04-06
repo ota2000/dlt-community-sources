@@ -201,6 +201,19 @@ def _make_client(access_token: str) -> req.Client:
     return client
 
 
+def _parse_invalid_fields(message: str) -> set[str]:
+    """Parse invalid field names from TikTok API error message.
+
+    Example message: "Invalid metric fields: ['conversions', 'real_time_conversions']."
+    """
+    import re
+
+    match = re.search(r"Invalid metric fields: \[([^\]]+)\]", message)
+    if not match:
+        return set()
+    return {f.strip().strip("'\"") for f in match.group(1).split(",")}
+
+
 def _check_response(data: dict, context: str) -> bool:
     """Check TikTok API response for errors (HTTP 200 with code != 0)."""
     code = data.get("code", -1)
@@ -594,7 +607,7 @@ def report(
         last_date: Incremental cursor.
         base_url: API base URL.
     """
-    report_metrics = metrics or DEFAULT_METRICS
+    report_metrics = list(metrics or DEFAULT_METRICS)
     report_dimensions = dimensions or REPORT_DIMENSIONS.get(
         data_level, ["ad_id", "stat_time_day"]
     )
@@ -608,6 +621,9 @@ def report(
     if start > end:
         logger.info("report: already up to date (start=%s > end=%s)", start, end)
         return
+
+    # Validate metrics on first request; remove invalid ones and retry once
+    metrics_validated = False
 
     logger.info("report: fetching %s to %s (data_level=%s)", start, end, data_level)
 
@@ -637,6 +653,19 @@ def report(
                     return
                 raise
             data = response.json()
+
+            # Handle invalid metric fields (code 40002)
+            code = data.get("code", -1)
+            if code == 40002 and not metrics_validated:
+                message = data.get("message", "")
+                invalid = _parse_invalid_fields(message)
+                if invalid:
+                    logger.warning("Removing invalid metrics %s and retrying", invalid)
+                    report_metrics = [m for m in report_metrics if m not in invalid]
+                    metrics_validated = True
+                    continue  # retry with cleaned metrics
+                break
+            metrics_validated = True
 
             if not _check_response(
                 data, f"report chunk {chunk_start}-{chunk_end} page {page}"
