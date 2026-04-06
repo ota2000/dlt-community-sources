@@ -504,6 +504,9 @@ dependencies = [
 app-store-connect = [
     { name = "pyjwt", extra = ["crypto"] },
 ]
+microsoft-ads-cert = [
+    { name = "msal" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -518,9 +521,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dlt", specifier = ">=1.0.0" },
+    { name = "msal", marker = "extra == 'microsoft-ads-cert'", specifier = ">=1.28.0" },
     { name = "pyjwt", extras = ["crypto"], marker = "extra == 'app-store-connect'", specifier = ">=2.8.0" },
 ]
-provides-extras = ["app-store-connect", "meta-ads", "microsoft-ads", "nextdns", "tiktok-ads", "twilio", "yahoo-ads-search"]
+provides-extras = ["app-store-connect", "meta-ads", "microsoft-ads", "microsoft-ads-cert", "nextdns", "tiktok-ads", "twilio", "yahoo-ads-search"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1118,6 +1122,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b5/fb/f4f2f25e9df46e5bb5342201d6851b7b7449f69aa7673612c8ae5d152f8c/mowidgets-0.2.1.tar.gz", hash = "sha256:d3e154e1c27c8c97f31500cda13bcd32bc508df8de2801c3daae56dbb61f2332", size = 9793 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1d/dd/4466399c8151f34efc38a1eefaa183c0d7f71d5f519a84001c71d06e43a5/mowidgets-0.2.1-py3-none-any.whl", hash = "sha256:9e3afe2d05fbbed44a038e3ae83a74d2892107e78ba65b300d0b2944d2135dd5", size = 9472 },
+]
+
+[[package]]
+name = "msal"
+version = "1.35.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3c/aa/5a646093ac218e4a329391d5a31e5092a89db7d2ef1637a90b82cd0b6f94/msal-1.35.1.tar.gz", hash = "sha256:70cac18ab80a053bff86219ba64cfe3da1f307c74b009e2da57ef040eb1b5656", size = 165658 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/86/16815fddf056ca998853c6dc525397edf0b43559bb4073a80d2bc7fe8009/msal-1.35.1-py3-none-any.whl", hash = "sha256:8f4e82f34b10c19e326ec69f44dc6b30171f2f7098f3720ea8a9f0c11832caa3", size = 119909 },
 ]
 
 [[package]]
