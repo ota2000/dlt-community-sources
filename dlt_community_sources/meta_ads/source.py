@@ -672,6 +672,27 @@ def _rest_api_config(
     }
 
 
+def discover_accounts(
+    access_token: str,
+    base_url: str = DEFAULT_BASE_URL,
+) -> list[str]:
+    """Discover all active ad accounts accessible by the token.
+
+    Returns a list of account IDs (e.g., ["act_123", "act_456"]) that
+    can be passed to ``meta_ads_source(account_id=...)``.
+
+    Only accounts with account_status=1 (ACTIVE) are returned.
+    To access disabled accounts, pass their account_id directly.
+    """
+    client = _make_client(access_token)
+    accounts = []
+    url = f"{base_url}/me/adaccounts?fields=id,account_status"
+    for account in _get_paginated(client, url):
+        if account.get("account_status") == 1:
+            accounts.append(account["id"])
+    return accounts
+
+
 def _make_client(access_token: str) -> req.Client:
     """Create a dlt HTTP client with bearer auth."""
     client = req.Client()
