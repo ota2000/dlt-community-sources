@@ -20,6 +20,7 @@ from dlt_community_sources.meta_ads.source import (
     _make_client,
     _poll_report,
     _rest_api_config,
+    discover_accounts,
 )
 
 
@@ -805,3 +806,69 @@ class TestAdLeadsResource:
         assert len(results) == 2
         assert results[0]["id"] == "lead_1"
         assert results[1]["id"] == "lead_2"
+
+
+# ---------------------------------------------------------------------------
+# discover_accounts tests
+# ---------------------------------------------------------------------------
+
+
+class TestDiscoverAccounts:
+    """Test discover_accounts() helper."""
+
+    @patch("dlt_community_sources.meta_ads.source.time.sleep")
+    @patch("dlt_community_sources.meta_ads.source._make_client")
+    def test_returns_active_accounts(self, mock_make_client, mock_sleep):
+        client = MagicMock()
+        mock_make_client.return_value = client
+
+        resp = _mock_response(
+            json_data={
+                "data": [
+                    {"id": "act_111", "account_status": 1},
+                    {"id": "act_222", "account_status": 2},  # DISABLED
+                    {"id": "act_333", "account_status": 1},
+                ],
+                "paging": {},
+            }
+        )
+        client.get = MagicMock(return_value=resp)
+
+        result = discover_accounts("fake_token")
+        assert result == ["act_111", "act_333"]
+
+    @patch("dlt_community_sources.meta_ads.source.time.sleep")
+    @patch("dlt_community_sources.meta_ads.source._make_client")
+    def test_returns_empty_when_no_accounts(self, mock_make_client, mock_sleep):
+        client = MagicMock()
+        mock_make_client.return_value = client
+
+        resp = _mock_response(json_data={"data": [], "paging": {}})
+        client.get = MagicMock(return_value=resp)
+
+        result = discover_accounts("fake_token")
+        assert result == []
+
+    @patch("dlt_community_sources.meta_ads.source.time.sleep")
+    @patch("dlt_community_sources.meta_ads.source._make_client")
+    def test_paginates(self, mock_make_client, mock_sleep):
+        client = MagicMock()
+        mock_make_client.return_value = client
+
+        page1 = _mock_response(
+            json_data={
+                "data": [{"id": "act_111", "account_status": 1}],
+                "paging": {"next": "https://example.com/page2"},
+            }
+        )
+        page2 = _mock_response(
+            json_data={
+                "data": [{"id": "act_222", "account_status": 1}],
+                "paging": {},
+            }
+        )
+        client.get = MagicMock(side_effect=[page1, page2])
+
+        result = discover_accounts("fake_token")
+        assert result == ["act_111", "act_222"]
+        assert client.get.call_count == 2
