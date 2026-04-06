@@ -778,6 +778,7 @@ def _get_paginated(
                 break  # success
             except req.HTTPError as e:
                 if e.response is not None and e.response.status_code in (
+                    400,
                     403,
                     404,
                 ):
