@@ -148,8 +148,9 @@ def ad_extension_associations(access_token, developer_token, customer_id, accoun
                 _url("AdExtensionsAssociations/Query"),
                 {
                     "AccountId": account_id,
-                    "EntityIds": [cid],
+                    "AdExtensionType": "CallAdExtension CalloutAdExtension ImageAdExtension LocationAdExtension PriceAdExtension ReviewAdExtension SitelinkAdExtension StructuredSnippetAdExtension",
                     "AssociationType": "Campaign",
+                    "EntityIds": [cid],
                 },
                 "AdExtensionAssociationCollection",
             )
@@ -173,12 +174,24 @@ def campaign_criterions(access_token, developer_token, customer_id, account_id):
     ):
         cid = camp.get("Id")
         if cid:
-            yield from safe_rpc(
-                c,
-                _url("CampaignCriterions/QueryByIds"),
-                {"CampaignId": cid, "CriterionType": "Targets"},
-                "CampaignCriterions",
-            )
+            for ctype in (
+                "Age",
+                "DayTime",
+                "Device",
+                "Gender",
+                "Location",
+                "LocationIntent",
+                "Radius",
+                "Audience",
+                "Webpage",
+                "ProductScope",
+            ):
+                yield from safe_rpc(
+                    c,
+                    _url("CampaignCriterions/QueryByIds"),
+                    {"CampaignId": cid, "CriterionType": ctype},
+                    "CampaignCriterions",
+                )
 
 
 @dlt.resource(name="ad_group_criterions", write_disposition="merge", primary_key="Id")
@@ -188,12 +201,23 @@ def ad_group_criterions(access_token, developer_token, customer_id, account_id):
     for ag in ad_groups(access_token, developer_token, customer_id, account_id):
         ag_id = ag.get("Id")
         if ag_id:
-            yield from safe_rpc(
-                c,
-                _url("AdGroupCriterions/QueryByIds"),
-                {"AdGroupId": ag_id, "CriterionType": "Targets"},
-                "AdGroupCriterions",
-            )
+            for ctype in (
+                "Age",
+                "DayTime",
+                "Device",
+                "Gender",
+                "Location",
+                "LocationIntent",
+                "Radius",
+                "Audience",
+                "Webpage",
+            ):
+                yield from safe_rpc(
+                    c,
+                    _url("AdGroupCriterions/QueryByIds"),
+                    {"AdGroupId": ag_id, "CriterionType": ctype},
+                    "AdGroupCriterions",
+                )
 
 
 # --- Audiences & Targeting ---
@@ -207,7 +231,7 @@ def audiences(access_token, developer_token, customer_id, account_id):
         c,
         _url("Audiences/QueryByIds"),
         {
-            "Type": "Custom InMarket Product RemarketingList SimilarRemarketingList CombinedList CustomerList ImpressionBasedRemarketingList"
+            "Type": "Custom InMarket Product RemarketingList SimilarRemarketingList CombinedList CustomerList ImpressionBasedRemarketingList",
         },
         "Audiences",
     )
@@ -257,7 +281,7 @@ def conversion_goals(access_token, developer_token, customer_id, account_id):
         c,
         _url("ConversionGoals/QueryByIds"),
         {
-            "ConversionGoalTypes": "Url Duration Event AppInstall InStoreTransaction OfflineConversion"
+            "ConversionGoalTypes": "Url Duration PagesViewedPerVisit Event AppInstall OfflineConversion InStoreTransaction",
         },
         "ConversionGoals",
     )
@@ -464,7 +488,7 @@ def account_properties(access_token, developer_token, customer_id, account_id):
     props = safe_rpc(
         c,
         _url("AccountProperties/Query"),
-        {"AccountPropertyNames": "TrackingUrlTemplate,FinalUrlSuffix"},
+        {"AccountPropertyNames": ["TrackingUrlTemplate", "FinalUrlSuffix"]},
         "AccountProperties",
     )
     if props:
