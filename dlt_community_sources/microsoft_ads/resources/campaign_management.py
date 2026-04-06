@@ -461,14 +461,12 @@ def videos(access_token, developer_token, customer_id, account_id):
 def account_properties(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountProperties."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    from .helpers import post_rpc
-
-    data = post_rpc(
+    props = safe_rpc(
         c,
         _url("AccountProperties/Query"),
-        {"AccountPropertyNames": "TrackingUrlTemplate FinalUrlSuffix"},
+        {"AccountPropertyNames": "TrackingUrlTemplate,FinalUrlSuffix"},
+        "AccountProperties",
     )
-    props = data.get("AccountProperties", [])
     if props:
         yield {"account_id": account_id, "properties": props}
 

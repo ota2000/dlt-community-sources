@@ -68,17 +68,27 @@ def make_client(
 
 
 def post_rpc(client: req.Client, url: str, body: dict) -> dict:
-    """Make a POST RPC call and return response JSON."""
-    response = client.post(url, json=body)
-    response.raise_for_status()
-    return response.json()
+    """Make a POST RPC call and return response JSON.
+
+    Returns empty dict on 400/403/404 to prevent pipeline crashes
+    from invalid request bodies or missing permissions.
+    """
+    try:
+        response = client.post(url, json=body)
+        response.raise_for_status()
+        return response.json()
+    except req.HTTPError as e:
+        if e.response is not None and e.response.status_code in (400, 403, 404):
+            logger.warning("Skipping %s: %d", url, e.response.status_code)
+            return {}
+        raise
 
 
 def safe_rpc(client: req.Client, url: str, body: dict, key: str) -> list:
     """POST RPC with 403/404 graceful skip."""
     try:
         data = post_rpc(client, url, body)
-        return data.get(key, [])
+        return data.get(key) or []
     except req.HTTPError as e:
         if e.response is not None and e.response.status_code in (400, 403, 404):
             logger.warning("Skipping %s: %d", url, e.response.status_code)

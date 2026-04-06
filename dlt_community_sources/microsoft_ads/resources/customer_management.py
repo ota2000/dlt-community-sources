@@ -29,7 +29,7 @@ def account_info(access_token, developer_token, customer_id, account_id):
         yield account
 
 
-@dlt.resource(name="accounts_info", write_disposition="merge", primary_key="AccountId")
+@dlt.resource(name="accounts_info", write_disposition="merge", primary_key="Id")
 def accounts_info(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountsInfo."""
     c = _client(access_token, developer_token, customer_id, account_id)
