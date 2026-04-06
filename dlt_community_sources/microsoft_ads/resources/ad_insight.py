@@ -91,13 +91,8 @@ def performance_insights(access_token, developer_token, customer_id, account_id)
     )
 
 
-@dlt.resource(name="keyword_idea_categories", write_disposition="replace")
-def keyword_idea_categories(access_token, developer_token, customer_id, account_id):
-    """SDK: GetKeywordIdeaCategories."""
-    c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
-        c, _url("KeywordIdeaCategories/Query"), {}, "KeywordIdeaCategories"
-    )
+# NOTE: keyword_idea_categories (GetKeywordIdeaCategories) has been removed
+# because the endpoint is deprecated by Microsoft.
 
 
 # All known recommendation types for auto-apply opt-in status
@@ -129,6 +124,5 @@ ALL_AD_INSIGHT_RESOURCES = [
     keyword_opportunities,
     recommendations,
     performance_insights,
-    keyword_idea_categories,
     auto_apply_opt_in_status,
 ]

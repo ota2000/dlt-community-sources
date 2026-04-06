@@ -143,17 +143,27 @@ def ad_extension_associations(access_token, developer_token, customer_id, accoun
     ):
         cid = camp.get("Id")
         if cid:
-            yield from safe_rpc(
-                c,
-                _url("AdExtensionsAssociations/Query"),
-                {
-                    "AccountId": account_id,
-                    "AdExtensionType": "CallAdExtension CalloutAdExtension ImageAdExtension LocationAdExtension PriceAdExtension ReviewAdExtension SitelinkAdExtension StructuredSnippetAdExtension",
-                    "AssociationType": "Campaign",
-                    "EntityIds": [cid],
-                },
-                "AdExtensionAssociationCollection",
-            )
+            for ext_type in (
+                "CallAdExtension",
+                "CalloutAdExtension",
+                "ImageAdExtension",
+                "LocationAdExtension",
+                "PriceAdExtension",
+                "ReviewAdExtension",
+                "SitelinkAdExtension",
+                "StructuredSnippetAdExtension",
+            ):
+                yield from safe_rpc(
+                    c,
+                    _url("AdExtensionsAssociations/Query"),
+                    {
+                        "AccountId": account_id,
+                        "AdExtensionType": ext_type,
+                        "AssociationType": "Campaign",
+                        "EntityIds": [cid],
+                    },
+                    "AdExtensionAssociationCollection",
+                )
 
 
 # --- Criterions ---
@@ -227,14 +237,22 @@ def ad_group_criterions(access_token, developer_token, customer_id, account_id):
 def audiences(access_token, developer_token, customer_id, account_id):
     """SDK: GetAudiencesByIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
-        c,
-        _url("Audiences/QueryByIds"),
-        {
-            "Type": "Custom InMarket Product RemarketingList SimilarRemarketingList CombinedList CustomerList ImpressionBasedRemarketingList",
-        },
-        "Audiences",
-    )
+    for audience_type in (
+        "Custom",
+        "InMarket",
+        "Product",
+        "RemarketingList",
+        "SimilarRemarketingList",
+        "CombinedList",
+        "CustomerList",
+        "ImpressionBasedRemarketingList",
+    ):
+        yield from safe_rpc(
+            c,
+            _url("Audiences/QueryByIds"),
+            {"Type": audience_type},
+            "Audiences",
+        )
 
 
 @dlt.resource(name="audience_groups", write_disposition="merge", primary_key="Id")
@@ -281,7 +299,7 @@ def conversion_goals(access_token, developer_token, customer_id, account_id):
         c,
         _url("ConversionGoals/QueryByIds"),
         {
-            "ConversionGoalTypes": "Url Duration PagesViewedPerVisit Event AppInstall OfflineConversion InStoreTransaction",
+            "ConversionGoalTypes": "Url,Duration,PagesViewedPerVisit,Event,AppInstall,OfflineConversion,InStoreTransaction",
         },
         "ConversionGoals",
     )
@@ -466,7 +484,7 @@ def media(access_token, developer_token, customer_id, account_id):
     yield from safe_rpc(
         c,
         _url("MediaMetaData/QueryByAccountId"),
-        {"MediaEnabledEntities": "ImageAdExtension ResponsiveAd"},
+        {"MediaEnabledEntities": "ResponsiveAd"},
         "MediaMetaData",
     )
 
