@@ -300,7 +300,7 @@ def _date_chunks(
 
 @dlt.resource(
     name="authorized_advertiser_ids",
-    write_disposition="replace",
+    write_disposition="merge",
     primary_key="advertiser_id",
 )
 def authorized_advertiser_ids(
@@ -354,7 +354,7 @@ def advertiser_info(
 
 
 @dlt.resource(
-    name="advertiser_balance", write_disposition="replace", primary_key="advertiser_id"
+    name="advertiser_balance", write_disposition="merge", primary_key="advertiser_id"
 )
 def advertiser_balance(
     access_token: str,
@@ -451,7 +451,9 @@ def apps(
         yield from data.get("data", {}).get("list", [])
 
 
-@dlt.resource(name="rule_results", write_disposition="replace")
+@dlt.resource(
+    name="rule_results", write_disposition="merge", primary_key="advertiser_id"
+)
 def rule_results(
     access_token: str,
     advertiser_id: str,
@@ -531,7 +533,7 @@ def pixels(
         page += 1
 
 
-@dlt.resource(name="identities", write_disposition="replace")
+@dlt.resource(name="identities", write_disposition="merge", primary_key="advertiser_id")
 def identities(
     access_token: str,
     advertiser_id: str,

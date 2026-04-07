@@ -19,7 +19,9 @@ def _url(path, base=AD_INSIGHT_URL):
     return f"{base}/{path}"
 
 
-@dlt.resource(name="bid_opportunities", write_disposition="replace")
+@dlt.resource(
+    name="bid_opportunities", write_disposition="merge", primary_key="AccountId"
+)
 def bid_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetBidOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -31,7 +33,9 @@ def bid_opportunities(access_token, developer_token, customer_id, account_id):
     )
 
 
-@dlt.resource(name="budget_opportunities", write_disposition="replace")
+@dlt.resource(
+    name="budget_opportunities", write_disposition="merge", primary_key="AccountId"
+)
 def budget_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetBudgetOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -43,7 +47,9 @@ def budget_opportunities(access_token, developer_token, customer_id, account_id)
     )
 
 
-@dlt.resource(name="keyword_opportunities", write_disposition="replace")
+@dlt.resource(
+    name="keyword_opportunities", write_disposition="merge", primary_key="AccountId"
+)
 def keyword_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetKeywordOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -73,7 +79,11 @@ _AUTO_APPLY_RECOMMENDATION_TYPES = [
 ]
 
 
-@dlt.resource(name="auto_apply_opt_in_status", write_disposition="replace")
+@dlt.resource(
+    name="auto_apply_opt_in_status",
+    write_disposition="merge",
+    primary_key="AccountId",
+)
 def auto_apply_opt_in_status(access_token, developer_token, customer_id, account_id):
     """SDK: GetAutoApplyOptInStatus."""
     c = _client(access_token, developer_token, customer_id, account_id)

@@ -128,7 +128,11 @@ def ad_extensions(access_token, developer_token, customer_id, account_id):
         )
 
 
-@dlt.resource(name="ad_extension_associations", write_disposition="replace")
+@dlt.resource(
+    name="ad_extension_associations",
+    write_disposition="merge",
+    primary_key="AccountId",
+)
 def ad_extension_associations(access_token, developer_token, customer_id, account_id):
     """SDK: GetAdExtensionsAssociations."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -351,7 +355,11 @@ def labels(access_token, developer_token, customer_id, account_id):
     yield from get_entities_paginated(c, _url("Labels/QueryByIds"), {}, "Labels")
 
 
-@dlt.resource(name="label_associations_by_entity", write_disposition="replace")
+@dlt.resource(
+    name="label_associations_by_entity",
+    write_disposition="merge",
+    primary_key="AccountId",
+)
 def label_associations_by_entity(
     access_token, developer_token, customer_id, account_id
 ):
@@ -396,7 +404,9 @@ def bid_strategies(access_token, developer_token, customer_id, account_id):
 # --- Negative Keywords & Sites ---
 
 
-@dlt.resource(name="negative_keywords", write_disposition="replace")
+@dlt.resource(
+    name="negative_keywords", write_disposition="merge", primary_key="AccountId"
+)
 def negative_keywords(access_token, developer_token, customer_id, account_id):
     """SDK: GetNegativeKeywordsByEntityIds (campaigns)."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -419,7 +429,11 @@ def negative_keywords(access_token, developer_token, customer_id, account_id):
             )
 
 
-@dlt.resource(name="negative_sites_campaigns", write_disposition="replace")
+@dlt.resource(
+    name="negative_sites_campaigns",
+    write_disposition="merge",
+    primary_key="AccountId",
+)
 def negative_sites_campaigns(access_token, developer_token, customer_id, account_id):
     """SDK: GetNegativeSitesByCampaignIds."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -460,7 +474,9 @@ def shared_entities(access_token, developer_token, customer_id, account_id):
     )
 
 
-@dlt.resource(name="shared_list_items", write_disposition="replace")
+@dlt.resource(
+    name="shared_list_items", write_disposition="merge", primary_key="AccountId"
+)
 def shared_list_items(access_token, developer_token, customer_id, account_id):
     """SDK: GetListItemsBySharedList (iterates shared entities)."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -505,7 +521,9 @@ def videos(access_token, developer_token, customer_id, account_id):
 # --- Account Settings ---
 
 
-@dlt.resource(name="account_properties", write_disposition="replace")
+@dlt.resource(
+    name="account_properties", write_disposition="merge", primary_key="account_id"
+)
 def account_properties(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountProperties."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -519,7 +537,11 @@ def account_properties(access_token, developer_token, customer_id, account_id):
         yield {"account_id": account_id, "properties": props}
 
 
-@dlt.resource(name="account_migration_statuses", write_disposition="replace")
+@dlt.resource(
+    name="account_migration_statuses",
+    write_disposition="merge",
+    primary_key="AccountId",
+)
 def account_migration_statuses(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountMigrationStatuses."""
     c = _client(access_token, developer_token, customer_id, account_id)

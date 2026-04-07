@@ -21,7 +21,9 @@ def _url(path, base=CUSTOMER_BILLING_URL):
     return f"{base}/{path}"
 
 
-@dlt.resource(name="account_monthly_spend", write_disposition="replace")
+@dlt.resource(
+    name="account_monthly_spend", write_disposition="merge", primary_key="account_id"
+)
 def account_monthly_spend(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountMonthlySpend."""
     c = _client(access_token, developer_token, customer_id, account_id)

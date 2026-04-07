@@ -86,15 +86,15 @@ _ENTITY_RESOURCES = [
     (
         "ad_group_bid_multipliers",
         "AdGroupBidMultiplierService/get",
-        "replace",
-        "adGroupId",
+        "merge",
+        ["accountId", "adGroupId"],
         "standard",
     ),
     (
         "campaign_targets",
         "CampaignTargetService/get",
-        "replace",
-        "campaignId",
+        "merge",
+        ["accountId", "campaignId"],
         "standard",
     ),
     (
@@ -117,7 +117,7 @@ _ENTITY_RESOURCES = [
     (
         "account_tracking_urls",
         "AccountTrackingUrlService/get",
-        "replace",
+        "merge",
         "accountId",
         "account_ids",
     ),
@@ -147,19 +147,19 @@ _ENTITY_RESOURCES = [
     (
         "campaign_audience_lists",
         "CampaignAudienceListService/get",
-        "replace",
-        "campaignId",
+        "merge",
+        ["accountId", "campaignId"],
         "standard",
     ),
     (
         "ad_group_audience_lists",
         "AdGroupAudienceListService/get",
-        "replace",
-        "adGroupId",
+        "merge",
+        ["accountId", "adGroupId"],
         "standard",
     ),
-    ("balance", "BalanceService/get", "replace", "accountId", "account_ids"),
-    ("budget_orders", "BudgetOrderService/get", "replace", "accountId", "account_ids"),
+    ("balance", "BalanceService/get", "merge", "accountId", "account_ids"),
+    ("budget_orders", "BudgetOrderService/get", "merge", "accountId", "account_ids"),
     (
         "shared_criterions",
         "SharedCriterionService/get",
@@ -170,8 +170,8 @@ _ENTITY_RESOURCES = [
     (
         "campaign_shared_sets",
         "CampaignSharedSetService/get",
-        "replace",
-        "campaignId",
+        "merge",
+        ["accountId", "campaignId"],
         "standard",
     ),
     (
@@ -184,45 +184,45 @@ _ENTITY_RESOURCES = [
     (
         "ad_group_webpages",
         "AdGroupWebpageService/get",
-        "replace",
-        "adGroupId",
+        "merge",
+        ["accountId", "adGroupId"],
         "standard",
     ),
     (
         "campaign_webpages",
         "CampaignWebpageService/get",
-        "replace",
-        "campaignId",
+        "merge",
+        ["accountId", "campaignId"],
         "standard",
     ),
-    ("account_links", "AccountLinkService/get", "replace", "accountId", "empty"),
+    ("account_links", "AccountLinkService/get", "merge", "accountId", "empty"),
     ("app_links", "AppLinkService/get", "merge", "appLinkId", "standard"),
     (
         "account_customizers",
         "AccountCustomizerService/get",
-        "replace",
-        "customizerAttributeId",
+        "merge",
+        ["accountId", "customizerAttributeId"],
         "standard",
     ),
     (
         "campaign_customizers",
         "CampaignCustomizerService/get",
-        "replace",
-        "customizerAttributeId",
+        "merge",
+        ["accountId", "customizerAttributeId"],
         "standard",
     ),
     (
         "ad_group_customizers",
         "AdGroupCustomizerService/get",
-        "replace",
-        "customizerAttributeId",
+        "merge",
+        ["accountId", "customizerAttributeId"],
         "standard",
     ),
     (
         "ad_group_criterion_customizers",
         "AdGroupCriterionCustomizerService/get",
-        "replace",
-        "criterionId",
+        "merge",
+        ["accountId", "criterionId"],
         "standard",
     ),
 ]
@@ -419,7 +419,7 @@ def yahoo_ads_search_source(
 
         @dlt.resource(
             name="report",
-            write_disposition="replace",
+            write_disposition="merge",
             primary_key=pk,
         )
         def _report():

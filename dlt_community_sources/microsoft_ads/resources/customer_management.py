@@ -57,7 +57,7 @@ def customers_info(access_token, developer_token, customer_id, account_id):
     yield from safe_rpc(c, _url("CustomersInfo/Query"), {"TopN": 100}, "CustomersInfo")
 
 
-@dlt.resource(name="current_user", write_disposition="replace")
+@dlt.resource(name="current_user", write_disposition="merge", primary_key="Id")
 def current_user(access_token, developer_token, customer_id, account_id):
     """SDK: GetCurrentUser."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -76,7 +76,11 @@ def users_info(access_token, developer_token, customer_id, account_id):
     )
 
 
-@dlt.resource(name="customer_pilot_features", write_disposition="replace")
+@dlt.resource(
+    name="customer_pilot_features",
+    write_disposition="merge",
+    primary_key=["customer_id", "feature_id"],
+)
 def customer_pilot_features(access_token, developer_token, customer_id, account_id):
     """SDK: GetCustomerPilotFeatures."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -86,7 +90,11 @@ def customer_pilot_features(access_token, developer_token, customer_id, account_
         yield {"customer_id": customer_id, "feature_id": f}
 
 
-@dlt.resource(name="account_pilot_features", write_disposition="replace")
+@dlt.resource(
+    name="account_pilot_features",
+    write_disposition="merge",
+    primary_key=["account_id", "feature_id"],
+)
 def account_pilot_features(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountPilotFeatures."""
     c = _client(access_token, developer_token, customer_id, account_id)
@@ -96,7 +104,11 @@ def account_pilot_features(access_token, developer_token, customer_id, account_i
         yield {"account_id": account_id, "feature_id": f}
 
 
-@dlt.resource(name="linked_accounts_and_customers", write_disposition="replace")
+@dlt.resource(
+    name="linked_accounts_and_customers",
+    write_disposition="merge",
+    primary_key="Id",
+)
 def linked_accounts_and_customers(
     access_token, developer_token, customer_id, account_id
 ):
