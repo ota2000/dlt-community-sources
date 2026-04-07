@@ -917,7 +917,19 @@ def insights(
         f"{base_url}/{act_id}/insights",
         data=request_data,
     )
-    response.raise_for_status()
+    if response.status_code != 200:
+        error_body = (
+            response.json()
+            if response.headers.get("content-type", "").startswith("application/json")
+            else response.text
+        )
+        logger.warning(
+            "insights submit failed: %d %s for %s",
+            response.status_code,
+            error_body,
+            act_id,
+        )
+        response.raise_for_status()
     report_run_id = response.json().get("report_run_id")
 
     if not report_run_id:
