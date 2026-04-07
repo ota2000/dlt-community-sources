@@ -635,6 +635,10 @@ def _rest_api_config(
             {
                 "name": "ad_images",
                 "primary_key": "hash",
+                "columns": {
+                    "height": {"data_type": "double"},
+                    "width": {"data_type": "double"},
+                },
                 "endpoint": {
                     "path": f"{act_id}/adimages",
                     "params": {
