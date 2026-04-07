@@ -830,25 +830,8 @@ def ad_leads(
     fields = lead_fields or DEFAULT_FIELDS["ad_leads"]
     client = _make_client(access_token)
 
-<<<<<<< Updated upstream
-    # Check if account has any lead forms before iterating all ads
-    forms_url = f"{base_url}/{act_id}/leadgen_forms?fields=id&limit=1"
-    try:
-        resp = client.get(forms_url)
-        resp.raise_for_status()
-        if not resp.json().get("data"):
-            logger.info("ad_leads: no lead forms for %s, skipping", act_id)
-            return
-    except req.HTTPError:
-        logger.info("ad_leads: cannot check lead forms for %s, skipping", act_id)
-        return
-
-    # Iterate through ads to fetch their leads
-    # Filter leads by created_time > last incremental value
-=======
     # Fetch leads via lead forms instead of iterating all ads.
     # Only accounts with leadgen_forms have lead data.
->>>>>>> Stashed changes
     since = last_created_time.last_value
     filtering = json.dumps(
         [{"field": "time_created", "operator": "GREATER_THAN", "value": since}]
