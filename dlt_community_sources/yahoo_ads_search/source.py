@@ -268,11 +268,17 @@ def _make_entity_resource(
     """Create a single dlt resource for an entity endpoint."""
     url = f"{base_url}/{path}"
 
+    # pk can be a string or list of strings
+    pk_fields = [pk] if isinstance(pk, str) else pk
+
     @dlt.resource(name=name, write_disposition=disposition, primary_key=pk)
     def _fetch():
         client = make_client(access_token, base_account_id)
         for aid in account_ids:
-            yield from safe_fetch_entities(client, url, aid, body_style)
+            for row in safe_fetch_entities(client, url, aid, body_style):
+                # Skip rows where primary key fields are null
+                if all(row.get(k) is not None for k in pk_fields):
+                    yield row
 
     return _fetch
 
