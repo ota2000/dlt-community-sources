@@ -72,6 +72,7 @@ def post_rpc(client: req.Client, url: str, body: dict) -> dict:
 
     Returns empty dict on 400/403/404 to prevent pipeline crashes
     from invalid request bodies or missing permissions.
+    Also handles connection errors and timeouts gracefully.
     """
     try:
         response = client.post(url, json=body)
@@ -82,6 +83,9 @@ def post_rpc(client: req.Client, url: str, body: dict) -> dict:
             logger.warning("Skipping %s: %d", url, e.response.status_code)
             return {}
         raise
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.warning("Skipping %s: connection error: %s", url, e)
+        return {}
 
 
 def safe_rpc(client: req.Client, url: str, body: dict, key: str) -> list:

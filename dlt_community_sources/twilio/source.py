@@ -14,6 +14,8 @@ from dlt.sources.helpers.rest_client.paginators import JSONLinkPaginator
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
+from dlt_community_sources._utils import wrap_resources_safe
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://api.twilio.com/2010-04-01"
@@ -239,6 +241,7 @@ def twilio_source(
 
     all_resources: list[DltResource] = rest_resources + custom_resources
 
+    all_resources = wrap_resources_safe(all_resources)
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources

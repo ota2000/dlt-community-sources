@@ -13,10 +13,13 @@ Resources are organized by API service:
 SDK reference: https://github.com/BingAds/BingAds-Python-SDK
 """
 
+import logging
 from typing import Optional, Sequence
 
 import dlt
 from dlt.sources import DltResource
+
+from dlt_community_sources._utils import wrap_resources_safe
 
 from .resources.ad_insight import ALL_AD_INSIGHT_RESOURCES
 from .resources.campaign_management import ALL_CAMPAIGN_MGMT_RESOURCES
@@ -24,6 +27,8 @@ from .resources.customer_billing import ALL_CUSTOMER_BILLING_RESOURCES
 from .resources.customer_management import ALL_CUSTOMER_MGMT_RESOURCES
 from .resources.helpers import CUSTOMER_MGMT_URL, post_rpc
 from .resources.reporting import report
+
+logger = logging.getLogger(__name__)
 
 
 def discover_accounts(
@@ -131,6 +136,8 @@ def microsoft_ads_source(
         pk.append("KeywordId")
     report_resource.apply_hints(primary_key=pk)
     all_resources.append(report_resource)
+
+    all_resources = wrap_resources_safe(all_resources)
 
     if resources:
         return [r for r in all_resources if r.name in resources]

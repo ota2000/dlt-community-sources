@@ -13,6 +13,8 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
+from dlt_community_sources._utils import wrap_resources_safe
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://business-api.tiktok.com/open_api/v1.3"
@@ -137,6 +139,7 @@ def _rest_api_config(
                     "page_size": "100",
                 },
                 "response_actions": [
+                    {"status_code": 400, "action": "ignore"},
                     {"status_code": 403, "action": "ignore"},
                     {"status_code": 404, "action": "ignore"},
                 ],
@@ -799,6 +802,8 @@ def tiktok_ads_source(
             report_resource,
         ]
     )
+
+    all_resources = wrap_resources_safe(all_resources)
 
     if resources:
         return [r for r in all_resources if r.name in resources]

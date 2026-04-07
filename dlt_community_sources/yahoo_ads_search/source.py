@@ -13,6 +13,7 @@ from typing import Optional
 
 import dlt
 
+from dlt_community_sources._utils import wrap_resources_safe
 from dlt_community_sources.yahoo_ads_common.auth import refresh_access_token
 from dlt_community_sources.yahoo_ads_common.helpers import (
     convert_report_types,
@@ -434,6 +435,8 @@ def yahoo_ads_search_source(
             yield from _fetch_report(rpt_client, start, end)
 
     all_resources.append(_report)
+
+    all_resources = wrap_resources_safe(all_resources)
 
     if resources:
         all_resources = [r for r in all_resources if r.name in resources]
