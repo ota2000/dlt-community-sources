@@ -887,8 +887,12 @@ def insights(
     client = _make_client(access_token)
 
     # Start date: go back attribution_window_days from last cursor
+    # Meta API limits time_range to 37 months from today
     last = last_date.last_value
     window_start = date.fromisoformat(last) - timedelta(days=attribution_window_days)
+    max_lookback = date.today() - timedelta(days=37 * 30)  # ~37 months
+    if window_start < max_lookback:
+        window_start = max_lookback
     start = window_start.isoformat()
     end = (date.today() - timedelta(days=1)).isoformat()
 
