@@ -158,7 +158,7 @@ _ENTITY_RESOURCES = [
         ["accountId", "adGroupId"],
         "standard",
     ),
-    ("balance", "BalanceService/get", "merge", "accountId", "account_ids"),
+    ("account_balance", "BalanceService/get", "merge", "accountId", "account_ids"),
     ("budget_orders", "BudgetOrderService/get", "merge", "accountId", "account_ids"),
     (
         "shared_criterions",

@@ -157,7 +157,7 @@ def ad_extension_associations(access_token, developer_token, customer_id, accoun
                 "SitelinkAdExtension",
                 "StructuredSnippetAdExtension",
             ):
-                yield from safe_rpc(
+                for item in safe_rpc(
                     c,
                     _url("AdExtensionsAssociations/Query"),
                     {
@@ -167,7 +167,9 @@ def ad_extension_associations(access_token, developer_token, customer_id, accoun
                         "EntityIds": [cid],
                     },
                     "AdExtensionAssociationCollection",
-                )
+                ):
+                    item["AccountId"] = account_id
+                    yield item
 
 
 # --- Criterions ---
@@ -376,12 +378,14 @@ def label_associations_by_entity(
     ):
         cid = camp.get("Id")
         if cid:
-            yield from safe_rpc(
+            for item in safe_rpc(
                 c,
                 _url("LabelAssociations/QueryByEntityIds"),
                 {"EntityIds": [cid], "EntityType": "Campaign"},
                 "LabelAssociations",
-            )
+            ):
+                item["AccountId"] = account_id
+                yield item
 
 
 # --- Budgets & Bidding ---
@@ -421,12 +425,14 @@ def negative_keywords(access_token, developer_token, customer_id, account_id):
     ):
         cid = camp.get("Id")
         if cid:
-            yield from safe_rpc(
+            for item in safe_rpc(
                 c,
                 _url("NegativeKeywords/QueryByEntityIds"),
                 {"EntityIds": [cid], "EntityType": "Campaign"},
                 "EntityNegativeKeywords",
-            )
+            ):
+                item["AccountId"] = account_id
+                yield item
 
 
 @dlt.resource(
@@ -451,12 +457,14 @@ def negative_sites_campaigns(access_token, developer_token, customer_id, account
         if camp.get("Id")
     ]
     if camp_ids:
-        yield from safe_rpc(
+        for item in safe_rpc(
             c,
             _url("NegativeSites/QueryByCampaignIds"),
             {"AccountId": account_id, "CampaignIds": camp_ids},
             "CampaignNegativeSites",
-        )
+        ):
+            item["AccountId"] = account_id
+            yield item
 
 
 # --- Shared Entities ---
@@ -488,12 +496,14 @@ def shared_list_items(access_token, developer_token, customer_id, account_id):
     ):
         eid = entity.get("Id")
         if eid:
-            yield from safe_rpc(
+            for item in safe_rpc(
                 c,
                 _url("ListItems/QueryBySharedList"),
                 {"SharedList": {"Id": eid, "Type": "NegativeKeywordList"}},
                 "ListItems",
-            )
+            ):
+                item["AccountId"] = account_id
+                yield item
 
 
 # --- Media & Assets ---
@@ -545,12 +555,14 @@ def account_properties(access_token, developer_token, customer_id, account_id):
 def account_migration_statuses(access_token, developer_token, customer_id, account_id):
     """SDK: GetAccountMigrationStatuses."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
+    for item in safe_rpc(
         c,
         _url("AccountMigrationStatuses/Query"),
         {"AccountIds": [account_id]},
         "MigrationStatuses",
-    )
+    ):
+        item["AccountId"] = account_id
+        yield item
 
 
 # --- Experiments & Adjustments ---

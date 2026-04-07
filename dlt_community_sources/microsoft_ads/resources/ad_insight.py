@@ -25,12 +25,14 @@ def _url(path, base=AD_INSIGHT_URL):
 def bid_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetBidOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
+    for item in safe_rpc(
         c,
         _url("BidOpportunities/Query"),
         {"AccountId": account_id},
         "Opportunities",
-    )
+    ):
+        item["AccountId"] = account_id
+        yield item
 
 
 @dlt.resource(
@@ -39,12 +41,14 @@ def bid_opportunities(access_token, developer_token, customer_id, account_id):
 def budget_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetBudgetOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
+    for item in safe_rpc(
         c,
         _url("BudgetOpportunities/Query"),
         {"AccountId": account_id},
         "Opportunities",
-    )
+    ):
+        item["AccountId"] = account_id
+        yield item
 
 
 @dlt.resource(
@@ -53,12 +57,14 @@ def budget_opportunities(access_token, developer_token, customer_id, account_id)
 def keyword_opportunities(access_token, developer_token, customer_id, account_id):
     """SDK: GetKeywordOpportunities."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
+    for item in safe_rpc(
         c,
         _url("KeywordOpportunities/Query"),
         {"AccountId": account_id, "OpportunityType": "BroadMatch"},
         "Opportunities",
-    )
+    ):
+        item["AccountId"] = account_id
+        yield item
 
 
 # NOTE: The following resources have been removed because they require
@@ -87,12 +93,14 @@ _AUTO_APPLY_RECOMMENDATION_TYPES = [
 def auto_apply_opt_in_status(access_token, developer_token, customer_id, account_id):
     """SDK: GetAutoApplyOptInStatus."""
     c = _client(access_token, developer_token, customer_id, account_id)
-    yield from safe_rpc(
+    for item in safe_rpc(
         c,
         _url("AutoApplyOptInStatus/Query"),
         {"RecommendationTypesInputs": _AUTO_APPLY_RECOMMENDATION_TYPES},
         "AutoApplyRecommendationsStatus",
-    )
+    ):
+        item["AccountId"] = account_id
+        yield item
 
 
 ALL_AD_INSIGHT_RESOURCES = [
