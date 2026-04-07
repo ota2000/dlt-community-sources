@@ -644,6 +644,7 @@ def _rest_api_config(
             },
             {
                 "name": "ad_videos",
+                "columns": {"length": {"data_type": "double"}},
                 "endpoint": {
                     "path": f"{act_id}/advideos",
                     "params": {
