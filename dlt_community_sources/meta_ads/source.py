@@ -830,27 +830,19 @@ def ad_leads(
     fields = lead_fields or DEFAULT_FIELDS["ad_leads"]
     client = _make_client(access_token)
 
-    # Iterate through ads to fetch their leads
-    # Filter leads by created_time > last incremental value
+    # Fetch leads via lead forms instead of iterating all ads.
+    # Only accounts with leadgen_forms have lead data.
     since = last_created_time.last_value
-    ads_params = urlencode(
-        [
-            ("fields", "id"),
-            ("effective_status[]", "ACTIVE"),
-            ("effective_status[]", "PAUSED"),
-            ("effective_status[]", "ARCHIVED"),
-        ]
-    )
-    ads_url = f"{base_url}/{act_id}/ads?{ads_params}"
     filtering = json.dumps(
         [{"field": "time_created", "operator": "GREATER_THAN", "value": since}]
     )
-    for ad in _get_paginated(client, ads_url):
-        ad_id = ad["id"]
+    forms_url = f"{base_url}/{act_id}/leadgen_forms?fields=id"
+    for form in _get_paginated(client, forms_url):
+        form_id = form["id"]
         leads_params = urlencode(
             [("fields", ",".join(fields)), ("filtering", filtering)]
         )
-        leads_url = f"{base_url}/{ad_id}/leads?{leads_params}"
+        leads_url = f"{base_url}/{form_id}/leads?{leads_params}"
         yield from _get_paginated(client, leads_url)
 
 
