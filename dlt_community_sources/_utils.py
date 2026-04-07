@@ -3,15 +3,21 @@
 import logging
 
 from dlt.sources import DltResource
+from dlt.sources.helpers.requests import HTTPError
 
 logger = logging.getLogger(__name__)
 
+# HTTP status codes that indicate "no data" (not an error worth retrying)
+_SKIP_STATUS_CODES = {400, 403, 404}
+
 
 def wrap_resources_safe(resources: list[DltResource]) -> list[DltResource]:
-    """Wrap each resource's generator to catch and log errors.
+    """Wrap each resource's generator to catch and log expected errors.
 
-    When one resource fails during extraction, the error is logged and
-    the resource yields nothing instead of crashing the entire pipeline.
+    Only skips resources that fail with HTTP 400/403/404 (no data, no
+    permission, not found). All other errors (429 after retries, 5xx,
+    connection errors) are raised to stop the pipeline, since they
+    indicate a real problem that should be investigated.
     """
     for r in resources:
         gen = r._pipe.gen
@@ -22,8 +28,21 @@ def wrap_resources_safe(resources: list[DltResource]) -> list[DltResource]:
                 def wrapper(*args, **kwargs):
                     try:
                         yield from gen_fn(*args, **kwargs)
-                    except Exception as e:
-                        logger.warning("Resource %s failed, skipping: %s", name, e)
+                    except HTTPError as e:
+                        if (
+                            e.response is not None
+                            and e.response.status_code in _SKIP_STATUS_CODES
+                        ):
+                            logger.info(
+                                "Resource %s skipped: %d %s",
+                                name,
+                                e.response.status_code,
+                                e.response.reason,
+                            )
+                        else:
+                            raise
+                    except Exception:
+                        raise
 
                 return wrapper
 

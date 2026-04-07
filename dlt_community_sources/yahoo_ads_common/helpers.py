@@ -188,12 +188,20 @@ def make_client(access_token: str, base_account_id: str) -> req.Client:
     return client
 
 
+_REQUEST_DELAY = 0.3  # seconds between requests to avoid API rate limiting
+
+
 def post_rpc(
     client: req.Client,
     url: str,
     body: Optional[dict] = None,
 ) -> dict:
-    """Execute a POST RPC call and return the response JSON."""
+    """Execute a POST RPC call and return the response JSON.
+
+    Adds a small delay between requests to avoid rate limiting.
+    dlt's req.Client handles 429/5xx/connection retries automatically.
+    """
+    time.sleep(_REQUEST_DELAY)
     response = client.post(url, json=body or {})
     response.raise_for_status()
     return response.json()

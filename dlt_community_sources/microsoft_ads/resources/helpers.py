@@ -1,6 +1,7 @@
 """Shared helpers for Microsoft Ads resources."""
 
 import logging
+import time
 from collections.abc import Generator
 from decimal import Decimal
 
@@ -67,13 +68,18 @@ def make_client(
     return client
 
 
+_REQUEST_DELAY = 0.3  # seconds between requests to avoid API rate limiting
+
+
 def post_rpc(client: req.Client, url: str, body: dict) -> dict:
     """Make a POST RPC call and return response JSON.
 
     Returns empty dict on 400/403/404 to prevent pipeline crashes
     from invalid request bodies or missing permissions.
-    Also handles connection errors and timeouts gracefully.
+    Adds a small delay between requests to avoid rate limiting.
+    dlt's req.Client handles 429/5xx/connection retries automatically.
     """
+    time.sleep(_REQUEST_DELAY)
     try:
         response = client.post(url, json=body)
         response.raise_for_status()
@@ -83,9 +89,6 @@ def post_rpc(client: req.Client, url: str, body: dict) -> dict:
             logger.warning("Skipping %s: %d", url, e.response.status_code)
             return {}
         raise
-    except (ConnectionError, TimeoutError, OSError) as e:
-        logger.warning("Skipping %s: connection error: %s", url, e)
-        return {}
 
 
 def safe_rpc(client: req.Client, url: str, body: dict, key: str) -> list:
