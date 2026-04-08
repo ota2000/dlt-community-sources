@@ -89,7 +89,7 @@ class TestRestApiConfig:
     def test_response_actions(self):
         actions = self.config["resource_defaults"]["endpoint"]["response_actions"]
         status_codes = [a["status_code"] for a in actions]
-        assert 400 not in status_codes
+        assert 400 in status_codes
         assert 403 in status_codes
         assert 404 in status_codes
 
@@ -729,15 +729,17 @@ class TestAdLeadsResource:
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
     @patch("dlt_community_sources.meta_ads.source._make_client")
     def test_incremental_cursor_value(self, mock_make_client, mock_sleep):
-        """Uses last_created_time value for filtering."""
+        """Uses last_created_time value for filtering via leadgen_forms."""
         from dlt_community_sources.meta_ads.source import ad_leads
 
         client = MagicMock()
         mock_make_client.return_value = client
 
-        ads_resp = _mock_response(json_data={"data": [{"id": "ad_001"}], "paging": {}})
+        forms_resp = _mock_response(
+            json_data={"data": [{"id": "form_001"}], "paging": {}}
+        )
         leads_resp = _mock_response(json_data={"data": [], "paging": {}})
-        client.get = MagicMock(side_effect=[ads_resp, leads_resp])
+        client.get = MagicMock(side_effect=[forms_resp, leads_resp])
 
         import dlt
 
@@ -752,14 +754,15 @@ class TestAdLeadsResource:
         )
         list(resource)
 
-        # Verify the ads URL uses the correct account prefix
-        ads_call_url = client.get.call_args_list[0].args[0]
-        assert "act_456/ads" in ads_call_url
+        # Verify the leadgen_forms URL uses the correct account prefix
+        forms_call_url = client.get.call_args_list[0].args[0]
+        assert "act_456/leadgen_forms" in forms_call_url
 
-        # Verify filtering uses the cursor value (URL-encoded)
+        # Verify leads URL uses form_id and filtering with cursor value
         from urllib.parse import unquote
 
         leads_call_url = unquote(client.get.call_args_list[1].args[0])
+        assert "form_001/leads" in leads_call_url
         assert cursor_value in leads_call_url
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")

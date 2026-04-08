@@ -415,7 +415,8 @@ class TestPollReport:
         )
         status = poll_report(client, "https://api", "12345", 123)
         assert status is None
-        assert mock_sleep.call_count == 2
+        # 2 poll sleeps + 2 post_rpc request delay sleeps = 4
+        assert mock_sleep.call_count == 4
 
 
 class TestDownloadReport:
@@ -454,7 +455,7 @@ class TestSourceConfig:
 
     def test_new_entity_resources_present(self):
         names = [r[0] for r in _ENTITY_RESOURCES]
-        assert "balance" in names
+        assert "account_balance" in names
         assert "budget_orders" in names
         assert "shared_criterions" in names
         assert "campaign_shared_sets" in names

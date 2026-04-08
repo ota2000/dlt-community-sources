@@ -359,12 +359,21 @@ def advertiser_info(
 def advertiser_balance(
     access_token: str,
     advertiser_id: str,
+    bc_id: Optional[str] = None,
     base_url: str = DEFAULT_BASE_URL,
 ):
-    """Fetch advertiser account balance."""
+    """Fetch advertiser account balance.
+
+    Args:
+        bc_id: Business Center ID. Required when the advertiser is managed
+            under a Business Center.
+    """
     client = _make_client(access_token)
     url = f"{base_url}/advertiser/balance/get/"
-    response = client.get(url, params={"advertiser_id": advertiser_id})
+    params: dict[str, str] = {"advertiser_id": advertiser_id}
+    if bc_id:
+        params["bc_id"] = bc_id
+    response = client.get(url, params=params)
     try:
         response.raise_for_status()
     except req.HTTPError as e:
@@ -384,12 +393,17 @@ def advertiser_balance(
 def advertiser_transactions(
     access_token: str,
     advertiser_id: str,
+    bc_id: Optional[str] = None,
     last_date=dlt.sources.incremental(
         "transaction_time", initial_value="2020-01-01T00:00:00.000Z"
     ),
     base_url: str = DEFAULT_BASE_URL,
 ):
     """Fetch advertiser account transactions with incremental loading.
+
+    Args:
+        bc_id: Business Center ID. Required when the advertiser is managed
+            under a Business Center.
 
     Note: TikTok's advertiser/transaction/get API does not support
     server-side date filtering. The ``last_date`` incremental cursor is
@@ -401,14 +415,14 @@ def advertiser_transactions(
     url = f"{base_url}/advertiser/transaction/get/"
     page = 1
     while True:
-        response = client.get(
-            url,
-            params={
-                "advertiser_id": advertiser_id,
-                "page": str(page),
-                "page_size": "100",
-            },
-        )
+        params: dict[str, str] = {
+            "advertiser_id": advertiser_id,
+            "page": str(page),
+            "page_size": "100",
+        }
+        if bc_id:
+            params["bc_id"] = bc_id
+        response = client.get(url, params=params)
         try:
             response.raise_for_status()
         except req.HTTPError as e:
@@ -649,7 +663,11 @@ def report(
     client = _make_client(access_token)
 
     last = last_date.last_value
-    window_start = date.fromisoformat(last) - timedelta(days=attribution_window_days)
+    # Handle both "2026-01-01" and "2026-01-01 00:00:00" formats
+    last_date_str = last.split(" ")[0].split("T")[0]
+    window_start = date.fromisoformat(last_date_str) - timedelta(
+        days=attribution_window_days
+    )
     start = window_start.isoformat()
     end = (date.today() - timedelta(days=1)).isoformat()
 
@@ -730,6 +748,7 @@ def tiktok_ads_source(
     metrics: Optional[list[str]] = None,
     dimensions: Optional[list[str]] = None,
     attribution_window_days: int = 7,
+    bc_id: Optional[str] = None,
     resources: Optional[Sequence[str]] = None,
     base_url: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -747,6 +766,7 @@ def tiktok_ads_source(
         metrics: Custom list of report metrics.
         dimensions: Custom list of report dimensions.
         attribution_window_days: Days to re-fetch for attribution window (default 7).
+        bc_id: Business Center ID for finance resources (balance/transactions).
         resources: List of resource names to load. None for all.
         base_url: Override the API base URL.
         start_date: Override incremental start date (YYYY-MM-DD).
@@ -766,10 +786,16 @@ def tiktok_ads_source(
             access_token=access_token, advertiser_id=advertiser_id, base_url=url
         ),
         advertiser_balance(
-            access_token=access_token, advertiser_id=advertiser_id, base_url=url
+            access_token=access_token,
+            advertiser_id=advertiser_id,
+            bc_id=bc_id,
+            base_url=url,
         ),
         advertiser_transactions(
-            access_token=access_token, advertiser_id=advertiser_id, base_url=url
+            access_token=access_token,
+            advertiser_id=advertiser_id,
+            bc_id=bc_id,
+            base_url=url,
         ),
         apps(access_token=access_token, advertiser_id=advertiser_id, base_url=url),
         pixels(access_token=access_token, advertiser_id=advertiser_id, base_url=url),

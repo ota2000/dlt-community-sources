@@ -889,7 +889,11 @@ def insights(
     # Start date: go back attribution_window_days from last cursor
     # Meta API limits time_range to 37 months from today
     last = last_date.last_value
-    window_start = date.fromisoformat(last) - timedelta(days=attribution_window_days)
+    # Handle both "2026-01-01" and "2026-01-01 00:00:00" formats
+    last_date_str = last.split(" ")[0].split("T")[0]
+    window_start = date.fromisoformat(last_date_str) - timedelta(
+        days=attribution_window_days
+    )
     max_lookback = date.today() - timedelta(days=37 * 30)  # ~37 months
     if window_start < max_lookback:
         window_start = max_lookback

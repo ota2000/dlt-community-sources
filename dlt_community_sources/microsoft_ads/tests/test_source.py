@@ -270,7 +270,8 @@ class TestPollReport:
         mock_client.post.return_value = mock_resp
         result = _poll_report(mock_client, "req123")
         assert result is None
-        assert mock_sleep.call_count == 2
+        # 2 poll sleeps + 2 post_rpc request delay sleeps = 4
+        assert mock_sleep.call_count == 4
 
 
 class TestDownloadCsvReport:

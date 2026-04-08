@@ -402,7 +402,9 @@ def yahoo_ads_search_source(
         ):
             rpt_client = make_client(access_token, base_account_id)
             last = last_date.last_value
-            window_start = date.fromisoformat(last) - timedelta(
+            # Handle both "2026-01-01" and "2026-01-01 00:00:00" formats
+            last_date_str = last.split(" ")[0].split("T")[0]
+            window_start = date.fromisoformat(last_date_str) - timedelta(
                 days=attribution_window_days
             )
             start = window_start.isoformat()
