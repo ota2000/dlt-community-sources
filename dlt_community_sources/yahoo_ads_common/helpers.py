@@ -19,9 +19,6 @@ from dlt.sources.helpers import requests as req
 
 logger = logging.getLogger(__name__)
 
-# Metric field types from getReportFields API (used for PK derivation)
-_METRIC_FIELD_TYPES = {"LONG", "DOUBLE", "BID"}
-
 # Primary key: only core identity fields (date + entity IDs)
 _PK_FIELDS = {
     "DAY",
@@ -34,6 +31,19 @@ _PK_FIELDS = {
     "AD_DISPLAY_OPTION",
     "MEDIA_ID",
 }
+
+
+def _extract_inner(entry: dict) -> Optional[dict]:
+    """Extract inner object from API response entry, skipping wrapper fields."""
+    if not entry.get("operationSucceeded", True):
+        return None
+    inner = {
+        k: v for k, v in entry.items() if k not in ("operationSucceeded", "errors")
+    }
+    keys = list(inner.keys())
+    if len(keys) == 1:
+        return inner[keys[0]]
+    return inner
 
 
 class ReportFieldMeta:
@@ -120,13 +130,11 @@ def get_report_fields(
     return meta.field_names
 
 
-def derive_primary_key(
-    fields: list[str], field_type_map: Optional[dict[str, str]] = None
-) -> list[str]:
-    """Derive primary key from report fields (all non-metric fields).
+def derive_primary_key(fields: list[str]) -> list[str]:
+    """Derive primary key from report fields using a whitelist of identity fields.
 
-    Uses field_type_map from getReportFields API to determine which fields
-    are metrics (LONG, DOUBLE, BID) and exclude them from the primary key.
+    Returns only fields present in _PK_FIELDS (date + entity IDs),
+    excluding metric and dimension fields.
     """
     return [f for f in fields if f in _PK_FIELDS]
 
@@ -180,12 +188,20 @@ def make_client(access_token: str, base_account_id: str) -> req.Client:
     return client
 
 
+_REQUEST_DELAY = 0.3  # seconds between requests to avoid API rate limiting
+
+
 def post_rpc(
     client: req.Client,
     url: str,
     body: Optional[dict] = None,
 ) -> dict:
-    """Execute a POST RPC call and return the response JSON."""
+    """Execute a POST RPC call and return the response JSON.
+
+    Adds a small delay between requests to avoid rate limiting.
+    dlt's req.Client handles 429/5xx/connection retries automatically.
+    """
+    time.sleep(_REQUEST_DELAY)
     response = client.post(url, json=body or {})
     response.raise_for_status()
     return response.json()
@@ -212,7 +228,7 @@ def discover_accounts(
         data = post_rpc(client, f"{base_url}/AccountService/get", body)
         rval = data.get("rval", {})
         total = rval.get("totalNumEntries", 0)
-        values = rval.get("values") or []
+        values = rval.get("values", [])
 
         for entry in values:
             if not entry.get("operationSucceeded"):
@@ -229,64 +245,25 @@ def discover_accounts(
     return account_ids
 
 
-def _extract_values(rval: dict) -> Generator[dict, None, None]:
-    """Extract inner objects from rval.values, handling both list and single dict."""
-    raw = rval.get("values") or []
-    entries = raw if isinstance(raw, list) else [raw]
-    for entry in entries:
-        if entry.get("operationSucceeded", True):
-            inner = {
-                k: v
-                for k, v in entry.items()
-                if k not in ("operationSucceeded", "errors")
-            }
-            keys = list(inner.keys())
-            if len(keys) == 1:
-                yield inner[keys[0]]
-            else:
-                yield inner
-
-
 def get_entities(
     client: req.Client,
     url: str,
     account_id: str,
     selector_fields: Optional[dict] = None,
     page_size: int = DEFAULT_PAGE_SIZE,
-    paginated: bool = True,
-    account_key: str = "accountId",
 ) -> Generator[dict, None, None]:
-    """Fetch all entities with optional pagination.
+    """Fetch all entities with pagination.
 
     Handles the standard Yahoo Ads pagination pattern:
     - Request body contains accountId and paging (startIndex, numberResults)
     - Response contains rval.totalNumEntries and rval.values[]
     - Each value has an operationSucceeded flag
-
-    When paginated=False, sends the body without startIndex/numberResults
-    and yields all values from a single response.
-
-    account_key controls how the account ID is sent:
-    - "accountId" (default): sends accountId as int
-    - "accountIds": sends accountIds as [int] array
     """
-    aid_value: int | list[int] = (
-        [int(account_id)] if account_key == "accountIds" else int(account_id)
-    )
-
-    if not paginated:
-        body: dict = {account_key: aid_value}
-        if selector_fields:
-            body.update(selector_fields)
-        data = post_rpc(client, url, body)
-        yield from _extract_values(data.get("rval", {}))
-        return
-
     page_size = min(page_size, MAX_PAGE_SIZE)
     start_index = 1
     while True:
         body = {
-            account_key: aid_value,
+            "accountId": int(account_id),
             "startIndex": start_index,
             "numberResults": page_size,
         }
@@ -294,24 +271,14 @@ def get_entities(
             body.update(selector_fields)
 
         data = post_rpc(client, url, body)
-        rval = data.get("rval", {})
+        rval = data.get("rval") or {}
         total = rval.get("totalNumEntries", 0)
         values = rval.get("values") or []
-        if not isinstance(values, list):
-            values = [values]
 
         for entry in values:
-            if entry.get("operationSucceeded", True):
-                inner = {
-                    k: v
-                    for k, v in entry.items()
-                    if k not in ("operationSucceeded", "errors")
-                }
-                keys = list(inner.keys())
-                if len(keys) == 1:
-                    yield inner[keys[0]]
-                else:
-                    yield inner
+            obj = _extract_inner(entry)
+            if obj is not None:
+                yield obj
 
         start_index += len(values)
         if start_index > total or not values:
@@ -324,22 +291,78 @@ def safe_get_entities(
     account_id: str,
     selector_fields: Optional[dict] = None,
     page_size: int = DEFAULT_PAGE_SIZE,
-    paginated: bool = True,
-    account_key: str = "accountId",
 ) -> Generator[dict, None, None]:
-    """Fetch entities with HTTP error handling (skip 403/404)."""
+    """Fetch entities with HTTP error handling (skip 400/403/404)."""
     try:
-        yield from get_entities(
-            client,
-            url,
-            account_id,
-            selector_fields,
-            page_size,
-            paginated=paginated,
-            account_key=account_key,
-        )
+        yield from get_entities(client, url, account_id, selector_fields, page_size)
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
+        if e.response is not None and e.response.status_code in (400, 403, 404):
+            logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
+        else:
+            raise
+
+
+def get_entities_by_account_ids(
+    client: req.Client,
+    url: str,
+    account_id: str,
+) -> Generator[dict, None, None]:
+    """Fetch entities using accountIds array (no pagination)."""
+    body = {"accountIds": [int(account_id)]}
+    data = post_rpc(client, url, body)
+    rval = data.get("rval") or {}
+    values = rval.get("values") or []
+    if isinstance(values, dict):
+        values = [values]
+    for entry in values:
+        obj = _extract_inner(entry)
+        if obj is not None:
+            yield obj
+
+
+def get_entities_no_paging(
+    client: req.Client,
+    url: str,
+    account_id: str,
+) -> Generator[dict, None, None]:
+    """Fetch entities with accountId only (no pagination params)."""
+    body = {"accountId": int(account_id)}
+    data = post_rpc(client, url, body)
+    rval = data.get("rval") or {}
+    values = rval.get("values") or []
+    if isinstance(values, dict):
+        values = [values]
+    for entry in values:
+        obj = _extract_inner(entry)
+        if obj is not None:
+            yield obj
+
+
+def safe_fetch_entities(
+    client: req.Client,
+    url: str,
+    account_id: str,
+    body_style: str = "standard",
+    page_size: int = DEFAULT_PAGE_SIZE,
+) -> Generator[dict, None, None]:
+    """Fetch entities with appropriate body style and error handling."""
+    try:
+        if body_style == "account_ids":
+            yield from get_entities_by_account_ids(client, url, account_id)
+        elif body_style == "no_paging":
+            yield from get_entities_no_paging(client, url, account_id)
+        elif body_style == "empty":
+            # Some services (e.g. AccountLinkService) accept empty body
+            data = post_rpc(client, url, {})
+            rval = data.get("rval") or {}
+            for entry in rval.get("values") or []:
+                obj = _extract_inner(entry)
+                if obj is not None:
+                    yield obj
+        else:
+            yield from get_entities(client, url, account_id, page_size=page_size)
+    except req.HTTPError as e:
+        if e.response is not None and e.response.status_code in (400, 403, 404):
             logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
         else:
             raise

@@ -415,7 +415,8 @@ class TestPollReport:
         )
         status = poll_report(client, "https://api", "12345", 123)
         assert status is None
-        assert mock_sleep.call_count == 2
+        # 2 poll sleeps + 2 post_rpc request delay sleeps = 4
+        assert mock_sleep.call_count == 4
 
 
 class TestDownloadReport:
@@ -445,15 +446,16 @@ class TestSourceConfig:
         assert len(_ENTITY_RESOURCES) >= 38
 
     def test_entity_resources_have_required_fields(self):
-        for name, path, disposition, pk in _ENTITY_RESOURCES:
+        for name, path, disposition, pk, body_style in _ENTITY_RESOURCES:
             assert name, "resource name is empty"
             assert "/" in path, f"{name}: path missing /"
             assert disposition in ("merge", "replace", "append")
             assert pk, f"{name}: primary_key is empty"
+            assert body_style in ("standard", "account_ids", "no_paging", "empty")
 
     def test_new_entity_resources_present(self):
         names = [r[0] for r in _ENTITY_RESOURCES]
-        assert "balance" in names
+        assert "account_balance" in names
         assert "budget_orders" in names
         assert "shared_criterions" in names
         assert "campaign_shared_sets" in names
@@ -506,16 +508,7 @@ class TestDerivePrimaryKey:
             "CLICKS",
             "COST",
         ]
-        field_type_map = {
-            "DAY": "STRING",
-            "ACCOUNT_ID": "STRING",
-            "CAMPAIGN_ID": "STRING",
-            "CAMPAIGN_NAME": "STRING",
-            "IMPS": "LONG",
-            "CLICKS": "LONG",
-            "COST": "LONG",
-        }
-        pk = derive_primary_key(fields, field_type_map)
+        pk = derive_primary_key(fields)
         assert pk == ["DAY", "ACCOUNT_ID", "CAMPAIGN_ID"]
 
     def test_excludes_all_metrics(self):
@@ -530,18 +523,7 @@ class TestDerivePrimaryKey:
             "CONV_RATE",
             "CONV_VALUE",
         ]
-        field_type_map = {
-            "DAY": "STRING",
-            "IMPS": "LONG",
-            "CLICKS": "LONG",
-            "CLICK_RATE": "DOUBLE",
-            "AVG_CPC": "DOUBLE",
-            "COST": "LONG",
-            "CONVERSIONS": "LONG",
-            "CONV_RATE": "DOUBLE",
-            "CONV_VALUE": "LONG",
-        }
-        pk = derive_primary_key(fields, field_type_map)
+        pk = derive_primary_key(fields)
         assert pk == ["DAY"]
 
 
@@ -662,31 +644,6 @@ class TestSourceFunction:
         assert "report" in source.resources
         assert "campaigns" in source.resources
         mock_get_fields.assert_called_once()
-
-    @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")
-    @patch("dlt_community_sources.yahoo_ads_search.source.discover_accounts")
-    @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")
-    def test_auto_discovers_accounts_when_account_id_none(
-        self, mock_refresh, mock_discover, mock_get_fields
-    ):
-        """When account_id is None, discover_accounts is called."""
-        mock_refresh.return_value = {"access_token": "at"}
-        mock_discover.return_value = ["111", "222"]
-        mock_get_fields.return_value = self._MOCK_FIELDS_RETURN
-        from dlt_community_sources.yahoo_ads_search.source import (
-            yahoo_ads_search_source,
-        )
-
-        source = yahoo_ads_search_source(
-            client_id="cid",
-            client_secret="cs",
-            refresh_token="rt",
-            base_account_id="mcc_456",
-        )
-        mock_discover.assert_called_once()
-        mock_get_fields.assert_called_once()
-        assert "report" in source.resources
-        assert "campaigns" in source.resources
 
     @patch("dlt_community_sources.yahoo_ads_search.source.get_report_fields_with_types")
     @patch("dlt_community_sources.yahoo_ads_search.source.refresh_access_token")

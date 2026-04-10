@@ -13,16 +13,16 @@ from typing import Optional
 
 import dlt
 
+from dlt_community_sources._utils import wrap_resources_safe
 from dlt_community_sources.yahoo_ads_common.auth import refresh_access_token
 from dlt_community_sources.yahoo_ads_common.helpers import (
     convert_report_types,
     derive_primary_key,
-    discover_accounts,
     download_report,
     get_report_fields_with_types,
     make_client,
     poll_report,
-    safe_get_entities,
+    safe_fetch_entities,
     submit_report,
 )
 
@@ -35,115 +35,195 @@ BASE_URL = "https://ads-search.yahooapis.jp/api/v19"
 # ---------------------------------------------------------------------------
 
 _ENTITY_RESOURCES = [
-    # (resource_name, service_path, write_disposition, primary_key)
-    ("campaigns", "CampaignService/get", "merge", "campaignId"),
-    ("ad_groups", "AdGroupService/get", "merge", "adGroupId"),
-    ("ads", "AdGroupAdService/get", "merge", "adId"),
-    ("ad_group_criterions", "AdGroupCriterionService/get", "merge", "criterionId"),
-    ("campaign_criterions", "CampaignCriterionService/get", "merge", "criterionId"),
-    ("bidding_strategies", "BiddingStrategyService/get", "merge", "biddingStrategyId"),
-    ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId"),
-    ("labels", "LabelService/get", "merge", "labelId"),
-    ("assets", "AssetService/get", "merge", "assetId"),
-    ("audience_lists", "AudienceListService/get", "merge", "audienceListId"),
+    # (resource_name, service_path, write_disposition, primary_key, body_style)
+    # body_style "standard": accountId + startIndex + numberResults (most services)
+    # body_style "account_ids": accountIds array, no paging
+    # body_style "no_paging": accountId only, no paging params
+    # body_style "empty": no body params (MCC-level services)
+    ("accounts", "AccountService/get", "merge", "accountId", "empty"),
+    ("campaigns", "CampaignService/get", "merge", "campaignId", "standard"),
+    ("ad_groups", "AdGroupService/get", "merge", "adGroupId", "standard"),
+    ("ads", "AdGroupAdService/get", "merge", "adId", "standard"),
+    (
+        "ad_group_criterions",
+        "AdGroupCriterionService/get",
+        "merge",
+        "criterionId",
+        "standard",
+    ),
+    (
+        "campaign_criterions",
+        "CampaignCriterionService/get",
+        "merge",
+        "criterionId",
+        "standard",
+    ),
+    (
+        "bidding_strategies",
+        "BiddingStrategyService/get",
+        "merge",
+        "portfolioBiddingId",
+        "standard",
+    ),
+    ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId", "standard"),
+    ("labels", "LabelService/get", "merge", "labelId", "standard"),
+    ("assets", "AssetService/get", "merge", "assetId", "standard"),
+    (
+        "audience_lists",
+        "AudienceListService/get",
+        "merge",
+        "audienceListId",
+        "standard",
+    ),
     (
         "conversion_trackers",
         "ConversionTrackerService/get",
         "merge",
         "conversionTrackerId",
+        "standard",
     ),
-    ("account_shared", "AccountSharedService/get", "merge", "sharedListId"),
+    ("account_shared", "AccountSharedService/get", "merge", "sharedListId", "standard"),
     (
         "ad_group_bid_multipliers",
         "AdGroupBidMultiplierService/get",
-        "replace",
-        "adGroupId",
+        "merge",
+        ["accountId", "adGroupId"],
+        "standard",
     ),
-    ("campaign_targets", "CampaignTargetService/get", "replace", "targetId"),
+    (
+        "campaign_targets",
+        "CampaignTargetService/get",
+        "merge",
+        ["accountId", "campaignId"],
+        "standard",
+    ),
     (
         "page_feed_asset_sets",
         "PageFeedAssetSetService/get",
         "merge",
         "pageFeedAssetSetId",
+        "standard",
     ),
-    ("account_assets", "AccountAssetService/get", "merge", "assetId"),
-    ("campaign_assets", "CampaignAssetService/get", "merge", "assetId"),
-    ("ad_group_assets", "AdGroupAssetService/get", "merge", "assetId"),
+    ("account_assets", "AccountAssetService/get", "merge", "assetId", "standard"),
+    ("campaign_assets", "CampaignAssetService/get", "merge", "assetId", "standard"),
+    ("ad_group_assets", "AdGroupAssetService/get", "merge", "assetId", "standard"),
     (
         "customizer_attributes",
         "CustomizerAttributeService/get",
         "merge",
         "customizerAttributeId",
+        "no_paging",
     ),
-    ("account_tracking_urls", "AccountTrackingUrlService/get", "replace", "accountId"),
-    ("ab_tests", "AbTestService/get", "merge", "abTestId"),
+    (
+        "account_tracking_urls",
+        "AccountTrackingUrlService/get",
+        "merge",
+        "accountId",
+        "account_ids",
+    ),
+    ("ab_tests", "AbTestService/get", "merge", "abTestId", "standard"),
+    ("audit_logs", "AuditLogService/get", "append", "updateDateTime", "standard"),
     (
         "seasonality_adjustments",
         "BiddingSeasonalityAdjustmentService/get",
         "merge",
         "biddingSeasonalityAdjustmentId",
+        "standard",
     ),
     (
         "learning_data_exclusions",
         "LearningDataExclusionService/get",
         "merge",
         "learningDataExclusionId",
+        "standard",
     ),
-    ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId"),
+    (
+        "conversion_groups",
+        "ConversionGroupService/get",
+        "merge",
+        "conversionGroupId",
+        "standard",
+    ),
     (
         "campaign_audience_lists",
         "CampaignAudienceListService/get",
-        "replace",
-        "campaignId",
+        "merge",
+        ["accountId", "campaignId"],
+        "standard",
     ),
     (
         "ad_group_audience_lists",
         "AdGroupAudienceListService/get",
-        "replace",
-        "adGroupId",
+        "merge",
+        ["accountId", "adGroupId"],
+        "standard",
     ),
-    ("balance", "BalanceService/get", "replace", "accountId"),
-    ("budget_orders", "BudgetOrderService/get", "replace", "accountId"),
+    ("account_balance", "BalanceService/get", "merge", "accountId", "account_ids"),
+    ("budget_orders", "BudgetOrderService/get", "merge", "accountId", "account_ids"),
     (
         "shared_criterions",
         "SharedCriterionService/get",
         "merge",
         "criterionId",
+        "standard",
     ),
     (
         "campaign_shared_sets",
         "CampaignSharedSetService/get",
-        "replace",
-        "campaignId",
+        "merge",
+        ["accountId", "campaignId"],
+        "standard",
     ),
-    ("page_feed_assets", "PageFeedAssetService/get", "merge", "pageFeedAssetId"),
-    ("ad_group_webpages", "AdGroupWebpageService/get", "replace", "adGroupId"),
-    ("campaign_webpages", "CampaignWebpageService/get", "replace", "campaignId"),
-    ("account_links", "AccountLinkService/get", "replace", "accountId"),
-    ("app_links", "AppLinkService/get", "merge", "appLinkId"),
+    (
+        "page_feed_assets",
+        "PageFeedAssetService/get",
+        "merge",
+        "pageFeedAssetId",
+        "standard",
+    ),
+    (
+        "ad_group_webpages",
+        "AdGroupWebpageService/get",
+        "merge",
+        ["accountId", "adGroupId"],
+        "standard",
+    ),
+    (
+        "campaign_webpages",
+        "CampaignWebpageService/get",
+        "merge",
+        ["accountId", "campaignId"],
+        "standard",
+    ),
+    ("account_links", "AccountLinkService/get", "merge", "accountId", "empty"),
+    ("app_links", "AppLinkService/get", "merge", "appLinkId", "standard"),
     (
         "account_customizers",
         "AccountCustomizerService/get",
-        "replace",
-        "customizerAttributeId",
+        "merge",
+        ["accountId", "customizerAttributeId"],
+        "standard",
     ),
     (
         "campaign_customizers",
         "CampaignCustomizerService/get",
-        "replace",
-        "customizerAttributeId",
+        "merge",
+        ["accountId", "customizerAttributeId"],
+        "standard",
     ),
     (
         "ad_group_customizers",
         "AdGroupCustomizerService/get",
-        "replace",
-        "customizerAttributeId",
+        "merge",
+        ["accountId", "customizerAttributeId"],
+        "standard",
     ),
     (
         "ad_group_criterion_customizers",
         "AdGroupCriterionCustomizerService/get",
-        "replace",
-        "criterionId",
+        "merge",
+        ["accountId", "criterionId"],
+        "standard",
     ),
 ]
 
@@ -179,6 +259,7 @@ def _make_entity_resource(
     path: str,
     disposition: str,
     pk: str,
+    body_style: str,
     access_token: str,
     account_ids: list[str],
     base_account_id: str,
@@ -187,11 +268,17 @@ def _make_entity_resource(
     """Create a single dlt resource for an entity endpoint."""
     url = f"{base_url}/{path}"
 
+    # pk can be a string or list of strings
+    pk_fields = [pk] if isinstance(pk, str) else pk
+
     @dlt.resource(name=name, write_disposition=disposition, primary_key=pk)
     def _fetch():
         client = make_client(access_token, base_account_id)
         for aid in account_ids:
-            yield from safe_get_entities(client, url, aid)
+            for row in safe_fetch_entities(client, url, aid, body_style):
+                # Skip rows where primary key fields are null
+                if all(row.get(k) is not None for k in pk_fields):
+                    yield row
 
     return _fetch
 
@@ -209,12 +296,13 @@ def _build_entity_resources(
             path,
             disposition,
             pk,
+            body_style,
             access_token,
             account_ids,
             base_account_id,
             base_url,
         )
-        for name, path, disposition, pk in _ENTITY_RESOURCES
+        for name, path, disposition, pk, body_style in _ENTITY_RESOURCES
     ]
 
 
@@ -224,10 +312,9 @@ def yahoo_ads_search_source(
     client_secret: str = dlt.secrets.value,
     refresh_token: str = dlt.secrets.value,
     base_account_id: str = dlt.config.value,
-    account_id: Optional[str] = None,
+    account_id: str = dlt.config.value,
     report_type: str = "CAMPAIGN",
     report_fields: Optional[list[str]] = None,
-    report_language: str = "EN",
     attribution_window_days: int = 7,
     resources: Optional[list[str]] = None,
     start_date: Optional[str] = None,
@@ -240,12 +327,10 @@ def yahoo_ads_search_source(
         client_secret: Yahoo Ads API client secret.
         refresh_token: OAuth refresh token.
         base_account_id: MCC account ID (used in x-z-base-account-id header).
-        account_id: Child account ID. If None, auto-discovers all SERVING
-            accounts under the MCC via AccountService/get.
+        account_id: Child account ID to load data from.
         report_type: Report type (CAMPAIGN, ADGROUP, AD, KEYWORDS, etc.).
         report_fields: Custom report fields. If omitted, all available fields
             are fetched dynamically via getReportFields API.
-        report_language: Report language (EN or JA). Defaults to EN.
         attribution_window_days: Days to re-fetch for attribution window.
         resources: Resource names to load. None for all.
         start_date: Override incremental start date (YYYY-MM-DD).
@@ -254,34 +339,10 @@ def yahoo_ads_search_source(
     tokens = refresh_access_token(client_id, client_secret, refresh_token)
     access_token = tokens["access_token"]
 
+    account_ids = [account_id]
     client = make_client(access_token, base_account_id)
-    if account_id:
-        account_ids = [account_id]
-    else:
-        account_ids = discover_accounts(client, base_url)
 
-    # Accounts resource — AccountService doesn't accept accountId in the body,
-    # it returns all child accounts under the MCC via x-z-base-account-id header.
-    @dlt.resource(name="accounts", write_disposition="merge", primary_key="accountId")
-    def _accounts():
-        acct_client = make_client(access_token, base_account_id)
-        url = f"{base_url}/AccountService/get"
-        start_index = 1
-        page_size = 500
-        while True:
-            body = {"startIndex": start_index, "numberResults": page_size}
-            data = acct_client.post(url, json=body).json()
-            rval = data.get("rval", {})
-            total = rval.get("totalNumEntries", 0)
-            values = rval.get("values", [])
-            for entry in values:
-                if entry.get("operationSucceeded"):
-                    yield entry.get("account", {})
-            start_index += len(values)
-            if start_index > total or not values:
-                break
-
-    all_resources = [_accounts] + _build_entity_resources(
+    all_resources = _build_entity_resources(
         access_token, account_ids, base_account_id, base_url
     )
 
@@ -293,14 +354,40 @@ def yahoo_ads_search_source(
     else:
         # Dynamically fetch all available fields and types from the API
         meta = get_report_fields_with_types(
-            client, base_url, report_type, report_language=report_language
+            client, base_url, report_type, report_language="EN"
         )
         fields = meta.field_names
         field_type_map = meta.field_type_map
         display_to_field = meta.display_to_field
-    pk = derive_primary_key(fields, field_type_map)
+    pk = derive_primary_key(fields)
     has_day = "DAY" in fields
     initial = start_date or "2020-01-01"
+
+    def _fetch_report(rpt_client, start, end):
+        """Fetch report rows for all accounts in the given date range."""
+        for aid in account_ids:
+            job_id = submit_report(
+                rpt_client,
+                base_url,
+                aid,
+                report_type,
+                fields,
+                start,
+                end,
+                report_language="EN",
+            )
+            if not job_id:
+                logger.warning("report: no job ID returned for account %s", aid)
+                continue
+
+            status = poll_report(rpt_client, base_url, aid, job_id)
+            if not status:
+                continue
+
+            for row in download_report(
+                rpt_client, base_url, aid, job_id, display_to_field
+            ):
+                yield convert_report_types(row, field_type_map)
 
     if has_day:
 
@@ -315,7 +402,9 @@ def yahoo_ads_search_source(
         ):
             rpt_client = make_client(access_token, base_account_id)
             last = last_date.last_value
-            window_start = date.fromisoformat(last) - timedelta(
+            # Handle both "2026-01-01" and "2026-01-01 00:00:00" formats
+            last_date_str = last.split(" ")[0].split("T")[0]
+            window_start = date.fromisoformat(last_date_str) - timedelta(
                 days=attribution_window_days
             )
             start = window_start.isoformat()
@@ -325,43 +414,20 @@ def yahoo_ads_search_source(
                 logger.info("report: already up to date")
                 return
 
-            for aid in account_ids:
-                logger.info(
-                    "report: %s account=%s from %s to %s",
-                    report_type,
-                    aid,
-                    start,
-                    end,
-                )
-
-                job_id = submit_report(
-                    rpt_client,
-                    base_url,
-                    aid,
-                    report_type,
-                    fields,
-                    start,
-                    end,
-                    report_language=report_language,
-                )
-                if not job_id:
-                    logger.warning("report: no job ID returned for account %s", aid)
-                    continue
-
-                status = poll_report(rpt_client, base_url, aid, job_id)
-                if not status:
-                    continue
-
-                for row in download_report(
-                    rpt_client, base_url, aid, job_id, display_to_field
-                ):
-                    yield convert_report_types(row, field_type_map)
+            logger.info(
+                "report: %s from %s to %s (%d accounts)",
+                report_type,
+                start,
+                end,
+                len(account_ids),
+            )
+            yield from _fetch_report(rpt_client, start, end)
 
     else:
 
         @dlt.resource(
             name="report",
-            write_disposition="replace",
+            write_disposition="merge",
             primary_key=pk,
         )
         def _report():
@@ -369,37 +435,16 @@ def yahoo_ads_search_source(
             start = "2020-01-01"
             end = (date.today() - timedelta(days=1)).isoformat()
 
-            for aid in account_ids:
-                logger.info(
-                    "report: %s account=%s (no DAY field, full replace)",
-                    report_type,
-                    aid,
-                )
-
-                job_id = submit_report(
-                    rpt_client,
-                    base_url,
-                    aid,
-                    report_type,
-                    fields,
-                    start,
-                    end,
-                    report_language=report_language,
-                )
-                if not job_id:
-                    logger.warning("report: no job ID returned for account %s", aid)
-                    continue
-
-                status = poll_report(rpt_client, base_url, aid, job_id)
-                if not status:
-                    continue
-
-                for row in download_report(
-                    rpt_client, base_url, aid, job_id, display_to_field
-                ):
-                    yield convert_report_types(row, field_type_map)
+            logger.info(
+                "report: %s (no DAY field, full replace, %d accounts)",
+                report_type,
+                len(account_ids),
+            )
+            yield from _fetch_report(rpt_client, start, end)
 
     all_resources.append(_report)
+
+    all_resources = wrap_resources_safe(all_resources)
 
     if resources:
         all_resources = [r for r in all_resources if r.name in resources]

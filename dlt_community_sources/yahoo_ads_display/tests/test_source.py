@@ -22,11 +22,10 @@ class TestSourceConfig:
         assert "v19" in BASE_URL
 
     def test_entity_resources_count(self):
-        # 26 standard entities (accounts, account_links, feed_sets are separate)
-        assert len(_ENTITY_RESOURCES) >= 26
+        assert len(_ENTITY_RESOURCES) >= 32
 
     def test_entity_resources_have_required_fields(self):
-        for name, path, disposition, pk, paginated, account_key in _ENTITY_RESOURCES:
+        for name, path, disposition, pk, body_style in _ENTITY_RESOURCES:
             assert name, "resource name is empty"
             assert "/" in path, f"{name}: path missing /"
             assert disposition in ("merge", "replace", "append")

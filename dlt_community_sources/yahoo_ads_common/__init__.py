@@ -5,8 +5,10 @@ from .helpers import (
     ReportFieldMeta,
     convert_report_types,
     derive_primary_key,
+    discover_accounts,
     get_report_fields,
     get_report_fields_with_types,
+    make_client,
 )
 
 __all__ = [
@@ -14,6 +16,8 @@ __all__ = [
     "refresh_access_token",
     "convert_report_types",
     "derive_primary_key",
+    "discover_accounts",
     "get_report_fields",
     "get_report_fields_with_types",
+    "make_client",
 ]
