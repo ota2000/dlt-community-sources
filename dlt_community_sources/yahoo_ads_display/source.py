@@ -14,6 +14,7 @@ from typing import Optional
 
 import dlt
 
+from dlt_community_sources._utils import wrap_resources_safe
 from dlt_community_sources.yahoo_ads_common.auth import refresh_access_token
 from dlt_community_sources.yahoo_ads_common.helpers import (
     convert_report_types,
@@ -113,8 +114,12 @@ def _make_entity_resource(
     @dlt.resource(name=name, write_disposition=disposition, primary_key=pk)
     def _fetch():
         client = make_client(access_token, base_account_id)
-        for aid in account_ids:
-            yield from safe_fetch_entities(client, url, aid, body_style=body_style)
+        if body_style == "empty":
+            # MCC-level: fetch once, not per account
+            yield from safe_fetch_entities(client, url, "", body_style=body_style)
+        else:
+            for aid in account_ids:
+                yield from safe_fetch_entities(client, url, aid, body_style=body_style)
 
     return _fetch
 
@@ -373,6 +378,8 @@ def yahoo_ads_display_source(
                     yield convert_report_types(row, field_type_map)
 
     all_resources.append(_report)
+
+    all_resources = wrap_resources_safe(all_resources)
 
     if resources:
         all_resources = [r for r in all_resources if r.name in resources]
