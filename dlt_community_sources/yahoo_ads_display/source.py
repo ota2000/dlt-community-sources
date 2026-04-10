@@ -47,25 +47,97 @@ _ENTITY_RESOURCES = [
     ("campaigns", "CampaignService/get", "merge", "campaignId", "standard"),
     ("ad_groups", "AdGroupService/get", "merge", "adGroupId", "standard"),
     ("ads", "AdGroupAdService/get", "merge", "adId", "standard"),
-    ("ad_group_targets", "AdGroupTargetService/get", "merge", ["accountId", "targetId"], "standard"),
+    (
+        "ad_group_targets",
+        "AdGroupTargetService/get",
+        "merge",
+        ["accountId", "targetId"],
+        "standard",
+    ),
     ("labels", "LabelService/get", "merge", "labelId", "standard"),
-    ("bidding_strategies", "BiddingStrategyService/get", "merge", "biddingStrategyId", "standard"),
+    (
+        "bidding_strategies",
+        "BiddingStrategyService/get",
+        "merge",
+        "biddingStrategyId",
+        "standard",
+    ),
     ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId", "standard"),
-    ("audience_lists", "AudienceListService/get", "merge", "audienceListId", "standard"),
-    ("conversion_trackers", "ConversionTrackerService/get", "merge", "conversionTrackerId", "standard"),
-    ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId", "standard"),
+    (
+        "audience_lists",
+        "AudienceListService/get",
+        "merge",
+        "audienceListId",
+        "standard",
+    ),
+    (
+        "conversion_trackers",
+        "ConversionTrackerService/get",
+        "merge",
+        "conversionTrackerId",
+        "standard",
+    ),
+    (
+        "conversion_groups",
+        "ConversionGroupService/get",
+        "merge",
+        "conversionGroupId",
+        "standard",
+    ),
     ("media", "MediaService/get", "merge", "mediaId", "standard"),
     ("videos", "VideoService/get", "merge", "mediaId", "standard"),
     ("feeds", "FeedService/get", "merge", "feedId", "standard"),
-    ("placement_url_lists", "PlacementUrlListService/get", "merge", "urlListId", "standard"),
-    ("contents_keyword_lists", "ContentsKeywordListService/get", "merge", "contentsKeywordListId", "standard"),
-    ("retargeting_tags", "RetargetingTagService/get", "merge", "retargetingTagId", "no_paging"),
-    ("account_authority", "AccountAuthorityService/get", "merge", "accountId", "account_ids"),
-    ("account_tracking_urls", "AccountTrackingUrlService/get", "merge", "accountId", "standard"),
+    (
+        "placement_url_lists",
+        "PlacementUrlListService/get",
+        "merge",
+        "urlListId",
+        "standard",
+    ),
+    (
+        "contents_keyword_lists",
+        "ContentsKeywordListService/get",
+        "merge",
+        "contentsKeywordListId",
+        "standard",
+    ),
+    (
+        "retargeting_tags",
+        "RetargetingTagService/get",
+        "merge",
+        "retargetingTagId",
+        "no_paging",
+    ),
+    (
+        "account_authority",
+        "AccountAuthorityService/get",
+        "merge",
+        "accountId",
+        "account_ids",
+    ),
+    (
+        "account_tracking_urls",
+        "AccountTrackingUrlService/get",
+        "merge",
+        "accountId",
+        "standard",
+    ),
     ("ab_tests", "AbTestService/get", "merge", "abTestId", "no_paging"),
     ("brand_lift", "BrandLiftService/get", "merge", "brandLiftId", "standard"),
-    ("guaranteed_campaigns", "GuaranteedCampaignService/get", "merge", "campaignId", "standard"),
-    ("guaranteed_ad_groups", "GuaranteedAdGroupService/get", "merge", "adGroupId", "standard"),
+    (
+        "guaranteed_campaigns",
+        "GuaranteedCampaignService/get",
+        "merge",
+        "campaignId",
+        "standard",
+    ),
+    (
+        "guaranteed_ad_groups",
+        "GuaranteedAdGroupService/get",
+        "merge",
+        "adGroupId",
+        "standard",
+    ),
     ("guaranteed_ads", "GuaranteedAdGroupAdService/get", "merge", "adId", "standard"),
     ("balance", "BalanceService/get", "merge", "accountId", "no_paging"),
     ("budget_orders", "BudgetOrderService/get", "merge", "accountId", "account_ids"),
@@ -75,7 +147,13 @@ _ENTITY_RESOURCES = [
     ("base_accounts", "BaseAccountService/get", "merge", "accountId", "account_ids"),
     ("feed_data", "FeedDataService/get", "merge", "feedId", "standard"),
     ("feed_ftp", "FeedFtpService/get", "merge", "accountId", "no_paging"),
-    ("offline_conversions", "OfflineConversionService/get", "append", "conversionTrackerId", "standard"),
+    (
+        "offline_conversions",
+        "OfflineConversionService/get",
+        "append",
+        "conversionTrackerId",
+        "standard",
+    ),
 ]
 
 # Report types available in Display Ads (API v19 ReportDefinitionServiceReportType)
@@ -211,9 +289,7 @@ def yahoo_ads_display_source(
             logger.warning("Skipping account_links: %s", e)
 
     # FeedSetService requires feedIds — fetch feeds first, then their sets
-    @dlt.resource(
-        name="feed_sets", write_disposition="merge", primary_key="feedSetId"
-    )
+    @dlt.resource(name="feed_sets", write_disposition="merge", primary_key="feedSetId")
     def _feed_sets():
         fs_client = make_client(access_token, base_account_id)
         for aid in account_ids:
