@@ -39,7 +39,7 @@ dlt_community_sources/
 
 - 429: retry with exponential backoff (handled by rest_api for declarative resources, manual for custom)
 - 403/404: skip gracefully — use `response_actions` with `"action": "ignore"` in rest_api config, or catch in custom helpers
-- 400: raise — it indicates a bug, do not silently skip
+- 400: log warning and skip — some APIs return 400 for valid requests on accounts without certain features (e.g., Yahoo Ads FeedSetService). `wrap_resources_safe` handles this at the resource level so one failing endpoint does not stop the entire pipeline
 - 401: refresh token and retry (App Store Connect uses per-request JWT via `session.auth`)
 
 ### Incremental Loading
