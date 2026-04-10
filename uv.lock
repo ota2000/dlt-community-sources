@@ -524,7 +524,7 @@ requires-dist = [
     { name = "msal", marker = "extra == 'microsoft-ads'", specifier = ">=1.28.0" },
     { name = "pyjwt", extras = ["crypto"], marker = "extra == 'app-store-connect'", specifier = ">=2.8.0" },
 ]
-provides-extras = ["app-store-connect", "meta-ads", "microsoft-ads", "nextdns", "tiktok-ads", "twilio", "yahoo-ads-search"]
+provides-extras = ["app-store-connect", "meta-ads", "microsoft-ads", "nextdns", "tiktok-ads", "twilio", "yahoo-ads-display", "yahoo-ads-search"]
 
 [package.metadata.requires-dev]
 dev = [
