@@ -42,6 +42,7 @@ BASE_URL = "https://ads-display.yahooapis.jp/api/v19"
 # body_style "no_paging": accountId only, no paging params
 # body_style "empty": no body params (MCC-level services)
 _ENTITY_RESOURCES = [
+    ("accounts", "AccountService/get", "merge", "accountId", "empty"),
     ("campaigns", "CampaignService/get", "merge", "campaignId", "standard"),
     ("ad_groups", "AdGroupService/get", "merge", "adGroupId", "standard"),
     ("ads", "AdGroupAdService/get", "merge", "adId", "standard"),
@@ -191,13 +192,18 @@ def yahoo_ads_display_source(
         name="account_links", write_disposition="merge", primary_key="accountId"
     )
     def _account_links():
-        link_client = make_client(access_token, base_account_id)
-        url = f"{base_url}/AccountLinkService/get"
-        data = link_client.post(url, json={"mccAccountId": int(base_account_id)}).json()
-        rval = data.get("rval") or {}
-        for entry in rval.get("values") or []:
-            if entry.get("operationSucceeded"):
-                yield entry.get("accountLink", {})
+        try:
+            link_client = make_client(access_token, base_account_id)
+            url = f"{base_url}/AccountLinkService/get"
+            resp = link_client.post(url, json={"mccAccountId": int(base_account_id)})
+            resp.raise_for_status()
+            data = resp.json()
+            rval = data.get("rval") or {}
+            for entry in rval.get("values") or []:
+                if entry.get("operationSucceeded"):
+                    yield entry.get("accountLink", {})
+        except Exception as e:
+            logger.warning("Skipping account_links: %s", e)
 
     # FeedSetService requires feedIds — fetch feeds first, then their sets
     @dlt.resource(
@@ -280,7 +286,9 @@ def yahoo_ads_display_source(
         ):
             rpt_client = make_client(access_token, base_account_id)
             last = last_date.last_value
-            window_start = date.fromisoformat(last) - timedelta(
+            # Handle both "2026-01-01" and "2026-01-01 00:00:00" formats
+            last_date_str = last.split(" ")[0].split("T")[0]
+            window_start = date.fromisoformat(last_date_str) - timedelta(
                 days=attribution_window_days
             )
             start = window_start.isoformat()
