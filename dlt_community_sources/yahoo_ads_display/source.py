@@ -35,47 +35,40 @@ BASE_URL = "https://ads-display.yahooapis.jp/api/v19"
 # Simple entity resources
 # ---------------------------------------------------------------------------
 
+# (name, service_path, write_disposition, primary_key, paginated, account_key)
 _ENTITY_RESOURCES = [
-    # (resource_name, service_path, write_disposition, primary_key)
-    ("accounts", "AccountService/get", "merge", "accountId"),
-    ("campaigns", "CampaignService/get", "merge", "campaignId"),
-    ("ad_groups", "AdGroupService/get", "merge", "adGroupId"),
-    ("ads", "AdGroupAdService/get", "merge", "adId"),
-    ("ad_group_targets", "AdGroupTargetService/get", "replace", "targetId"),
-    ("labels", "LabelService/get", "merge", "labelId"),
-    ("bidding_strategies", "BiddingStrategyService/get", "merge", "biddingStrategyId"),
-    ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId"),
-    ("audience_lists", "AudienceListService/get", "merge", "audienceListId"),
-    (
-        "conversion_trackers",
-        "ConversionTrackerService/get",
-        "merge",
-        "conversionTrackerId",
-    ),
-    ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId"),
-    ("media", "MediaService/get", "merge", "mediaId"),
-    ("videos", "VideoService/get", "merge", "mediaId"),
-    ("feeds", "FeedService/get", "merge", "feedId"),
-    ("feed_sets", "FeedSetService/get", "merge", "feedSetId"),
-    ("placement_url_lists", "PlacementUrlListService/get", "merge", "urlListId"),
-    (
-        "contents_keyword_lists",
-        "ContentsKeywordListService/get",
-        "merge",
-        "contentsKeywordListId",
-    ),
-    ("retargeting_tags", "RetargetingTagService/get", "merge", "retargetingTagId"),
-    ("account_authority", "AccountAuthorityService/get", "replace", "accountId"),
-    ("account_tracking_urls", "AccountTrackingUrlService/get", "replace", "accountId"),
-    ("ab_tests", "AbTestService/get", "merge", "abTestId"),
-    ("brand_lift", "BrandLiftService/get", "merge", "brandLiftId"),
-    ("guaranteed_campaigns", "GuaranteedCampaignService/get", "merge", "campaignId"),
-    ("guaranteed_ad_groups", "GuaranteedAdGroupService/get", "merge", "adGroupId"),
-    ("guaranteed_ads", "GuaranteedAdGroupAdService/get", "merge", "adId"),
-    ("balance", "BalanceService/get", "replace", "accountId"),
-    ("budget_orders", "BudgetOrderService/get", "merge", "budgetOrderId"),
-    ("account_links", "AccountLinkService/get", "replace", "accountId"),
-    ("app_links", "AppLinkService/get", "merge", "linkId"),
+    ("campaigns", "CampaignService/get", "merge", "campaignId", True, "accountId"),
+    ("ad_groups", "AdGroupService/get", "merge", "adGroupId", True, "accountId"),
+    ("ads", "AdGroupAdService/get", "merge", "adId", True, "accountId"),
+    ("ad_group_targets", "AdGroupTargetService/get", "merge", "targetId", True, "accountId"),
+    ("labels", "LabelService/get", "merge", "labelId", True, "accountId"),
+    ("bidding_strategies", "BiddingStrategyService/get", "merge", "biddingStrategyId", True, "accountId"),
+    ("campaign_budgets", "CampaignBudgetService/get", "merge", "budgetId", True, "accountId"),
+    ("audience_lists", "AudienceListService/get", "merge", "audienceListId", True, "accountId"),
+    ("conversion_trackers", "ConversionTrackerService/get", "merge", "conversionTrackerId", True, "accountId"),
+    ("conversion_groups", "ConversionGroupService/get", "merge", "conversionGroupId", True, "accountId"),
+    ("media", "MediaService/get", "merge", "mediaId", True, "accountId"),
+    ("videos", "VideoService/get", "merge", "mediaId", True, "accountId"),
+    ("feeds", "FeedService/get", "merge", "feedId", True, "accountId"),
+    ("placement_url_lists", "PlacementUrlListService/get", "merge", "urlListId", True, "accountId"),
+    ("contents_keyword_lists", "ContentsKeywordListService/get", "merge", "contentsKeywordListId", True, "accountId"),
+    ("retargeting_tags", "RetargetingTagService/get", "merge", "retargetingTagId", False, "accountId"),
+    ("account_authority", "AccountAuthorityService/get", "merge", "accountId", False, "accountIds"),
+    ("account_tracking_urls", "AccountTrackingUrlService/get", "merge", "accountId", True, "accountId"),
+    ("ab_tests", "AbTestService/get", "merge", "abTestId", False, "accountId"),
+    ("brand_lift", "BrandLiftService/get", "merge", "brandLiftId", True, "accountId"),
+    ("guaranteed_campaigns", "GuaranteedCampaignService/get", "merge", "campaignId", True, "accountId"),
+    ("guaranteed_ad_groups", "GuaranteedAdGroupService/get", "merge", "adGroupId", True, "accountId"),
+    ("guaranteed_ads", "GuaranteedAdGroupAdService/get", "merge", "adId", True, "accountId"),
+    ("balance", "BalanceService/get", "merge", "accountId", False, "accountId"),
+    ("budget_orders", "BudgetOrderService/get", "merge", "accountId", False, "accountIds"),
+    ("app_links", "AppLinkService/get", "merge", "linkId", True, "accountId"),
+    ("audit_logs", "AuditLogService/get", "append", "updateTimestamp", True, "accountId"),
+    ("tracking_tags", "TrackingTagService/get", "merge", "accountId", False, "accountId"),
+    ("base_accounts", "BaseAccountService/get", "merge", "accountId", False, "accountIds"),
+    ("feed_data", "FeedDataService/get", "merge", "feedId", True, "accountId"),
+    ("feed_ftp", "FeedFtpService/get", "merge", "accountId", False, "accountId"),
+    ("offline_conversions", "OfflineConversionService/get", "append", "conversionTrackerId", True, "accountId"),
 ]
 
 # Report types available in Display Ads (API v19 ReportDefinitionServiceReportType)
@@ -102,6 +95,8 @@ def _make_entity_resource(
     path: str,
     disposition: str,
     pk: str,
+    paginated: bool,
+    account_key: str,
     access_token: str,
     account_ids: list[str],
     base_account_id: str,
@@ -114,7 +109,9 @@ def _make_entity_resource(
     def _fetch():
         client = make_client(access_token, base_account_id)
         for aid in account_ids:
-            yield from safe_get_entities(client, url, aid)
+            yield from safe_get_entities(
+                client, url, aid, paginated=paginated, account_key=account_key
+            )
 
     return _fetch
 
@@ -132,12 +129,14 @@ def _build_entity_resources(
             path,
             disposition,
             pk,
+            paginated,
+            account_key,
             access_token,
             account_ids,
             base_account_id,
             base_url,
         )
-        for name, path, disposition, pk in _ENTITY_RESOURCES
+        for name, path, disposition, pk, paginated, account_key in _ENTITY_RESOURCES
     ]
 
 
@@ -186,8 +185,90 @@ def yahoo_ads_display_source(
     else:
         account_ids = discover_accounts(client, base_url)
 
-    all_resources = _build_entity_resources(
-        access_token, account_ids, base_account_id, base_url
+    # Accounts resource — AccountService doesn't accept accountId in the body,
+    # it returns all child accounts under the MCC via x-z-base-account-id header.
+    @dlt.resource(name="accounts", write_disposition="merge", primary_key="accountId")
+    def _accounts():
+        acct_client = make_client(access_token, base_account_id)
+        url = f"{base_url}/AccountService/get"
+        start_index = 1
+        page_size = 500
+        while True:
+            body = {"startIndex": start_index, "numberResults": page_size}
+            data = acct_client.post(url, json=body).json()
+            rval = data.get("rval", {})
+            total = rval.get("totalNumEntries", 0)
+            values = rval.get("values", [])
+            for entry in values:
+                if entry.get("operationSucceeded"):
+                    yield entry.get("account", {})
+            start_index += len(values)
+            if start_index > total or not values:
+                break
+
+    # AccountLinkService uses mccAccountId instead of accountId
+    @dlt.resource(
+        name="account_links", write_disposition="merge", primary_key="accountId"
+    )
+    def _account_links():
+        link_client = make_client(access_token, base_account_id)
+        url = f"{base_url}/AccountLinkService/get"
+        data = link_client.post(url, json={"mccAccountId": int(base_account_id)}).json()
+        for entry in data.get("rval", {}).get("values") or []:
+            if entry.get("operationSucceeded"):
+                yield entry.get("accountLink", {})
+
+    # FeedSetService requires feedIds — fetch feeds first, then their sets
+    @dlt.resource(
+        name="feed_sets", write_disposition="merge", primary_key="feedSetId"
+    )
+    def _feed_sets():
+        fs_client = make_client(access_token, base_account_id)
+        for aid in account_ids:
+            # Discover feeds for this account
+            feed_ids = []
+            for feed in safe_get_entities(
+                fs_client, f"{base_url}/FeedService/get", aid
+            ):
+                fid = feed.get("feedId")
+                if fid:
+                    feed_ids.append(int(fid))
+            if not feed_ids:
+                continue
+            # Fetch feed sets for discovered feeds
+            yield from safe_get_entities(
+                fs_client,
+                f"{base_url}/FeedSetService/get",
+                aid,
+                selector_fields={"feedIds": feed_ids},
+            )
+
+    # StatsService requires a `type` parameter — create one resource per stat type
+    _STAT_TYPES = ["CAMPAIGN", "ADGROUP", "AD"]
+
+    def _make_stats_resource(stat_type: str) -> dlt.sources.DltResource:
+        rname = f"stats_{stat_type.lower()}"
+
+        @dlt.resource(name=rname, write_disposition="replace")
+        def _stats():
+            stats_client = make_client(access_token, base_account_id)
+            url = f"{base_url}/StatsService/get"
+            for aid in account_ids:
+                yield from safe_get_entities(
+                    stats_client,
+                    url,
+                    aid,
+                    selector_fields={"type": stat_type},
+                )
+
+        return _stats
+
+    stats_resources = [_make_stats_resource(t) for t in _STAT_TYPES]
+
+    all_resources = (
+        [_accounts, _account_links, _feed_sets]
+        + stats_resources
+        + _build_entity_resources(access_token, account_ids, base_account_id, base_url)
     )
 
     # Report resource

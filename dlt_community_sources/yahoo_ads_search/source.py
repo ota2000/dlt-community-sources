@@ -36,7 +36,6 @@ BASE_URL = "https://ads-search.yahooapis.jp/api/v19"
 
 _ENTITY_RESOURCES = [
     # (resource_name, service_path, write_disposition, primary_key)
-    ("accounts", "AccountService/get", "merge", "accountId"),
     ("campaigns", "CampaignService/get", "merge", "campaignId"),
     ("ad_groups", "AdGroupService/get", "merge", "adGroupId"),
     ("ads", "AdGroupAdService/get", "merge", "adId"),
@@ -261,7 +260,28 @@ def yahoo_ads_search_source(
     else:
         account_ids = discover_accounts(client, base_url)
 
-    all_resources = _build_entity_resources(
+    # Accounts resource — AccountService doesn't accept accountId in the body,
+    # it returns all child accounts under the MCC via x-z-base-account-id header.
+    @dlt.resource(name="accounts", write_disposition="merge", primary_key="accountId")
+    def _accounts():
+        acct_client = make_client(access_token, base_account_id)
+        url = f"{base_url}/AccountService/get"
+        start_index = 1
+        page_size = 500
+        while True:
+            body = {"startIndex": start_index, "numberResults": page_size}
+            data = acct_client.post(url, json=body).json()
+            rval = data.get("rval", {})
+            total = rval.get("totalNumEntries", 0)
+            values = rval.get("values", [])
+            for entry in values:
+                if entry.get("operationSucceeded"):
+                    yield entry.get("account", {})
+            start_index += len(values)
+            if start_index > total or not values:
+                break
+
+    all_resources = [_accounts] + _build_entity_resources(
         access_token, account_ids, base_account_id, base_url
     )
 

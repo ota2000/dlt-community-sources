@@ -212,7 +212,7 @@ def discover_accounts(
         data = post_rpc(client, f"{base_url}/AccountService/get", body)
         rval = data.get("rval", {})
         total = rval.get("totalNumEntries", 0)
-        values = rval.get("values", [])
+        values = rval.get("values") or []
 
         for entry in values:
             if not entry.get("operationSucceeded"):
@@ -229,25 +229,64 @@ def discover_accounts(
     return account_ids
 
 
+def _extract_values(rval: dict) -> Generator[dict, None, None]:
+    """Extract inner objects from rval.values, handling both list and single dict."""
+    raw = rval.get("values") or []
+    entries = raw if isinstance(raw, list) else [raw]
+    for entry in entries:
+        if entry.get("operationSucceeded", True):
+            inner = {
+                k: v
+                for k, v in entry.items()
+                if k not in ("operationSucceeded", "errors")
+            }
+            keys = list(inner.keys())
+            if len(keys) == 1:
+                yield inner[keys[0]]
+            else:
+                yield inner
+
+
 def get_entities(
     client: req.Client,
     url: str,
     account_id: str,
     selector_fields: Optional[dict] = None,
     page_size: int = DEFAULT_PAGE_SIZE,
+    paginated: bool = True,
+    account_key: str = "accountId",
 ) -> Generator[dict, None, None]:
-    """Fetch all entities with pagination.
+    """Fetch all entities with optional pagination.
 
     Handles the standard Yahoo Ads pagination pattern:
     - Request body contains accountId and paging (startIndex, numberResults)
     - Response contains rval.totalNumEntries and rval.values[]
     - Each value has an operationSucceeded flag
+
+    When paginated=False, sends the body without startIndex/numberResults
+    and yields all values from a single response.
+
+    account_key controls how the account ID is sent:
+    - "accountId" (default): sends accountId as int
+    - "accountIds": sends accountIds as [int] array
     """
+    aid_value: int | list[int] = (
+        [int(account_id)] if account_key == "accountIds" else int(account_id)
+    )
+
+    if not paginated:
+        body: dict = {account_key: aid_value}
+        if selector_fields:
+            body.update(selector_fields)
+        data = post_rpc(client, url, body)
+        yield from _extract_values(data.get("rval", {}))
+        return
+
     page_size = min(page_size, MAX_PAGE_SIZE)
     start_index = 1
     while True:
         body = {
-            "accountId": int(account_id),
+            account_key: aid_value,
             "startIndex": start_index,
             "numberResults": page_size,
         }
@@ -257,17 +296,17 @@ def get_entities(
         data = post_rpc(client, url, body)
         rval = data.get("rval", {})
         total = rval.get("totalNumEntries", 0)
-        values = rval.get("values", [])
+        values = rval.get("values") or []
+        if not isinstance(values, list):
+            values = [values]
 
         for entry in values:
             if entry.get("operationSucceeded", True):
-                # Remove the wrapper and yield the inner object
                 inner = {
                     k: v
                     for k, v in entry.items()
                     if k not in ("operationSucceeded", "errors")
                 }
-                # If there's a single inner key, yield its value directly
                 keys = list(inner.keys())
                 if len(keys) == 1:
                     yield inner[keys[0]]
@@ -285,10 +324,20 @@ def safe_get_entities(
     account_id: str,
     selector_fields: Optional[dict] = None,
     page_size: int = DEFAULT_PAGE_SIZE,
+    paginated: bool = True,
+    account_key: str = "accountId",
 ) -> Generator[dict, None, None]:
     """Fetch entities with HTTP error handling (skip 403/404)."""
     try:
-        yield from get_entities(client, url, account_id, selector_fields, page_size)
+        yield from get_entities(
+            client,
+            url,
+            account_id,
+            selector_fields,
+            page_size,
+            paginated=paginated,
+            account_key=account_key,
+        )
     except req.HTTPError as e:
         if e.response is not None and e.response.status_code in (403, 404):
             logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
