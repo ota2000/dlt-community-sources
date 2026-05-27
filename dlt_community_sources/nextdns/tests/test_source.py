@@ -70,6 +70,36 @@ def test_rest_api_config_profiles_merge():
     assert profiles["primary_key"] == "id"
 
 
+def _get_profiles_resource(config):
+    return next(
+        r
+        for r in config["resources"]
+        if isinstance(r, dict) and r["name"] == "profiles"
+    )
+
+
+def test_rest_api_config_no_profile_id_has_no_filter():
+    """Without profile_id, profiles is not filtered (all profiles loaded)."""
+    config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL)
+
+    profiles = _get_profiles_resource(config)
+    assert "processing_steps" not in profiles
+
+
+def test_rest_api_config_profile_id_filters_profiles():
+    """With profile_id, profiles is scoped to that id so child analytics inherit it."""
+    config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL, profile_id="abc123")
+
+    profiles = _get_profiles_resource(config)
+    steps = profiles["processing_steps"]
+    assert len(steps) == 1
+
+    filter_fn = steps[0]["filter"]
+    assert filter_fn({"id": "abc123"}) is True
+    assert filter_fn({"id": "other"}) is False
+    assert filter_fn({}) is False
+
+
 def test_rest_api_config_child_resources():
     """Verify analytics resources depend on profiles."""
     config = _rest_api_config("TEST_KEY", mod.DEFAULT_BASE_URL)
