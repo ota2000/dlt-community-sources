@@ -28,7 +28,7 @@ If it matches a core source, skip to **step 5** and report the core source match
 
 If the request looks like a specific API/service name, run:
 ```
-dlt --non-interactive init --list-sources
+dlthub --non-interactive pipeline init --list-sources
 ```
 Search the output (case-insensitive) for the source name. If found, ensure that the verified source contains the data that the user needs (ask the user explicitly) skip to **step 5**
 
@@ -54,7 +54,7 @@ NOTE: we can handle only REST API (**step 5**) and sometimes GraphQL.
 This toolkit builds **REST API pipelines**. Before continuing, check if the user's data source actually fits.
 
 **STOP and hand off** if any of these are true:
-- **Core source is NOT `rest_api`** — the user needs `sql_database`, `filesystem`, or another core source. Tell them which one and the `dlt init` command, then suggest a general coding session to build the pipeline.
+- **Core source is NOT `rest_api`** — the user needs `sql_database`, `filesystem`, or another core source. For `filesystem`, hand off to the **filesystem-pipeline** toolkit (`create-filesystem-pipeline`). For others, tell them which one and the `dlt init` command, then suggest a general coding session.
 - **A verified source exists** (from step 2) — a pre-built, maintained connector is almost always better than building from scratch. Tell the user about it and the `dlt init <source> <destination>` command. Suggest they try the verified source first.
 
 ```
