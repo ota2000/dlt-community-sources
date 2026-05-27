@@ -9,7 +9,7 @@ import dlt
 from dlt.sources import DltResource
 from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
-from dlt.sources.rest_api.typing import RESTAPIConfig
+from dlt.sources.rest_api.typing import EndpointResource, RESTAPIConfig
 
 from dlt_community_sources._utils import wrap_resources_safe
 
@@ -18,8 +18,25 @@ logger = logging.getLogger(__name__)
 DEFAULT_BASE_URL = "https://api.nextdns.io"
 
 
-def _rest_api_config(api_key: str, base_url: str) -> RESTAPIConfig:
-    """Build the REST API config for standard NextDNS endpoints."""
+def _rest_api_config(
+    api_key: str, base_url: str, profile_id: Optional[str] = None
+) -> RESTAPIConfig:
+    """Build the REST API config for standard NextDNS endpoints.
+
+    profile_id を指定した場合、profiles リソースをそのプロファイルのみに絞る。
+    analytics_* は {resources.profiles.id} で親 profiles を辿るため、ここで絞ると
+    すべての analytics リソースも同一プロファイルにスコープされる。
+    """
+    profiles_resource: EndpointResource = {
+        "name": "profiles",
+        "primary_key": "id",
+        "write_disposition": "merge",
+        "endpoint": {"path": "profiles"},
+    }
+    if profile_id:
+        profiles_resource["processing_steps"] = [
+            {"filter": lambda record: record.get("id") == profile_id}
+        ]
     return {
         "client": {
             "base_url": f"{base_url}/",
@@ -46,12 +63,7 @@ def _rest_api_config(api_key: str, base_url: str) -> RESTAPIConfig:
             },
         },
         "resources": [
-            {
-                "name": "profiles",
-                "primary_key": "id",
-                "write_disposition": "merge",
-                "endpoint": {"path": "profiles"},
-            },
+            profiles_resource,
             {
                 "name": "analytics_status",
                 "endpoint": {
@@ -170,7 +182,7 @@ def nextdns_source(
     log_start = start_date or "2020-01-01T00:00:00.000Z"
 
     # REST API resources (declarative)
-    config = _rest_api_config(api_key, url)
+    config = _rest_api_config(api_key, url, profile_id=profile_id)
     rest_resources = rest_api_resources(config)
 
     # Discover profile IDs for custom resources
