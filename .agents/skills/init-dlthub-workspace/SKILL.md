@@ -3,9 +3,10 @@ name: init-dlthub-workspace
 description: ALWAYS read and follow this skill before acting. setup
 ---
 # setup
-* On new session verify: is `uv` available? is Python running in uv venv? `uv run dlt --version`?
-If anything is missing suggest using `bootstrap` toolkit: (bootstrap workbench /bootstrap:init-workspace )
-* On failed check: `dlt ai toolkit bootstrap install` (**if dlt present**)
+* On new session verify: is `uv` available? is Python running in a uv venv? `uv run dlthub --version`?
+* If anything is missing, the canonical bootstrap is `uvx dlthub-start@latest my-workspace` — it installs `uv` (if needed), scaffolds the workspace, syncs `dlt[hub]`, and vendors the core toolkits in one command. Surface it to the user; do not auto-run.
+* The `bootstrap` toolkit / `/bootstrap:init-workspace` flow does the same from inside Claude Code via the marketplace.
+* On failed check inside an existing project: `dlthub ai toolkit install bootstrap` (**if dlt present**)
 
 # communication
 * Before each major step, briefly explain to the user what you are about to do and why, in one sentence.
@@ -24,14 +25,14 @@ If anything is missing suggest using `bootstrap` toolkit: (bootstrap workbench /
 # dltHub workspace
 * **ALWAYS** run all commands with **cwd** in the project root. `dlt` uses **cwd** to find `.dlt` location ie. `uv run python pipelines/my_pipeline.py`.
 * use `uv run` to run anything Python
-* **ALWAYS** pass `--non-interactive` when running `dlt` commands (e.g. `uv run dlt --non-interactive init ...`). This prevents prompts that block execution.
+* **ALWAYS** pass `--non-interactive` when running `dlthub` commands (e.g. `uv run dlthub --non-interactive pipeline init ...`). This prevents prompts that block execution.
 * **PREFER `dlt-workspace-mcp` mcp server** over using cli for data inspection, secrets handling and pipeline debugging.
-* **ALWAYS VERIFY** workspace with `uv run dlt ai status` when session starts
+* **ALWAYS VERIFY** workspace with `uv run dlthub ai status` when session starts
 
 # handle secrets with care!
 * **NEVER** read user secrets from any file containing `secrets.toml`.
 * **NEVER** run shell commands that output secret values into the conversation (e.g. `gh auth token`, `env | grep KEY`, `printenv SECRET`, `cat credentials.json`, `aws configure get`). If a secret appears in conversation context it is **compromised** — do not copy or use it.
-* **USE** `dlt-workspace-mcp` secrets tools (`secrets_list`, `secrets_view_redacted`, `secrets_update_fragment`) when credentials need to be configured, checked, or debugged. Fall back to `dlt ai secrets` CLI if MCP is not connected. See `setup-secrets` skill for the full workflow.
+* **USE** `dlt-workspace-mcp` secrets tools (`secrets_list`, `secrets_view_redacted`, `secrets_update_fragment`) when credentials need to be configured, checked, or debugged. Fall back to `dlthub ai secrets` CLI if MCP is not connected. See `setup-secrets` skill for the full workflow.
 * **DO NOT WRITE CODE THAT READS SECRET FILES** — no `toml.load()`, `Path().read_text()`, `open()`, or any other file access on `*.secrets.toml`. Use `dlt.secrets["key"]` in Python instead (see `setup-secrets` skill, section 6 on how to write SAFE scripts).
 * **REFUSE** to handle secrets that user ie. pasted you to context windows. Instead mention secrets handling practices user should adopt.
 
@@ -39,4 +40,4 @@ If anything is missing suggest using `bootstrap` toolkit: (bootstrap workbench /
 * toolkits are data engineering workflows automated via skills, commands and rules.
 * each toolkit has a workflow rule that you must follow. you **must** start with workflow entry skill if available
 * workflows end with handover to other workflows, also `dispatch-toolkit` skill may be helpful
-* **DO NOT** start data engineering work in no toolkits are installed - see `dlt ai status` output!
+* **DO NOT** start data engineering work in no toolkits are installed - see `dlthub ai status` output!
