@@ -312,6 +312,8 @@ def get_entities_by_account_ids(
     data = post_rpc(client, url, body)
     rval = data.get("rval") or {}
     values = rval.get("values") or []
+    if isinstance(values, dict):
+        values = [values]
     for entry in values:
         obj = _extract_inner(entry)
         if obj is not None:
@@ -328,6 +330,8 @@ def get_entities_no_paging(
     data = post_rpc(client, url, body)
     rval = data.get("rval") or {}
     values = rval.get("values") or []
+    if isinstance(values, dict):
+        values = [values]
     for entry in values:
         obj = _extract_inner(entry)
         if obj is not None:

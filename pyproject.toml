@@ -27,6 +27,7 @@ microsoft-ads = ["msal>=1.28.0"]  # includes certificate auth support
 nextdns = []  # no extra dependencies, requests is included in dlt
 tiktok-ads = []  # no extra dependencies, requests is included in dlt
 twilio = []  # no extra dependencies, requests is included in dlt
+yahoo-ads-display = []  # no extra dependencies, requests is included in dlt
 yahoo-ads-search = []  # no extra dependencies, requests is included in dlt
 
 [project.urls]
