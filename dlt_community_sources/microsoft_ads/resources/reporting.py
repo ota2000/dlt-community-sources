@@ -16,7 +16,11 @@ import dlt
 import requests
 from dlt.sources.helpers import requests as req
 
-from dlt_community_sources._utils import PrimaryResourceError, response_snippet
+from dlt_community_sources._utils import (
+    PrimaryResourceTerminalError,
+    PrimaryResourceTransientError,
+    primary_error_from_http,
+)
 
 from .helpers import (
     POLL_INTERVAL_SECONDS,
@@ -207,14 +211,12 @@ def _submit_report(
     try:
         data = post_rpc(client, url, body, skip_client_errors=False)
     except req.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "?"
-        raise PrimaryResourceError(
-            f"report submit failed for account {account_id}: "
-            f"HTTP {status} body={response_snippet(e.response)}"
+        raise primary_error_from_http(
+            e, f"report submit failed for account {account_id}"
         ) from e
     request_id = data.get("ReportRequestId")
     if not request_id:
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"report submit for account {account_id} returned no "
             f"ReportRequestId: {data}"
         )
@@ -243,21 +245,19 @@ def _poll_report(
                 skip_client_errors=False,
             )
         except req.HTTPError as e:
-            status = e.response.status_code if e.response is not None else "?"
-            raise PrimaryResourceError(
-                f"report {request_id} poll failed: "
-                f"HTTP {status} body={response_snippet(e.response)}"
-            ) from e
+            raise primary_error_from_http(e, f"report {request_id} poll failed") from e
         status_obj = data.get("ReportRequestStatus", {})
         status = status_obj.get("Status")
         logger.info("Report %s: status=%s", request_id, status)
         if status == "Success":
             return status_obj.get("ReportDownloadUrl")
         if status == "Error":
-            raise PrimaryResourceError(f"report {request_id} failed: {status_obj}")
+            raise PrimaryResourceTransientError(
+                f"report {request_id} failed: {status_obj}"
+            )
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
-    raise PrimaryResourceError(
+    raise PrimaryResourceTransientError(
         f"report {request_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
     )
 

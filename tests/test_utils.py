@@ -2,15 +2,17 @@
 
 from unittest.mock import MagicMock
 
-import dlt
 import pytest
+from dlt.common.exceptions import TerminalException, TransientException
 from dlt.sources.helpers.requests import HTTPError
 
 from dlt_community_sources._utils import (
     PrimaryResourceError,
+    PrimaryResourceTerminalError,
+    PrimaryResourceTransientError,
+    primary_error_from_http,
     response_snippet,
     skip_or_raise,
-    wrap_resources_safe,
 )
 
 
@@ -36,6 +38,42 @@ class TestResponseSnippet:
         assert response_snippet(response) == '{"Errors":[{"Code":2004}]}'
 
 
+class TestPrimaryErrorTaxonomy:
+    """PrimaryResourceError subclasses integrate with dlt's retry taxonomy."""
+
+    def test_terminal_error_is_dlt_terminal(self):
+        assert issubclass(PrimaryResourceTerminalError, PrimaryResourceError)
+        assert issubclass(PrimaryResourceTerminalError, TerminalException)
+
+    def test_transient_error_is_dlt_transient(self):
+        assert issubclass(PrimaryResourceTransientError, PrimaryResourceError)
+        assert issubclass(PrimaryResourceTransientError, TransientException)
+
+    def test_base_class_catches_both(self):
+        with pytest.raises(PrimaryResourceError):
+            raise PrimaryResourceTerminalError("x")
+        with pytest.raises(PrimaryResourceError):
+            raise PrimaryResourceTransientError("x")
+
+
+class TestPrimaryErrorFromHttp:
+    @pytest.mark.parametrize("status", [400, 403, 404, 422])
+    def test_client_errors_are_terminal(self, status):
+        err = primary_error_from_http(_http_error(status, "detail"), "ctx")
+        assert isinstance(err, PrimaryResourceTerminalError)
+        assert "detail" in str(err)
+        assert str(status) in str(err)
+
+    @pytest.mark.parametrize("status", [500, 502, 503])
+    def test_server_errors_are_transient(self, status):
+        err = primary_error_from_http(_http_error(status), "ctx")
+        assert isinstance(err, PrimaryResourceTransientError)
+
+    def test_no_response_is_transient(self):
+        err = primary_error_from_http(HTTPError(), "ctx")
+        assert isinstance(err, PrimaryResourceTransientError)
+
+
 class TestSkipOrRaise:
     @pytest.mark.parametrize("status", [400, 403, 404])
     def test_client_errors_skipped_with_body(self, status, caplog):
@@ -52,46 +90,36 @@ class TestSkipOrRaise:
         with pytest.raises(HTTPError):
             skip_or_raise(HTTPError(), "ctx")
 
+    def test_primary_resource_error_is_not_an_http_error(self):
+        # skip helpers only catch HTTPError: PrimaryResourceError must never
+        # be swallowed by an auxiliary-resource catch block.
+        assert not issubclass(PrimaryResourceError, HTTPError)
 
-class TestWrapResourcesSafe:
-    def _resource(self, gen_fn, name: str):
-        return dlt.resource(gen_fn, name=name)
 
-    def test_auxiliary_resource_skips_client_error(self):
-        def failing():
-            yield {"id": 1}
-            raise _http_error(404)
+class TestContainsTerminalException:
+    def test_detects_terminal_through_wrapping_chain(self):
+        from dlt_community_sources._utils import contains_terminal_exception
 
-        (wrapped,) = wrap_resources_safe([self._resource(failing, "aux")])
-        assert list(wrapped) == [{"id": 1}]
+        try:
+            try:
+                raise PrimaryResourceTerminalError("inner")
+            except PrimaryResourceTerminalError as inner:
+                raise RuntimeError("wrapper") from inner
+        except RuntimeError as wrapped:
+            assert contains_terminal_exception(wrapped)
 
-    def test_auxiliary_resource_raises_server_error(self):
-        def failing():
-            yield {"id": 1}
-            raise _http_error(500)
+    def test_transient_chain_is_not_terminal(self):
+        from dlt_community_sources._utils import contains_terminal_exception
 
-        (wrapped,) = wrap_resources_safe([self._resource(failing, "aux")])
-        with pytest.raises(Exception, match="500"):
-            list(wrapped)
+        try:
+            try:
+                raise PrimaryResourceTransientError("inner")
+            except PrimaryResourceTransientError as inner:
+                raise RuntimeError("wrapper") from inner
+        except RuntimeError as wrapped:
+            assert not contains_terminal_exception(wrapped)
 
-    def test_critical_resource_propagates_client_error(self):
-        def failing():
-            yield {"id": 1}
-            raise _http_error(400, '{"Errors":[]}')
+    def test_plain_exception_is_not_terminal(self):
+        from dlt_community_sources._utils import contains_terminal_exception
 
-        (wrapped,) = wrap_resources_safe(
-            [self._resource(failing, "report")], critical=("report",)
-        )
-        with pytest.raises(Exception, match="400"):
-            list(wrapped)
-
-    def test_primary_resource_error_passes_through_wrapper(self):
-        # PrimaryResourceError is not an HTTPError: even a wrapped
-        # (non-critical) resource must propagate it.
-        def failing():
-            yield {"id": 1}
-            raise PrimaryResourceError("report submit failed")
-
-        (wrapped,) = wrap_resources_safe([self._resource(failing, "aux")])
-        with pytest.raises(Exception, match="report submit failed"):
-            list(wrapped)
+        assert not contains_terminal_exception(RuntimeError("x"))

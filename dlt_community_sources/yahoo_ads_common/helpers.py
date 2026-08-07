@@ -17,7 +17,12 @@ from typing import Optional
 
 from dlt.sources.helpers import requests as req
 
-from dlt_community_sources._utils import PrimaryResourceError, response_snippet
+from dlt_community_sources._utils import (
+    PrimaryResourceTerminalError,
+    PrimaryResourceTransientError,
+    primary_error_from_http,
+    skip_or_raise,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +232,13 @@ def discover_accounts(
             "startIndex": start_index,
             "numberResults": page_size,
         }
-        data = post_rpc(client, f"{base_url}/AccountService/get", body)
+        url = f"{base_url}/AccountService/get"
+        try:
+            data = post_rpc(client, url, body)
+        except req.HTTPError as e:
+            # e.g. 401 when the API user is not linked to this MCC — without
+            # the response body this is undiagnosable from logs.
+            raise primary_error_from_http(e, "account discovery failed") from e
         rval = data.get("rval", {})
         total = rval.get("totalNumEntries", 0)
         values = rval.get("values", [])
@@ -298,10 +309,7 @@ def safe_get_entities(
     try:
         yield from get_entities(client, url, account_id, selector_fields, page_size)
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (400, 403, 404):
-            logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
-        else:
-            raise
+        skip_or_raise(e, url)
 
 
 def get_entities_by_account_ids(
@@ -360,10 +368,7 @@ def safe_fetch_entities(
         else:
             yield from get_entities(client, url, account_id, page_size=page_size)
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (400, 403, 404):
-            logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
-        else:
-            raise
+        skip_or_raise(e, url)
 
 
 def submit_report(
@@ -407,26 +412,24 @@ def submit_report(
     try:
         data = post_rpc(client, url, body)
     except req.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "?"
-        raise PrimaryResourceError(
-            f"report submit failed for account {account_id}: "
-            f"HTTP {status} body={response_snippet(e.response)}"
+        raise primary_error_from_http(
+            e, f"report submit failed for account {account_id}"
         ) from e
     values = data.get("rval", {}).get("values", [])
     if not values:
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"report submit for account {account_id} returned no values: {data}"
         )
     entry = values[0]
     if not entry.get("operationSucceeded"):
         errors = entry.get("errors", [])
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"report submit failed for account {account_id}: {errors}"
         )
     report_def = entry.get("reportDefinition") or {}
     report_job_id = report_def.get("reportJobId")
     if report_job_id is None:
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"report submit for account {account_id} returned no reportJobId: {entry}"
         )
     return report_job_id
@@ -453,10 +456,8 @@ def poll_report(
         try:
             data = post_rpc(client, url, body)
         except req.HTTPError as e:
-            status = e.response.status_code if e.response is not None else "?"
-            raise PrimaryResourceError(
-                f"report {report_job_id} poll failed: "
-                f"HTTP {status} body={response_snippet(e.response)}"
+            raise primary_error_from_http(
+                e, f"report {report_job_id} poll failed"
             ) from e
         values = data.get("rval", {}).get("values", [])
         if not values:
@@ -473,12 +474,12 @@ def poll_report(
         if status == "COMPLETED":
             return status
         if status in ("FAILED", "UNKNOWN"):
-            raise PrimaryResourceError(
+            raise PrimaryResourceTransientError(
                 f"report {report_job_id} failed with status {status}"
             )
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
-    raise PrimaryResourceError(
+    raise PrimaryResourceTransientError(
         f"report {report_job_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
     )
 
@@ -499,11 +500,15 @@ def download_report(
         "accountId": int(account_id),
         "reportJobId": report_job_id,
     }
-    response = client.post(
-        f"{base_url}/ReportDefinitionService/download",
-        json=body,
-    )
-    response.raise_for_status()
+    try:
+        response = client.post(
+            f"{base_url}/ReportDefinitionService/download",
+            json=body,
+        )
+    except req.HTTPError as e:
+        raise primary_error_from_http(
+            e, f"report {report_job_id} download failed for account {account_id}"
+        ) from e
     text = response.text
     reader = csv.DictReader(io.StringIO(text))
     for row in reader:

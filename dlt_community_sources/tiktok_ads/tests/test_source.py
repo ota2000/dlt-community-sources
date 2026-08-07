@@ -385,11 +385,23 @@ class TestAuthorizedAdvertiserIds:
     def test_http_403_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(403)
+        client.get.side_effect = _mock_http_error(403)
         results = list(
             authorized_advertiser_ids(access_token="tok", app_id="app1", secret="sec1")
         )
         assert results == []
+
+    @patch("dlt_community_sources.tiktok_ads.source._make_client")
+    def test_discover_api_error_raises(self, mock_make_client):
+        """code != 0 during discovery must not silently yield zero advertisers."""
+        from dlt_community_sources._utils import PrimaryResourceError
+        from dlt_community_sources.tiktok_ads import discover_advertisers
+
+        client = MagicMock()
+        mock_make_client.return_value = client
+        client.get.return_value = _mock_response({"code": 40105, "message": "auth"})
+        with pytest.raises(PrimaryResourceError, match="40105"):
+            discover_advertisers(access_token="tok", app_id="a", secret="s")
 
     @patch("dlt_community_sources.tiktok_ads.source._make_client")
     def test_http_500_raises(self, mock_make_client):
@@ -401,7 +413,7 @@ class TestAuthorizedAdvertiserIds:
         err = HTTPError(response=MagicMock(status_code=500))
         # response attr should be None to trigger re-raise
         err.response = None
-        client.get.return_value.raise_for_status.side_effect = err
+        client.get.side_effect = err
         with pytest.raises(ResourceExtractionError):
             list(
                 authorized_advertiser_ids(
@@ -430,7 +442,7 @@ class TestAdvertiserInfo:
     def test_http_404_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(404)
+        client.get.side_effect = _mock_http_error(404)
         results = list(advertiser_info(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -465,7 +477,7 @@ class TestAdvertiserBalance:
     def test_http_403_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(403)
+        client.get.side_effect = _mock_http_error(403)
         results = list(advertiser_balance(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -542,7 +554,7 @@ class TestAdvertiserTransactions:
     def test_http_403_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(403)
+        client.get.side_effect = _mock_http_error(403)
         results = list(advertiser_transactions(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -567,7 +579,7 @@ class TestApps:
     def test_http_404_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(404)
+        client.get.side_effect = _mock_http_error(404)
         results = list(apps(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -608,7 +620,7 @@ class TestRuleResults:
     def test_http_403_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(403)
+        client.get.side_effect = _mock_http_error(403)
         results = list(rule_results(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -650,7 +662,7 @@ class TestPixels:
     def test_http_404_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(404)
+        client.get.side_effect = _mock_http_error(404)
         results = list(pixels(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -691,7 +703,7 @@ class TestIdentities:
     def test_http_403_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(403)
+        client.get.side_effect = _mock_http_error(403)
         results = list(identities(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -732,7 +744,7 @@ class TestVideos:
     def test_http_404_skipped(self, mock_make_client):
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(404)
+        client.get.side_effect = _mock_http_error(404)
         results = list(videos(access_token="tok", advertiser_id="123"))
         assert results == []
 
@@ -831,7 +843,7 @@ class TestReport:
 
         client = MagicMock()
         mock_make_client.return_value = client
-        client.get.return_value.raise_for_status.side_effect = _mock_http_error(403)
+        client.get.side_effect = _mock_http_error(403)
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         with pytest.raises(Exception, match="HTTP 403"):
             list(

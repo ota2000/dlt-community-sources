@@ -63,8 +63,42 @@ All sources share these common features:
 - Incremental loading where applicable
 - Automatic token/auth refresh
 - Rate limit handling with exponential backoff
-- Graceful permission handling (skips inaccessible resources)
 - Works with any [dlt destination](https://dlthub.com/docs/dlt-ecosystem/destinations/)
+
+## Error handling
+
+Sources distinguish two kinds of resources:
+
+- **Auxiliary resources** (metadata: campaigns, ads, audiences, ...) skip
+  expected client errors (HTTP 400/403/404) per endpoint — some APIs return
+  4xx for valid requests on accounts without certain features. Every skip is
+  logged with the response body.
+- **Primary resources** (the fact data a source exists for: `report`,
+  `insights`) never skip. Failures raise `PrimaryResourceTerminalError`
+  (request rejected — retrying will not help; 4xx other than 408/429) or
+  `PrimaryResourceTransientError` (timeout, rate limit, provider-side job
+  failure), so a load never "succeeds" with silently missing data. Both mix
+  in dlt's `TerminalException` / `TransientException`. Note that dlt wraps
+  resource exceptions in `PipelineStepFailed` / `ResourceExtractionError`,
+  so retry helpers that inspect only one level (such as
+  `dlt.pipeline.helpers.retry_load`) cannot see the classification — use
+  `contains_terminal_exception`, which walks the exception chain:
+
+```python
+from tenacity import Retrying, retry_if_exception, stop_after_attempt
+from dlt_community_sources._utils import contains_terminal_exception
+
+for attempt in Retrying(
+    stop=stop_after_attempt(3),
+    retry=retry_if_exception(lambda e: not contains_terminal_exception(e)),
+    reraise=True,
+):
+    with attempt:
+        pipeline.run(source)
+```
+
+To load a subset of resources, either pass the source-specific `resources`
+argument or use dlt's native selection: `source.with_resources("report")`.
 
 ## Development
 

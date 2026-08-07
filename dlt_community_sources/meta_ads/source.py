@@ -15,9 +15,10 @@ from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
 from dlt_community_sources._utils import (
-    PrimaryResourceError,
+    PrimaryResourceTerminalError,
+    PrimaryResourceTransientError,
+    primary_error_from_http,
     response_snippet,
-    wrap_resources_safe,
 )
 
 logger = logging.getLogger(__name__)
@@ -699,7 +700,9 @@ def discover_accounts(
     client = _make_client(access_token)
     accounts = []
     url = f"{base_url}/me/adaccounts?fields=id,account_status"
-    for account in _get_paginated(client, url):
+    # skip_client_errors=False: a 4xx here means the whole account discovery
+    # failed — silently returning [] would make the job "succeed" doing nothing.
+    for account in _get_paginated(client, url, skip_client_errors=False):
         if account.get("account_status") == 1:
             accounts.append(account["id"])
     return accounts
@@ -751,14 +754,14 @@ def _poll_report(
         if status == "Job Completed":
             return True
         if status in ("Job Failed", "Job Skipped"):
-            raise PrimaryResourceError(
+            raise PrimaryResourceTransientError(
                 f"insights report {report_run_id} failed with status: {status}"
             )
 
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
 
-    raise PrimaryResourceError(
+    raise PrimaryResourceTransientError(
         f"insights report {report_run_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
     )
 
@@ -803,17 +806,17 @@ def _get_paginated(
                 response.raise_for_status()
                 break  # success
             except req.HTTPError as e:
+                is_rate_limited = (
+                    e.response is not None and e.response.status_code == 429
+                )
+                if not skip_client_errors and not is_rate_limited:
+                    # Primary data: classify every failure, not just 400/403/404
+                    raise primary_error_from_http(e, f"request failed for {url}") from e
                 if e.response is not None and e.response.status_code in (
                     400,
                     403,
                     404,
                 ):
-                    if not skip_client_errors:
-                        raise PrimaryResourceError(
-                            f"request failed for {url}: "
-                            f"HTTP {e.response.status_code} "
-                            f"body={response_snippet(e.response)}"
-                        ) from e
                     logger.warning(
                         "Request failed (%d) for %s. Skipping. body=%s",
                         e.response.status_code,
@@ -943,19 +946,19 @@ def insights(
     if action_breakdowns:
         request_data["action_breakdowns"] = ",".join(action_breakdowns)
 
-    response = client.post(
-        f"{base_url}/{act_id}/insights",
-        data=request_data,
-    )
-    if response.status_code != 200:
-        raise PrimaryResourceError(
-            f"insights submit failed for {act_id}: "
-            f"HTTP {response.status_code} body={response_snippet(response)}"
+    # dlt's Client raises inside .post() (raise_for_status=True default),
+    # so classify the HTTPError instead of branching on status_code.
+    try:
+        response = client.post(
+            f"{base_url}/{act_id}/insights",
+            data=request_data,
         )
+    except req.HTTPError as e:
+        raise primary_error_from_http(e, f"insights submit failed for {act_id}") from e
     report_run_id = response.json().get("report_run_id")
 
     if not report_run_id:
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"insights submit for {act_id} returned no report_run_id: "
             f"{response_snippet(response)}"
         )
@@ -1057,10 +1060,6 @@ def meta_ads_source(
         leads_resource,
         insights_resource,
     ]
-
-    # insights carries the primary fact data: its errors must fail the
-    # pipeline instead of being skipped like auxiliary metadata resources.
-    all_resources = wrap_resources_safe(all_resources, critical=("insights",))
 
     if resources:
         return [r for r in all_resources if r.name in resources]

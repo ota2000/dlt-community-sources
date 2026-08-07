@@ -14,7 +14,7 @@ from dlt.sources.helpers.rest_client.paginators import JSONLinkPaginator
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import skip_or_raise
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ def _rest_api_config(
             "endpoint": {
                 "params": {"PageSize": 100},
                 "response_actions": [
+                    {"status_code": 400, "action": "ignore"},
                     {"status_code": 403, "action": "ignore"},
                     {"status_code": 404, "action": "ignore"},
                 ],
@@ -241,7 +242,6 @@ def twilio_source(
 
     all_resources: list[DltResource] = rest_resources + custom_resources
 
-    all_resources = wrap_resources_safe(all_resources)
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
@@ -275,13 +275,8 @@ def _get_paginated(
             response = client.get(url, params=params)
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning(
-                    "Request failed (%d) for %s. Skipping.",
-                    e.response.status_code,
-                    url,
-                )
-                return
+            skip_or_raise(e, url)
+            return
             raise
         data = response.json()
         yield from data.get(resource_key, [])
@@ -349,8 +344,13 @@ def accounts_resource(
 ):
     """Twilio accounts and subaccounts."""
     client = _make_client(username, password)
-    response = client.get(f"{base_url}/Accounts/{account_sid}.json")
-    response.raise_for_status()
+    # dlt's Client raises inside .get() (raise_for_status=True default),
+    # so the call itself must be inside the try block.
+    try:
+        response = client.get(f"{base_url}/Accounts/{account_sid}.json")
+    except req.HTTPError as e:
+        skip_or_raise(e, "accounts")
+        return
     yield response.json()
 
 
@@ -454,6 +454,9 @@ def available_phone_numbers(
     """Available phone numbers for purchase."""
     client = _make_client(username, password)
     url = f"{base_url}/Accounts/{account_sid}/AvailablePhoneNumbers/{country_code}/{phone_number_type}.json"
-    response = client.get(url)
-    response.raise_for_status()
+    try:
+        response = client.get(url)
+    except req.HTTPError as e:
+        skip_or_raise(e, "available_phone_numbers")
+        return
     yield from response.json().get("available_phone_numbers", [])
