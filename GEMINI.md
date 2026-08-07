@@ -37,10 +37,14 @@ dlt_community_sources/
 
 ### Error Handling
 
+Distinguish **primary resources** (the fact data a source exists for: `report`, `insights`) from **auxiliary resources** (metadata: campaigns, ads, audiences, ...). The skip-on-client-error policy below applies to auxiliary resources only.
+
 - 429: retry with exponential backoff (handled by rest_api for declarative resources, manual for custom)
-- 403/404: skip gracefully — use `response_actions` with `"action": "ignore"` in rest_api config, or catch in custom helpers
-- 400: log warning and skip — some APIs return 400 for valid requests on accounts without certain features (e.g., Yahoo Ads FeedSetService). `wrap_resources_safe` handles this at the resource level so one failing endpoint does not stop the entire pipeline
+- 403/404 (auxiliary): skip gracefully — use `response_actions` with `"action": "ignore"` in rest_api config, or catch in custom helpers via `skip_or_raise`
+- 400 (auxiliary): log warning and skip — some APIs return 400 for valid requests on accounts without certain features (e.g., Yahoo Ads FeedSetService). `wrap_resources_safe` handles this at the resource level so one failing endpoint does not stop the entire pipeline
 - 401: refresh token and retry (App Store Connect uses per-request JWT via `session.auth`)
+- **Primary resources must fail loudly**: pass their names as `critical=` to `wrap_resources_safe` and raise `PrimaryResourceError` (from `_utils`) on submit/poll failure, timeout, or client errors — never log-and-skip. A silent skip means the load "succeeds" with missing data, which downstream consumers cannot detect. This includes API-specific error styles (e.g., TikTok's HTTP 200 + `code != 0`)
+- Every skip/error log must include the response body (`response_snippet`) — a bare status code is undiagnosable after the fact
 
 ### Incremental Loading
 

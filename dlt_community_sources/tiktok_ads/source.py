@@ -13,7 +13,12 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import (
+    PrimaryResourceError,
+    response_snippet,
+    skip_or_raise,
+    wrap_resources_safe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -316,10 +321,8 @@ def authorized_advertiser_ids(
     try:
         response.raise_for_status()
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
-            logger.warning("Skipping %s: %d", url, e.response.status_code)
-            return
-        raise
+        skip_or_raise(e, url)
+        return
     data = response.json()
     if _check_response(data, "authorized_advertiser_ids"):
         for adv_id in data.get("data", {}).get("list", []):
@@ -344,10 +347,8 @@ def advertiser_info(
     try:
         response.raise_for_status()
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
-            logger.warning("Skipping %s: %d", url, e.response.status_code)
-            return
-        raise
+        skip_or_raise(e, url)
+        return
     data = response.json()
     if _check_response(data, "advertiser_info"):
         yield from data.get("data", {}).get("list", [])
@@ -377,10 +378,8 @@ def advertiser_balance(
     try:
         response.raise_for_status()
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
-            logger.warning("Skipping %s: %d", url, e.response.status_code)
-            return
-        raise
+        skip_or_raise(e, url)
+        return
     data = response.json()
     if _check_response(data, "advertiser_balance"):
         balance_data = data.get("data", {})
@@ -426,10 +425,8 @@ def advertiser_transactions(
         try:
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning("Skipping %s: %d", url, e.response.status_code)
-                return
-            raise
+            skip_or_raise(e, url)
+            return
         data = response.json()
         if not _check_response(data, f"advertiser_transactions page {page}"):
             break
@@ -456,10 +453,8 @@ def apps(
     try:
         response.raise_for_status()
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
-            logger.warning("Skipping %s: %d", url, e.response.status_code)
-            return
-        raise
+        skip_or_raise(e, url)
+        return
     data = response.json()
     if _check_response(data, "apps"):
         yield from data.get("data", {}).get("list", [])
@@ -489,10 +484,8 @@ def rule_results(
         try:
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning("Skipping %s: %d", url, e.response.status_code)
-                return
-            raise
+            skip_or_raise(e, url)
+            return
         data = response.json()
         if not _check_response(data, f"rule_results page {page}"):
             break
@@ -528,10 +521,8 @@ def pixels(
         try:
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning("Skipping %s: %d", url, e.response.status_code)
-                return
-            raise
+            skip_or_raise(e, url)
+            return
         data = response.json()
         if not _check_response(data, f"pixels page {page}"):
             break
@@ -569,10 +560,8 @@ def identities(
         try:
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning("Skipping %s: %d", url, e.response.status_code)
-                return
-            raise
+            skip_or_raise(e, url)
+            return
         data = response.json()
         if not _check_response(data, f"identities page {page}"):
             break
@@ -610,10 +599,8 @@ def videos(
         try:
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning("Skipping %s: %d", url, e.response.status_code)
-                return
-            raise
+            skip_or_raise(e, url)
+            return
         data = response.json()
         if not _check_response(data, f"videos page {page}"):
             break
@@ -699,12 +686,13 @@ def report(
             try:
                 response.raise_for_status()
             except req.HTTPError as e:
-                if e.response is not None and e.response.status_code in (403, 404):
-                    logger.warning(
-                        "Skipping %s: %d", report_url, e.response.status_code
-                    )
-                    return
-                raise
+                # report carries the primary fact data: a failed fetch must
+                # fail the pipeline instead of silently truncating the load.
+                status = e.response.status_code if e.response is not None else "?"
+                raise PrimaryResourceError(
+                    f"report fetch failed for advertiser {advertiser_id}: "
+                    f"HTTP {status} body={response_snippet(e.response)}"
+                ) from e
             data = response.json()
 
             # Handle invalid metric fields (code 40002)
@@ -717,13 +705,20 @@ def report(
                     report_metrics = [m for m in report_metrics if m not in invalid]
                     metrics_validated = True
                     continue  # retry with cleaned metrics
-                break
+                # Unparseable 40002 message: fall through to _check_response,
+                # which raises PrimaryResourceError with code and message.
             metrics_validated = True
 
             if not _check_response(
                 data, f"report chunk {chunk_start}-{chunk_end} page {page}"
             ):
-                break
+                # TikTok reports errors as HTTP 200 + code != 0. For the
+                # primary report data, silently stopping here would produce
+                # a partial load that looks successful downstream.
+                raise PrimaryResourceError(
+                    f"report fetch failed for advertiser {advertiser_id}: "
+                    f"code={data.get('code')} message={data.get('message')}"
+                )
 
             rows = data.get("data", {}).get("list", [])
             if not rows:
@@ -831,7 +826,9 @@ def tiktok_ads_source(
         ]
     )
 
-    all_resources = wrap_resources_safe(all_resources)
+    # report carries the primary fact data: its errors must fail the
+    # pipeline instead of being skipped like auxiliary metadata resources.
+    all_resources = wrap_resources_safe(all_resources, critical=("report",))
 
     if resources:
         return [r for r in all_resources if r.name in resources]

@@ -17,6 +17,8 @@ from typing import Optional
 
 from dlt.sources.helpers import requests as req
 
+from dlt_community_sources._utils import PrimaryResourceError, response_snippet
+
 logger = logging.getLogger(__name__)
 
 # Primary key: only core identity fields (date + entity IDs)
@@ -374,8 +376,12 @@ def submit_report(
     end_date: str,
     report_download_format: str = "CSV",
     report_language: str = "EN",
-) -> Optional[int]:
-    """Submit a report definition. Returns reportJobId or None."""
+) -> int:
+    """Submit a report definition and return the reportJobId.
+
+    Raises PrimaryResourceError on failure: the report is the primary data
+    of the source, so a failed submit must fail the pipeline.
+    """
     body = {
         "accountId": int(account_id),
         "operand": [
@@ -397,19 +403,33 @@ def submit_report(
             }
         ],
     }
-    data = post_rpc(client, f"{base_url}/ReportDefinitionService/add", body)
+    url = f"{base_url}/ReportDefinitionService/add"
+    try:
+        data = post_rpc(client, url, body)
+    except req.HTTPError as e:
+        status = e.response.status_code if e.response is not None else "?"
+        raise PrimaryResourceError(
+            f"report submit failed for account {account_id}: "
+            f"HTTP {status} body={response_snippet(e.response)}"
+        ) from e
     values = data.get("rval", {}).get("values", [])
     if not values:
-        return None
+        raise PrimaryResourceError(
+            f"report submit for account {account_id} returned no values: {data}"
+        )
     entry = values[0]
     if not entry.get("operationSucceeded"):
         errors = entry.get("errors", [])
-        logger.warning("Report submit failed: %s", errors)
-        return None
-    report_def = entry.get("reportDefinition")
-    if report_def is None:
-        return None
-    return report_def.get("reportJobId")
+        raise PrimaryResourceError(
+            f"report submit failed for account {account_id}: {errors}"
+        )
+    report_def = entry.get("reportDefinition") or {}
+    report_job_id = report_def.get("reportJobId")
+    if report_job_id is None:
+        raise PrimaryResourceError(
+            f"report submit for account {account_id} returned no reportJobId: {entry}"
+        )
+    return report_job_id
 
 
 def poll_report(
@@ -417,30 +437,50 @@ def poll_report(
     base_url: str,
     account_id: str,
     report_job_id: int,
-) -> Optional[str]:
-    """Poll report until completion. Returns 'COMPLETED' status or None."""
+) -> str:
+    """Poll report until completion. Returns the 'COMPLETED' status.
+
+    Raises PrimaryResourceError on FAILED/UNKNOWN status or timeout so the
+    pipeline fails instead of silently loading nothing.
+    """
     elapsed = 0
     while elapsed < POLL_MAX_WAIT_SECONDS:
         body = {
             "accountId": int(account_id),
             "reportJobIds": [report_job_id],
         }
-        data = post_rpc(client, f"{base_url}/ReportDefinitionService/get", body)
+        url = f"{base_url}/ReportDefinitionService/get"
+        try:
+            data = post_rpc(client, url, body)
+        except req.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            raise PrimaryResourceError(
+                f"report {report_job_id} poll failed: "
+                f"HTTP {status} body={response_snippet(e.response)}"
+            ) from e
         values = data.get("rval", {}).get("values", [])
         if not values:
-            return None
+            # The get right after submit can be transiently empty due to
+            # eventual consistency. Keep polling within the window; the
+            # timeout below fails the run if it never appears.
+            logger.info("Report %s: no values yet", report_job_id)
+            time.sleep(POLL_INTERVAL_SECONDS)
+            elapsed += POLL_INTERVAL_SECONDS
+            continue
         report_def = values[0].get("reportDefinition", {})
         status = report_def.get("reportJobStatus")
         logger.info("Report %s: status=%s", report_job_id, status)
         if status == "COMPLETED":
             return status
         if status in ("FAILED", "UNKNOWN"):
-            logger.warning("Report %s: %s", report_job_id, status)
-            return None
+            raise PrimaryResourceError(
+                f"report {report_job_id} failed with status {status}"
+            )
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
-    logger.warning("Report %s timed out", report_job_id)
-    return None
+    raise PrimaryResourceError(
+        f"report {report_job_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
+    )
 
 
 def download_report(

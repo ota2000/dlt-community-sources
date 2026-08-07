@@ -127,6 +127,7 @@ Alternatively, use a long-lived User Access Token (expires in ~60 days).
 - Insights primary key varies by level: `date_start` + `date_stop` + `campaign_id`/`adset_id`/`ad_id`
 - When `breakdowns` are specified, they are appended to the primary key
 - Rate limiting: Meta uses a scoring system per ad account. The source respects 429 responses with retry
-- 403/404 responses are skipped gracefully (e.g., deleted campaigns)
+- 400/403/404 responses on auxiliary resources are skipped gracefully (e.g., deleted campaigns), with the response body logged
+- `insights` is the primary data resource: submit/poll failures, timeouts, and client errors raise `PrimaryResourceError` and fail the pipeline instead of being skipped
 - `ad_leads` iterates through all ads to fetch lead form submissions
 - Default API version: v25.0

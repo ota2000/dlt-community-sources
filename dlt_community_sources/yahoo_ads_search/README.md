@@ -199,5 +199,6 @@ Yahoo Ads API services use different request body structures. Each entity resour
 
 ### Error handling
 
-- HTTP 400/403/404 responses are silently skipped (some services are unavailable depending on account permissions)
+- HTTP 400/403/404 responses on auxiliary resources are skipped (some services are unavailable depending on account permissions), with the response body logged
+- `report` is the primary data resource: submit/poll failures, timeouts, and client errors raise `PrimaryResourceError` and fail the pipeline instead of being skipped
 - Other HTTP errors are raised
