@@ -725,26 +725,18 @@ def _poll_report(
     Raises PrimaryResourceError on failure or timeout: insights is the
     primary data of this source, so a failed report must fail the
     pipeline instead of being skipped.
-    Handles 429 rate limit responses with exponential backoff and
-    Retry-After header support.
+    Transport-level retries (429 with Retry-After, 5xx, connection
+    errors) are handled inside the dlt requests client — no second
+    retry loop here.
     """
     elapsed = 0
-    backoff_wait = POLL_INTERVAL_SECONDS
     while elapsed < POLL_MAX_WAIT_SECONDS:
         try:
             response = client.get(f"{base_url}/{report_run_id}")
-            response.raise_for_status()
-        except req.HTTPError as e:
-            if e.response is not None and e.response.status_code == 429:
-                retry_after = e.response.headers.get("Retry-After")
-                wait = int(retry_after) if retry_after else backoff_wait
-                logger.warning("Rate limited during poll, waiting %ds", wait)
-                time.sleep(wait)
-                elapsed += wait
-                backoff_wait = min(backoff_wait * 2, POLL_MAX_WAIT_SECONDS)
-                continue
-            raise
-        backoff_wait = POLL_INTERVAL_SECONDS  # reset on success
+        except req.RequestException as e:
+            raise primary_error_from_request(
+                e, f"insights report {report_run_id} poll failed"
+            ) from e
         data = response.json()
 
         status = data.get("async_status")
@@ -783,7 +775,6 @@ def _fetch_insights_pages(
 def _get_paginated(
     client: req.Client,
     url: str,
-    max_retries: int = 5,
     *,
     skip_client_errors: bool = True,
 ) -> Generator[dict, None, None]:
@@ -791,60 +782,34 @@ def _get_paginated(
 
     By default 400/403/404 end the iteration (logged with the response
     body) so auxiliary resources survive accounts without a feature.
-    Pass ``skip_client_errors=False`` for primary data, where a client
-    error mid-pagination must fail the pipeline instead of silently
-    truncating the load.
-    Handles 429 rate limit responses with exponential backoff (up to
-    *max_retries* attempts per page) and Retry-After header support.
+    Pass ``skip_client_errors=False`` for primary data, where any
+    failure must fail the pipeline (classified via
+    ``primary_error_from_request``) instead of silently truncating the
+    load.
+    Transport-level retries (429 with Retry-After, 5xx, connection
+    errors) are handled inside the dlt requests client — no second
+    retry loop here.
     """
     while url:
-        backoff_wait = POLL_INTERVAL_SECONDS
-        retries = 0
-        while True:
-            try:
-                response = client.get(url)
-                response.raise_for_status()
-                break  # success
-            except req.RequestException as e:
-                is_rate_limited = (
-                    e.response is not None and e.response.status_code == 429
+        try:
+            response = client.get(url)
+        except req.RequestException as e:
+            if not skip_client_errors:
+                # Primary data: classify every failure, not just 400/403/404
+                raise primary_error_from_request(e, f"request failed for {url}") from e
+            if (
+                isinstance(e, req.HTTPError)
+                and e.response is not None
+                and e.response.status_code in (400, 403, 404)
+            ):
+                logger.warning(
+                    "Request failed (%d) for %s. Skipping. body=%s",
+                    e.response.status_code,
+                    url,
+                    response_snippet(e.response),
                 )
-                if not skip_client_errors and not is_rate_limited:
-                    # Primary data: classify every failure, not just 400/403/404
-                    raise primary_error_from_request(
-                        e, f"request failed for {url}"
-                    ) from e
-                if e.response is not None and e.response.status_code in (
-                    400,
-                    403,
-                    404,
-                ):
-                    logger.warning(
-                        "Request failed (%d) for %s. Skipping. body=%s",
-                        e.response.status_code,
-                        url,
-                        response_snippet(e.response),
-                    )
-                    return
-                if (
-                    e.response is not None
-                    and e.response.status_code == 429
-                    and retries < max_retries
-                ):
-                    retry_after = e.response.headers.get("Retry-After")
-                    wait = int(retry_after) if retry_after else backoff_wait
-                    logger.warning(
-                        "Rate limited on %s, waiting %ds (retry %d/%d)",
-                        url,
-                        wait,
-                        retries + 1,
-                        max_retries,
-                    )
-                    time.sleep(wait)
-                    backoff_wait = min(backoff_wait * 2, POLL_MAX_WAIT_SECONDS)
-                    retries += 1
-                    continue
-                raise
+                return
+            raise
         data = response.json()
         yield from data.get("data", [])
         url = data.get("paging", {}).get("next")

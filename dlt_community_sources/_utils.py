@@ -18,6 +18,13 @@ import logging
 
 from dlt.common.exceptions import TerminalException, TransientException
 from dlt.sources.helpers.requests import HTTPError, RequestException, Response
+from requests.exceptions import (
+    InvalidSchema,
+    InvalidURL,
+    MissingSchema,
+    TooManyRedirects,
+    URLRequired,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +112,11 @@ def primary_error_from_request(
     """
     if isinstance(e, HTTPError):
         return primary_error_from_http(e, message)
+    if isinstance(
+        e, (MissingSchema, InvalidSchema, InvalidURL, URLRequired, TooManyRedirects)
+    ):
+        # URL 組み立てバグ等のクライアント側恒久エラー: リトライしても直らない
+        return PrimaryResourceTerminalError(f"{message}: {type(e).__name__}: {e}")
     return PrimaryResourceTransientError(f"{message}: {type(e).__name__}: {e}")
 
 
