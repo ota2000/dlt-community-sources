@@ -364,7 +364,12 @@ def yahoo_ads_search_source(
     initial = start_date or "2020-01-01"
 
     def _fetch_report(rpt_client, start, end):
-        """Fetch report rows for all accounts in the given date range."""
+        """Fetch report rows for all accounts in the given date range.
+
+        submit_report / poll_report raise PrimaryResourceError on failure:
+        the report is the primary data, so a per-account failure must fail
+        the pipeline instead of being skipped.
+        """
         for aid in account_ids:
             job_id = submit_report(
                 rpt_client,
@@ -376,13 +381,7 @@ def yahoo_ads_search_source(
                 end,
                 report_language="EN",
             )
-            if not job_id:
-                logger.warning("report: no job ID returned for account %s", aid)
-                continue
-
-            status = poll_report(rpt_client, base_url, aid, job_id)
-            if not status:
-                continue
+            poll_report(rpt_client, base_url, aid, job_id)
 
             for row in download_report(
                 rpt_client, base_url, aid, job_id, display_to_field
@@ -444,7 +443,9 @@ def yahoo_ads_search_source(
 
     all_resources.append(_report)
 
-    all_resources = wrap_resources_safe(all_resources)
+    # report carries the primary fact data: its errors must fail the
+    # pipeline instead of being skipped like auxiliary metadata resources.
+    all_resources = wrap_resources_safe(all_resources, critical=("report",))
 
     if resources:
         all_resources = [r for r in all_resources if r.name in resources]
