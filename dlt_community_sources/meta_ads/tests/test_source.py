@@ -845,6 +845,18 @@ class TestDiscoverAccounts:
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
     @patch("dlt_community_sources.meta_ads.source._make_client")
+    def test_client_error_raises_instead_of_empty(self, mock_make_client, mock_sleep):
+        """A 4xx during discovery must not silently yield zero accounts."""
+        client = MagicMock()
+        mock_make_client.return_value = client
+        resp = _mock_response(status_code=400, raise_for_status_error=True)
+        client.get = MagicMock(return_value=resp)
+
+        with pytest.raises(PrimaryResourceError, match="request failed"):
+            discover_accounts("fake_token")
+
+    @patch("dlt_community_sources.meta_ads.source.time.sleep")
+    @patch("dlt_community_sources.meta_ads.source._make_client")
     def test_returns_empty_when_no_accounts(self, mock_make_client, mock_sleep):
         client = MagicMock()
         mock_make_client.return_value = client

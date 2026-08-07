@@ -700,7 +700,9 @@ def discover_accounts(
     client = _make_client(access_token)
     accounts = []
     url = f"{base_url}/me/adaccounts?fields=id,account_status"
-    for account in _get_paginated(client, url):
+    # skip_client_errors=False: a 4xx here means the whole account discovery
+    # failed — silently returning [] would make the job "succeed" doing nothing.
+    for account in _get_paginated(client, url, skip_client_errors=False):
         if account.get("account_status") == 1:
             accounts.append(account["id"])
     return accounts

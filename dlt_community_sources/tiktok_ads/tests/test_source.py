@@ -392,6 +392,18 @@ class TestAuthorizedAdvertiserIds:
         assert results == []
 
     @patch("dlt_community_sources.tiktok_ads.source._make_client")
+    def test_discover_api_error_raises(self, mock_make_client):
+        """code != 0 during discovery must not silently yield zero advertisers."""
+        from dlt_community_sources._utils import PrimaryResourceError
+        from dlt_community_sources.tiktok_ads import discover_advertisers
+
+        client = MagicMock()
+        mock_make_client.return_value = client
+        client.get.return_value = _mock_response({"code": 40105, "message": "auth"})
+        with pytest.raises(PrimaryResourceError, match="40105"):
+            discover_advertisers(access_token="tok", app_id="a", secret="s")
+
+    @patch("dlt_community_sources.tiktok_ads.source._make_client")
     def test_http_500_raises(self, mock_make_client):
         from dlt.extract.exceptions import ResourceExtractionError
         from dlt.sources.helpers.requests import HTTPError

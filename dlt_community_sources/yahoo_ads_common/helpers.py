@@ -21,6 +21,7 @@ from dlt_community_sources._utils import (
     PrimaryResourceTerminalError,
     PrimaryResourceTransientError,
     primary_error_from_http,
+    skip_or_raise,
 )
 
 logger = logging.getLogger(__name__)
@@ -231,7 +232,13 @@ def discover_accounts(
             "startIndex": start_index,
             "numberResults": page_size,
         }
-        data = post_rpc(client, f"{base_url}/AccountService/get", body)
+        url = f"{base_url}/AccountService/get"
+        try:
+            data = post_rpc(client, url, body)
+        except req.HTTPError as e:
+            # e.g. 401 when the API user is not linked to this MCC — without
+            # the response body this is undiagnosable from logs.
+            raise primary_error_from_http(e, "account discovery failed") from e
         rval = data.get("rval", {})
         total = rval.get("totalNumEntries", 0)
         values = rval.get("values", [])
@@ -302,10 +309,7 @@ def safe_get_entities(
     try:
         yield from get_entities(client, url, account_id, selector_fields, page_size)
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (400, 403, 404):
-            logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
-        else:
-            raise
+        skip_or_raise(e, url)
 
 
 def get_entities_by_account_ids(
@@ -364,10 +368,7 @@ def safe_fetch_entities(
         else:
             yield from get_entities(client, url, account_id, page_size=page_size)
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (400, 403, 404):
-            logger.warning("Skipping %s: HTTP %s", url, e.response.status_code)
-        else:
-            raise
+        skip_or_raise(e, url)
 
 
 def submit_report(

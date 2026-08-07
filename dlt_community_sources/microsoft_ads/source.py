@@ -46,10 +46,13 @@ def discover_accounts(
     from .resources.helpers import make_client
 
     client = make_client(access_token, developer_token, customer_id, "")
+    # skip_client_errors=False: a 4xx here means the whole account discovery
+    # failed — silently returning [] would make the job "succeed" doing nothing.
     data = post_rpc(
         client,
         f"{CUSTOMER_MGMT_URL}/AccountsInfo/Query",
         {},
+        skip_client_errors=False,
     )
     accounts = data.get("AccountsInfo") or []
     return [

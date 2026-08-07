@@ -274,13 +274,8 @@ def _get_paginated(
             response = client.get(url, params=params)
             response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning(
-                    "Request failed (%d) for %s. Skipping.",
-                    e.response.status_code,
-                    url,
-                )
-                return
+            skip_or_raise(e, url)
+            return
             raise
         data = response.json()
         yield from data.get(resource_key, [])

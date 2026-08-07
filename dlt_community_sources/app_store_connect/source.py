@@ -15,6 +15,8 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
+from dlt_community_sources._utils import skip_or_raise
+
 from .auth import AppStoreConnectAuth
 
 logger = logging.getLogger(__name__)
@@ -234,14 +236,8 @@ def _download_tsv(
         response = client.get(url, params=params)
         response.raise_for_status()
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
-            logger.warning(
-                "Report not available (%d) for %s. Skipping.",
-                e.response.status_code,
-                url,
-            )
-            return []
-        raise
+        skip_or_raise(e, url)
+        return []
     content = response.content
     try:
         content = gzip.decompress(content)
@@ -419,14 +415,8 @@ def analytics_reports(
                 response = client.get(url)
                 response.raise_for_status()
             except req.HTTPError as e:
-                if e.response is not None and e.response.status_code in (403, 404):
-                    logger.warning(
-                        "Request failed (%d) for %s. Skipping.",
-                        e.response.status_code,
-                        path,
-                    )
-                    return
-                raise
+                skip_or_raise(e, path)
+                return
             data = response.json()
             yield from data.get("data", [])
             url = data.get("links", {}).get("next")

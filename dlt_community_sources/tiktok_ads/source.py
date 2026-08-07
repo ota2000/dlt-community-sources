@@ -222,15 +222,18 @@ def discover_advertisers(
     client = _make_client(access_token)
     url = f"{base_url}/oauth2/advertiser/get/"
     response = client.get(url, params={"app_id": app_id, "secret": secret})
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except req.HTTPError as e:
+        raise primary_error_from_http(e, "advertiser discovery failed") from e
     data = response.json()
     if data.get("code", -1) != 0:
-        logger.warning(
-            "discover_advertisers: API error code=%s, message=%s",
-            data.get("code"),
-            data.get("message"),
+        # A discovery failure must not silently yield zero advertisers —
+        # the job would "succeed" doing nothing.
+        raise PrimaryResourceTerminalError(
+            f"advertiser discovery failed: code={data.get('code')} "
+            f"message={data.get('message')}"
         )
-        return []
     return [
         str(item["advertiser_id"])
         for item in data.get("data", {}).get("list", [])
