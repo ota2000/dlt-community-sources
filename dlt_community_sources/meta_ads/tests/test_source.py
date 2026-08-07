@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from dlt.sources.helpers import requests as req
 
+from dlt_community_sources._utils import PrimaryResourceError
 from dlt_community_sources.meta_ads.source import (
     DEFAULT_BASE_URL,
     DEFAULT_FIELDS,
@@ -344,8 +345,8 @@ class TestPollReport:
         assert sleep_calls[1] == POLL_INTERVAL_SECONDS * 2
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_timeout(self, mock_sleep):
-        """Returns False when polling exceeds POLL_MAX_WAIT_SECONDS."""
+    def test_timeout_raises(self, mock_sleep):
+        """Raises when polling exceeds POLL_MAX_WAIT_SECONDS."""
         client = self._client()
         running_resp = _mock_response(
             json_data={
@@ -355,32 +356,34 @@ class TestPollReport:
         )
         client.get = MagicMock(return_value=running_resp)
 
-        result = _poll_report(client, "run_123", DEFAULT_BASE_URL)
-        assert result is False
+        with pytest.raises(PrimaryResourceError, match="timed out"):
+            _poll_report(client, "run_123", DEFAULT_BASE_URL)
         # Should have polled multiple times
         assert client.get.call_count > 1
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_job_failed(self, mock_sleep):
-        """Returns False when async_status is Job Failed."""
+    def test_job_failed_raises(self, mock_sleep):
+        """Raises when async_status is Job Failed."""
         client = self._client()
         resp = _mock_response(
             json_data={"async_status": "Job Failed", "async_percent_completion": 0}
         )
         client.get = MagicMock(return_value=resp)
 
-        assert _poll_report(client, "run_123", DEFAULT_BASE_URL) is False
+        with pytest.raises(PrimaryResourceError, match="Job Failed"):
+            _poll_report(client, "run_123", DEFAULT_BASE_URL)
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_job_skipped(self, mock_sleep):
-        """Returns False when async_status is Job Skipped."""
+    def test_job_skipped_raises(self, mock_sleep):
+        """Raises when async_status is Job Skipped."""
         client = self._client()
         resp = _mock_response(
             json_data={"async_status": "Job Skipped", "async_percent_completion": 0}
         )
         client.get = MagicMock(return_value=resp)
 
-        assert _poll_report(client, "run_123", DEFAULT_BASE_URL) is False
+        with pytest.raises(PrimaryResourceError, match="Job Skipped"):
+            _poll_report(client, "run_123", DEFAULT_BASE_URL)
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
     def test_non_429_error_raised(self, mock_sleep):
@@ -650,8 +653,8 @@ class TestInsightsResource:
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
     @patch("dlt_community_sources.meta_ads.source._make_client")
-    def test_no_report_run_id_returns_empty(self, mock_make_client, mock_sleep):
-        """Returns nothing when no report_run_id in response."""
+    def test_no_report_run_id_raises(self, mock_make_client, mock_sleep):
+        """Raises when no report_run_id in response."""
         from dlt_community_sources.meta_ads.source import insights
 
         client = MagicMock()
@@ -671,8 +674,8 @@ class TestInsightsResource:
             ),
             base_url=DEFAULT_BASE_URL,
         )
-        results = list(resource)
-        assert results == []
+        with pytest.raises(Exception, match="report_run_id"):
+            list(resource)
 
 
 # ---------------------------------------------------------------------------

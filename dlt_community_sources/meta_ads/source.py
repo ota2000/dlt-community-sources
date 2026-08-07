@@ -14,7 +14,11 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import (
+    PrimaryResourceError,
+    response_snippet,
+    wrap_resources_safe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -715,6 +719,9 @@ def _poll_report(
 ) -> bool:
     """Poll async report until completion. Returns True if completed.
 
+    Raises PrimaryResourceError on failure or timeout: insights is the
+    primary data of this source, so a failed report must fail the
+    pipeline instead of being skipped.
     Handles 429 rate limit responses with exponential backoff and
     Retry-After header support.
     """
@@ -744,16 +751,16 @@ def _poll_report(
         if status == "Job Completed":
             return True
         if status in ("Job Failed", "Job Skipped"):
-            logger.warning("Report %s failed with status: %s", report_run_id, status)
-            return False
+            raise PrimaryResourceError(
+                f"insights report {report_run_id} failed with status: {status}"
+            )
 
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
 
-    logger.warning(
-        "Report %s timed out after %ds", report_run_id, POLL_MAX_WAIT_SECONDS
+    raise PrimaryResourceError(
+        f"insights report {report_run_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
     )
-    return False
 
 
 def _fetch_insights_pages(
@@ -761,18 +768,29 @@ def _fetch_insights_pages(
     report_run_id: str,
     base_url: str,
 ) -> Generator[dict, None, None]:
-    """Fetch all pages of insights results using cursor pagination."""
+    """Fetch all pages of insights results using cursor pagination.
+
+    Client errors are not skipped: a mid-pagination 4xx would otherwise
+    silently truncate the primary insights data.
+    """
     url = f"{base_url}/{report_run_id}/insights"
-    yield from _get_paginated(client, url)
+    yield from _get_paginated(client, url, skip_client_errors=False)
 
 
 def _get_paginated(
     client: req.Client,
     url: str,
     max_retries: int = 5,
+    *,
+    skip_client_errors: bool = True,
 ) -> Generator[dict, None, None]:
     """Fetch all pages using cursor pagination.
 
+    By default 400/403/404 end the iteration (logged with the response
+    body) so auxiliary resources survive accounts without a feature.
+    Pass ``skip_client_errors=False`` for primary data, where a client
+    error mid-pagination must fail the pipeline instead of silently
+    truncating the load.
     Handles 429 rate limit responses with exponential backoff (up to
     *max_retries* attempts per page) and Retry-After header support.
     """
@@ -790,10 +808,17 @@ def _get_paginated(
                     403,
                     404,
                 ):
+                    if not skip_client_errors:
+                        raise PrimaryResourceError(
+                            f"request failed for {url}: "
+                            f"HTTP {e.response.status_code} "
+                            f"body={response_snippet(e.response)}"
+                        ) from e
                     logger.warning(
-                        "Request failed (%d) for %s. Skipping.",
+                        "Request failed (%d) for %s. Skipping. body=%s",
                         e.response.status_code,
                         url,
+                        response_snippet(e.response),
                     )
                     return
                 if (
@@ -938,12 +963,13 @@ def insights(
     report_run_id = response.json().get("report_run_id")
 
     if not report_run_id:
-        logger.warning("insights: no report_run_id returned")
-        return
+        raise PrimaryResourceError(
+            f"insights submit for {act_id} returned no report_run_id: "
+            f"{response_snippet(response)}"
+        )
 
-    # Poll until completion
-    if not _poll_report(client, report_run_id, base_url):
-        return
+    # Poll until completion (raises on failure/timeout)
+    _poll_report(client, report_run_id, base_url)
 
     # Fetch results with type conversion
     for row in _fetch_insights_pages(client, report_run_id, base_url):
@@ -1040,7 +1066,9 @@ def meta_ads_source(
         insights_resource,
     ]
 
-    all_resources = wrap_resources_safe(all_resources)
+    # insights carries the primary fact data: its errors must fail the
+    # pipeline instead of being skipped like auxiliary metadata resources.
+    all_resources = wrap_resources_safe(all_resources, critical=("insights",))
 
     if resources:
         return [r for r in all_resources if r.name in resources]
