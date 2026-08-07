@@ -500,12 +500,11 @@ def download_report(
         "accountId": int(account_id),
         "reportJobId": report_job_id,
     }
-    response = client.post(
-        f"{base_url}/ReportDefinitionService/download",
-        json=body,
-    )
     try:
-        response.raise_for_status()
+        response = client.post(
+            f"{base_url}/ReportDefinitionService/download",
+            json=body,
+        )
     except req.HTTPError as e:
         raise primary_error_from_http(
             e, f"report {report_job_id} download failed for account {account_id}"

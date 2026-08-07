@@ -11,7 +11,7 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import EndpointResource, RESTAPIConfig
 
-from dlt_community_sources._utils import skip_or_raise
+from dlt_community_sources._utils import primary_error_from_http, skip_or_raise
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ def _rest_api_config(
             "endpoint": {
                 "data_selector": "data",
                 "response_actions": [
+                    {"status_code": 400, "action": "ignore"},
                     {"status_code": 403, "action": "ignore"},
                     {"status_code": 404, "action": "ignore"},
                 ],
@@ -191,8 +192,13 @@ def nextdns_source(
         profile_ids = [profile_id]
     else:
         client = _make_client(api_key)
-        for p in _get_paginated(client, "profiles", base_url=url):
-            profile_ids.append(p["id"])
+        # A discovery failure must not silently yield zero profiles — every
+        # per-profile resource would load nothing while the job "succeeds".
+        try:
+            for p in _get_paginated(client, "profiles", base_url=url):
+                profile_ids.append(p["id"])
+        except req.HTTPError as e:
+            raise primary_error_from_http(e, "profile discovery failed") from e
 
     # Custom resources (can't be done via rest_api)
     custom_resources = [
@@ -292,9 +298,10 @@ def _flatten_series(
     params.setdefault("from", series_period)
 
     url = f"{base_url}/{path}"
-    response = client.get(url, params=params)
+    # dlt's Client raises inside .get() (raise_for_status=True default),
+    # so the call itself must be inside the try block.
     try:
-        response.raise_for_status()
+        response = client.get(url, params=params)
     except req.HTTPError as e:
         skip_or_raise(e, path)
         return

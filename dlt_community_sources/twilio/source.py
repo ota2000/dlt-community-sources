@@ -42,6 +42,7 @@ def _rest_api_config(
             "endpoint": {
                 "params": {"PageSize": 100},
                 "response_actions": [
+                    {"status_code": 400, "action": "ignore"},
                     {"status_code": 403, "action": "ignore"},
                     {"status_code": 404, "action": "ignore"},
                 ],
@@ -343,9 +344,10 @@ def accounts_resource(
 ):
     """Twilio accounts and subaccounts."""
     client = _make_client(username, password)
-    response = client.get(f"{base_url}/Accounts/{account_sid}.json")
+    # dlt's Client raises inside .get() (raise_for_status=True default),
+    # so the call itself must be inside the try block.
     try:
-        response.raise_for_status()
+        response = client.get(f"{base_url}/Accounts/{account_sid}.json")
     except req.HTTPError as e:
         skip_or_raise(e, "accounts")
         return
@@ -452,9 +454,8 @@ def available_phone_numbers(
     """Available phone numbers for purchase."""
     client = _make_client(username, password)
     url = f"{base_url}/Accounts/{account_sid}/AvailablePhoneNumbers/{country_code}/{phone_number_type}.json"
-    response = client.get(url)
     try:
-        response.raise_for_status()
+        response = client.get(url)
     except req.HTTPError as e:
         skip_or_raise(e, "available_phone_numbers")
         return

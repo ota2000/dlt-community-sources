@@ -94,3 +94,32 @@ class TestSkipOrRaise:
         # skip helpers only catch HTTPError: PrimaryResourceError must never
         # be swallowed by an auxiliary-resource catch block.
         assert not issubclass(PrimaryResourceError, HTTPError)
+
+
+class TestContainsTerminalException:
+    def test_detects_terminal_through_wrapping_chain(self):
+        from dlt_community_sources._utils import contains_terminal_exception
+
+        try:
+            try:
+                raise PrimaryResourceTerminalError("inner")
+            except PrimaryResourceTerminalError as inner:
+                raise RuntimeError("wrapper") from inner
+        except RuntimeError as wrapped:
+            assert contains_terminal_exception(wrapped)
+
+    def test_transient_chain_is_not_terminal(self):
+        from dlt_community_sources._utils import contains_terminal_exception
+
+        try:
+            try:
+                raise PrimaryResourceTransientError("inner")
+            except PrimaryResourceTransientError as inner:
+                raise RuntimeError("wrapper") from inner
+        except RuntimeError as wrapped:
+            assert not contains_terminal_exception(wrapped)
+
+    def test_plain_exception_is_not_terminal(self):
+        from dlt_community_sources._utils import contains_terminal_exception
+
+        assert not contains_terminal_exception(RuntimeError("x"))

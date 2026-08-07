@@ -806,15 +806,17 @@ def _get_paginated(
                 response.raise_for_status()
                 break  # success
             except req.HTTPError as e:
+                is_rate_limited = (
+                    e.response is not None and e.response.status_code == 429
+                )
+                if not skip_client_errors and not is_rate_limited:
+                    # Primary data: classify every failure, not just 400/403/404
+                    raise primary_error_from_http(e, f"request failed for {url}") from e
                 if e.response is not None and e.response.status_code in (
                     400,
                     403,
                     404,
                 ):
-                    if not skip_client_errors:
-                        raise primary_error_from_http(
-                            e, f"request failed for {url}"
-                        ) from e
                     logger.warning(
                         "Request failed (%d) for %s. Skipping. body=%s",
                         e.response.status_code,
@@ -944,18 +946,15 @@ def insights(
     if action_breakdowns:
         request_data["action_breakdowns"] = ",".join(action_breakdowns)
 
-    response = client.post(
-        f"{base_url}/{act_id}/insights",
-        data=request_data,
-    )
-    if response.status_code != 200:
-        detail = (
-            f"insights submit failed for {act_id}: "
-            f"HTTP {response.status_code} body={response_snippet(response)}"
+    # dlt's Client raises inside .post() (raise_for_status=True default),
+    # so classify the HTTPError instead of branching on status_code.
+    try:
+        response = client.post(
+            f"{base_url}/{act_id}/insights",
+            data=request_data,
         )
-        if 400 <= response.status_code < 500:
-            raise PrimaryResourceTerminalError(detail)
-        raise PrimaryResourceTransientError(detail)
+    except req.HTTPError as e:
+        raise primary_error_from_http(e, f"insights submit failed for {act_id}") from e
     report_run_id = response.json().get("report_run_id")
 
     if not report_run_id:

@@ -221,9 +221,8 @@ def discover_advertisers(
     """
     client = _make_client(access_token)
     url = f"{base_url}/oauth2/advertiser/get/"
-    response = client.get(url, params={"app_id": app_id, "secret": secret})
     try:
-        response.raise_for_status()
+        response = client.get(url, params={"app_id": app_id, "secret": secret})
     except req.HTTPError as e:
         raise primary_error_from_http(e, "advertiser discovery failed") from e
     data = response.json()
@@ -319,9 +318,8 @@ def authorized_advertiser_ids(
     """Fetch advertiser IDs authorized for this access token."""
     client = _make_client(access_token)
     url = f"{base_url}/oauth2/advertiser/get/"
-    response = client.get(url, params={"app_id": app_id, "secret": secret})
     try:
-        response.raise_for_status()
+        response = client.get(url, params={"app_id": app_id, "secret": secret})
     except req.HTTPError as e:
         skip_or_raise(e, url)
         return
@@ -342,12 +340,11 @@ def advertiser_info(
     """Fetch advertiser account info."""
     client = _make_client(access_token)
     url = f"{base_url}/advertiser/info/"
-    response = client.get(
-        url,
-        params={"advertiser_ids": json.dumps([advertiser_id])},
-    )
     try:
-        response.raise_for_status()
+        response = client.get(
+            url,
+            params={"advertiser_ids": json.dumps([advertiser_id])},
+        )
     except req.HTTPError as e:
         skip_or_raise(e, url)
         return
@@ -376,9 +373,8 @@ def advertiser_balance(
     params: dict[str, str] = {"advertiser_id": advertiser_id}
     if bc_id:
         params["bc_id"] = bc_id
-    response = client.get(url, params=params)
     try:
-        response.raise_for_status()
+        response = client.get(url, params=params)
     except req.HTTPError as e:
         skip_or_raise(e, url)
         return
@@ -423,9 +419,8 @@ def advertiser_transactions(
         }
         if bc_id:
             params["bc_id"] = bc_id
-        response = client.get(url, params=params)
         try:
-            response.raise_for_status()
+            response = client.get(url, params=params)
         except req.HTTPError as e:
             skip_or_raise(e, url)
             return
@@ -451,9 +446,8 @@ def apps(
     """Fetch apps associated with the advertiser."""
     client = _make_client(access_token)
     url = f"{base_url}/app/list/"
-    response = client.get(url, params={"advertiser_id": advertiser_id})
     try:
-        response.raise_for_status()
+        response = client.get(url, params={"advertiser_id": advertiser_id})
     except req.HTTPError as e:
         skip_or_raise(e, url)
         return
@@ -475,16 +469,15 @@ def rule_results(
     url = f"{base_url}/optimizer/rule/result/list/"
     page = 1
     while True:
-        response = client.get(
-            url,
-            params={
-                "advertiser_id": advertiser_id,
-                "page": str(page),
-                "page_size": "100",
-            },
-        )
         try:
-            response.raise_for_status()
+            response = client.get(
+                url,
+                params={
+                    "advertiser_id": advertiser_id,
+                    "page": str(page),
+                    "page_size": "100",
+                },
+            )
         except req.HTTPError as e:
             skip_or_raise(e, url)
             return
@@ -512,16 +505,15 @@ def pixels(
     url = f"{base_url}/pixel/list/"
     page = 1
     while True:
-        response = client.get(
-            url,
-            params={
-                "advertiser_id": advertiser_id,
-                "page": str(page),
-                "page_size": "100",
-            },
-        )
         try:
-            response.raise_for_status()
+            response = client.get(
+                url,
+                params={
+                    "advertiser_id": advertiser_id,
+                    "page": str(page),
+                    "page_size": "100",
+                },
+            )
         except req.HTTPError as e:
             skip_or_raise(e, url)
             return
@@ -551,16 +543,15 @@ def identities(
     url = f"{base_url}/identity/get/"
     page = 1
     while True:
-        response = client.get(
-            url,
-            params={
-                "advertiser_id": advertiser_id,
-                "page": str(page),
-                "page_size": "100",
-            },
-        )
         try:
-            response.raise_for_status()
+            response = client.get(
+                url,
+                params={
+                    "advertiser_id": advertiser_id,
+                    "page": str(page),
+                    "page_size": "100",
+                },
+            )
         except req.HTTPError as e:
             skip_or_raise(e, url)
             return
@@ -590,16 +581,15 @@ def videos(
     url = f"{base_url}/file/video/ad/search/"
     page = 1
     while True:
-        response = client.get(
-            url,
-            params={
-                "advertiser_id": advertiser_id,
-                "page": str(page),
-                "page_size": "100",
-            },
-        )
         try:
-            response.raise_for_status()
+            response = client.get(
+                url,
+                params={
+                    "advertiser_id": advertiser_id,
+                    "page": str(page),
+                    "page_size": "100",
+                },
+            )
         except req.HTTPError as e:
             skip_or_raise(e, url)
             return
@@ -684,9 +674,8 @@ def report(
                 "page_size": "1000",
             }
             report_url = f"{base_url}/report/integrated/get/"
-            response = client.get(report_url, params=params)
             try:
-                response.raise_for_status()
+                response = client.get(report_url, params=params)
             except req.HTTPError as e:
                 # report carries the primary fact data: a failed fetch must
                 # fail the pipeline instead of silently truncating the load.

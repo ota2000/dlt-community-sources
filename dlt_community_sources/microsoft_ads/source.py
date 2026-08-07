@@ -18,6 +18,9 @@ from typing import Optional, Sequence
 
 import dlt
 from dlt.sources import DltResource
+from dlt.sources.helpers import requests as req
+
+from dlt_community_sources._utils import primary_error_from_http
 
 from .resources.ad_insight import ALL_AD_INSIGHT_RESOURCES
 from .resources.campaign_management import ALL_CAMPAIGN_MGMT_RESOURCES
@@ -48,12 +51,15 @@ def discover_accounts(
     client = make_client(access_token, developer_token, customer_id, "")
     # skip_client_errors=False: a 4xx here means the whole account discovery
     # failed — silently returning [] would make the job "succeed" doing nothing.
-    data = post_rpc(
-        client,
-        f"{CUSTOMER_MGMT_URL}/AccountsInfo/Query",
-        {},
-        skip_client_errors=False,
-    )
+    try:
+        data = post_rpc(
+            client,
+            f"{CUSTOMER_MGMT_URL}/AccountsInfo/Query",
+            {},
+            skip_client_errors=False,
+        )
+    except req.HTTPError as e:
+        raise primary_error_from_http(e, "account discovery failed") from e
     accounts = data.get("AccountsInfo") or []
     return [
         {"id": str(a["Id"]), "name": a.get("Name", ""), "number": a.get("Number", "")}

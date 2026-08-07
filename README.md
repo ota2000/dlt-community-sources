@@ -75,20 +75,22 @@ Sources distinguish two kinds of resources:
   logged with the response body.
 - **Primary resources** (the fact data a source exists for: `report`,
   `insights`) never skip. Failures raise `PrimaryResourceTerminalError`
-  (request rejected — retrying will not help) or
-  `PrimaryResourceTransientError` (timeout, provider-side job failure), so a
-  load never "succeeds" with silently missing data. Both mix in dlt's
-  `TerminalException` / `TransientException`, which means
-  [`dlt.pipeline.helpers.retry_load`](https://dlthub.com/docs/running-in-production/running)
-  makes the right retry decision out of the box:
+  (request rejected — retrying will not help; 4xx other than 408/429) or
+  `PrimaryResourceTransientError` (timeout, rate limit, provider-side job
+  failure), so a load never "succeeds" with silently missing data. Both mix
+  in dlt's `TerminalException` / `TransientException`. Note that dlt wraps
+  resource exceptions in `PipelineStepFailed` / `ResourceExtractionError`,
+  so retry helpers that inspect only one level (such as
+  `dlt.pipeline.helpers.retry_load`) cannot see the classification — use
+  `contains_terminal_exception`, which walks the exception chain:
 
 ```python
 from tenacity import Retrying, retry_if_exception, stop_after_attempt
-from dlt.pipeline.helpers import retry_load
+from dlt_community_sources._utils import contains_terminal_exception
 
 for attempt in Retrying(
     stop=stop_after_attempt(3),
-    retry=retry_if_exception(retry_load(("extract", "load"))),
+    retry=retry_if_exception(lambda e: not contains_terminal_exception(e)),
     reraise=True,
 ):
     with attempt:

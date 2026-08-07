@@ -252,10 +252,14 @@ def _download_gzip_tsv(client: req.Client, url: str) -> list[dict]:
     """Download a gzip-compressed TSV and parse it."""
     try:
         response = client.get(url)
-        response.raise_for_status()
+    except req.HTTPError as e:
+        # 400/403/404 skip with the body logged; 5xx and others propagate
+        skip_or_raise(e, url)
+        return []
+    try:
         text = gzip.decompress(response.content).decode("utf-8")
-    except (req.HTTPError, gzip.BadGzipFile, UnicodeDecodeError) as e:
-        logger.warning("Failed to download/decompress TSV from %s: %s", url, e)
+    except (gzip.BadGzipFile, UnicodeDecodeError) as e:
+        logger.warning("Failed to decompress TSV from %s: %s", url, e)
         return []
     reader = csv.DictReader(io.StringIO(text), delimiter="\t")
     return list(reader)
