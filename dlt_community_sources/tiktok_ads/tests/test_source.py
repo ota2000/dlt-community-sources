@@ -802,7 +802,7 @@ class TestReport:
         client.get.assert_not_called()
 
     @patch("dlt_community_sources.tiktok_ads.source._make_client")
-    def test_api_error_stops(self, mock_make_client):
+    def test_api_error_raises(self, mock_make_client):
         from datetime import date, timedelta
 
         import dlt
@@ -811,20 +811,20 @@ class TestReport:
         mock_make_client.return_value = client
         client.get.return_value = _mock_response({"code": 40001, "message": "err"})
         yesterday = (date.today() - timedelta(days=1)).isoformat()
-        results = list(
-            report(
-                access_token="tok",
-                advertiser_id="123",
-                attribution_window_days=0,
-                last_date=dlt.sources.incremental(
-                    "stat_time_day", initial_value=yesterday
-                ),
+        with pytest.raises(Exception, match="code=40001"):
+            list(
+                report(
+                    access_token="tok",
+                    advertiser_id="123",
+                    attribution_window_days=0,
+                    last_date=dlt.sources.incremental(
+                        "stat_time_day", initial_value=yesterday
+                    ),
+                )
             )
-        )
-        assert results == []
 
     @patch("dlt_community_sources.tiktok_ads.source._make_client")
-    def test_http_403_skipped(self, mock_make_client):
+    def test_http_403_raises(self, mock_make_client):
         from datetime import date, timedelta
 
         import dlt
@@ -833,17 +833,17 @@ class TestReport:
         mock_make_client.return_value = client
         client.get.return_value.raise_for_status.side_effect = _mock_http_error(403)
         yesterday = (date.today() - timedelta(days=1)).isoformat()
-        results = list(
-            report(
-                access_token="tok",
-                advertiser_id="123",
-                attribution_window_days=0,
-                last_date=dlt.sources.incremental(
-                    "stat_time_day", initial_value=yesterday
-                ),
+        with pytest.raises(Exception, match="HTTP 403"):
+            list(
+                report(
+                    access_token="tok",
+                    advertiser_id="123",
+                    attribution_window_days=0,
+                    last_date=dlt.sources.incremental(
+                        "stat_time_day", initial_value=yesterday
+                    ),
+                )
             )
-        )
-        assert results == []
 
     @patch("dlt_community_sources.tiktok_ads.source._make_client")
     def test_empty_list_stops(self, mock_make_client):
