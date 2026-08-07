@@ -137,7 +137,9 @@ def microsoft_ads_source(
     report_resource.apply_hints(primary_key=pk)
     all_resources.append(report_resource)
 
-    all_resources = wrap_resources_safe(all_resources)
+    # report carries the primary fact data: its errors must fail the
+    # pipeline instead of being skipped like auxiliary metadata resources.
+    all_resources = wrap_resources_safe(all_resources, critical=("report",))
 
     if resources:
         return [r for r in all_resources if r.name in resources]
