@@ -11,7 +11,7 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import EndpointResource, RESTAPIConfig
 
-from dlt_community_sources._utils import primary_error_from_http, skip_or_raise
+from dlt_community_sources._utils import primary_error_from_request, skip_or_raise
 
 logger = logging.getLogger(__name__)
 
@@ -195,10 +195,12 @@ def nextdns_source(
         # A discovery failure must not silently yield zero profiles — every
         # per-profile resource would load nothing while the job "succeeds".
         try:
-            for p in _get_paginated(client, "profiles", base_url=url):
+            for p in _get_paginated(
+                client, "profiles", base_url=url, skip_client_errors=False
+            ):
                 profile_ids.append(p["id"])
-        except req.HTTPError as e:
-            raise primary_error_from_http(e, "profile discovery failed") from e
+        except req.RequestException as e:
+            raise primary_error_from_request(e, "profile discovery failed") from e
 
     # Custom resources (can't be done via rest_api)
     custom_resources = [
@@ -256,19 +258,26 @@ def _get_paginated(
     path: str,
     params: Optional[dict] = None,
     base_url: str = DEFAULT_BASE_URL,
+    *,
+    skip_client_errors: bool = True,
 ) -> Generator[dict, None, None]:
-    """Fetch all pages using cursor-based pagination."""
+    """Fetch all pages using cursor-based pagination.
+
+    Pass ``skip_client_errors=False`` when a client error must propagate
+    to the caller (e.g. profile discovery, where a skipped 403 would
+    silently yield zero profiles and the job would "succeed" empty).
+    """
     if params is None:
         params = {}
     url = f"{base_url}/{path}"
     while True:
         try:
             response = client.get(url, params=params)
-            response.raise_for_status()
         except req.HTTPError as e:
+            if not skip_client_errors:
+                raise
             skip_or_raise(e, path)
             return
-            raise
         data = response.json()
         yield from data.get("data", [])
         cursor = data.get("meta", {}).get("pagination", {}).get("cursor")

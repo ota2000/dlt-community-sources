@@ -20,7 +20,7 @@ import dlt
 from dlt.sources import DltResource
 from dlt.sources.helpers import requests as req
 
-from dlt_community_sources._utils import primary_error_from_http
+from dlt_community_sources._utils import primary_error_from_request
 
 from .resources.ad_insight import ALL_AD_INSIGHT_RESOURCES
 from .resources.campaign_management import ALL_CAMPAIGN_MGMT_RESOURCES
@@ -58,8 +58,8 @@ def discover_accounts(
             {},
             skip_client_errors=False,
         )
-    except req.HTTPError as e:
-        raise primary_error_from_http(e, "account discovery failed") from e
+    except req.RequestException as e:
+        raise primary_error_from_request(e, "account discovery failed") from e
     accounts = data.get("AccountsInfo") or []
     return [
         {"id": str(a["Id"]), "name": a.get("Name", ""), "number": a.get("Number", "")}

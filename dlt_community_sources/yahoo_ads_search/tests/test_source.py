@@ -46,7 +46,7 @@ def _mock_response(json_data, status_code=200):
 
 
 class TestRefreshAccessToken:
-    @patch("dlt_community_sources.yahoo_ads_common.auth.requests.post")
+    @patch("dlt_community_sources.yahoo_ads_common.auth.req.post")
     def test_success(self, mock_post):
         mock_post.return_value = _mock_response(
             {"access_token": "new_at", "token_type": "Bearer", "expires_in": 3600}
@@ -57,11 +57,10 @@ class TestRefreshAccessToken:
         assert call_kwargs[1]["data"]["grant_type"] == "refresh_token"
         assert call_kwargs[1]["data"]["client_id"] == "cid"
 
-    @patch("dlt_community_sources.yahoo_ads_common.auth.requests.post")
+    @patch("dlt_community_sources.yahoo_ads_common.auth.req.post")
     def test_error_raises(self, mock_post):
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status.side_effect = Exception("HTTP 400")
-        mock_post.return_value = mock_resp
+        # dlt クライアントは呼び出し内部で raise する
+        mock_post.side_effect = Exception("HTTP 400")
         with pytest.raises(Exception, match="HTTP 400"):
             refresh_access_token("cid", "cs", "bad_rt")
 

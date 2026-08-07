@@ -15,7 +15,7 @@ from dlt.sources.rest_api.typing import RESTAPIConfig
 
 from dlt_community_sources._utils import (
     PrimaryResourceTerminalError,
-    primary_error_from_http,
+    primary_error_from_request,
     skip_or_raise,
 )
 
@@ -223,8 +223,8 @@ def discover_advertisers(
     url = f"{base_url}/oauth2/advertiser/get/"
     try:
         response = client.get(url, params={"app_id": app_id, "secret": secret})
-    except req.HTTPError as e:
-        raise primary_error_from_http(e, "advertiser discovery failed") from e
+    except req.RequestException as e:
+        raise primary_error_from_request(e, "advertiser discovery failed") from e
     data = response.json()
     if data.get("code", -1) != 0:
         # A discovery failure must not silently yield zero advertisers —
@@ -676,10 +676,10 @@ def report(
             report_url = f"{base_url}/report/integrated/get/"
             try:
                 response = client.get(report_url, params=params)
-            except req.HTTPError as e:
+            except req.RequestException as e:
                 # report carries the primary fact data: a failed fetch must
                 # fail the pipeline instead of silently truncating the load.
-                raise primary_error_from_http(
+                raise primary_error_from_request(
                     e, f"report fetch failed for advertiser {advertiser_id}"
                 ) from e
             data = response.json()

@@ -100,6 +100,29 @@ for attempt in Retrying(
 To load a subset of resources, either pass the source-specific `resources`
 argument or use dlt's native selection: `source.with_resources("report")`.
 
+## Operating in production
+
+Lessons from running these sources on daily schedules:
+
+- **Isolate failures per account.** When one runner processes many
+  accounts/advertisers (one `dlt.pipeline` per account), wrap each account —
+  and each discovery call — in its own try/except, collect failures, and exit
+  non-zero at the end. A single account's terminal failure (e.g. an account
+  put on hold by the provider) should not abort the remaining accounts, and
+  one discovery failure (e.g. an MCC your API user is not invited to yet)
+  should not kill the whole job.
+- **Tune connection retries for your network.** dlt's requests client retries
+  `ConnectionError`/`Timeout` with `request_max_attempts=5` and
+  `request_backoff_factor=1` by default — it gives up in roughly fifteen
+  seconds. If your egress path has transient blackouts, raise them via dlt
+  config (environment variables `RUNTIME__REQUEST_MAX_ATTEMPTS`,
+  `RUNTIME__REQUEST_BACKOFF_FACTOR`, `RUNTIME__REQUEST_MAX_RETRY_DELAY`).
+- **Alert on job failures.** With this library's fail-loud behavior, data
+  loss shows up as a non-zero exit instead of a green run with missing rows —
+  but only if something watches the exit status. Wire your scheduler's
+  failure signal (e.g. Cloud Run Job `completed_execution_count{result:failed}`)
+  to an alert before relying on it.
+
 ## Development
 
 ```bash

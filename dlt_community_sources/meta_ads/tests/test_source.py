@@ -15,7 +15,6 @@ from dlt_community_sources.meta_ads.source import (
     INSIGHT_FLOAT_FIELDS,
     INSIGHT_INT_FIELDS,
     INSIGHTS_PRIMARY_KEYS,
-    POLL_INTERVAL_SECONDS,
     _convert_insight_types,
     _get_paginated,
     _make_client,
@@ -311,38 +310,14 @@ class TestPollReport:
         mock_sleep.assert_not_called()
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_429_retry_with_retry_after(self, mock_sleep):
-        """429 response triggers wait using Retry-After header, then succeeds."""
+    def test_429_exhausted_classifies_transient(self, mock_sleep):
+        """429 exhausted inside the dlt client classifies as transient."""
         client = self._client()
-        err_resp = _mock_response(
-            status_code=429,
-            headers={"Retry-After": "5"},
-            raise_for_status_error=True,
-        )
-        ok_resp = _mock_response(
-            json_data={"async_status": "Job Completed", "async_percent_completion": 100}
-        )
-        client.get = MagicMock(side_effect=[err_resp, ok_resp])
+        err = _mock_response(status_code=429, raise_for_status_error=True)
+        client.get = MagicMock(side_effect=err.raise_for_status.side_effect)
 
-        assert _poll_report(client, "run_123", DEFAULT_BASE_URL) is True
-        mock_sleep.assert_any_call(5)
-
-    @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_429_retry_exponential_backoff(self, mock_sleep):
-        """Multiple 429s use exponential backoff when no Retry-After header."""
-        client = self._client()
-        err_resp1 = _mock_response(status_code=429, raise_for_status_error=True)
-        err_resp2 = _mock_response(status_code=429, raise_for_status_error=True)
-        ok_resp = _mock_response(
-            json_data={"async_status": "Job Completed", "async_percent_completion": 100}
-        )
-        client.get = MagicMock(side_effect=[err_resp1, err_resp2, ok_resp])
-
-        assert _poll_report(client, "run_123", DEFAULT_BASE_URL) is True
-        # First backoff: POLL_INTERVAL_SECONDS, second: POLL_INTERVAL_SECONDS * 2
-        sleep_calls = [c.args[0] for c in mock_sleep.call_args_list]
-        assert sleep_calls[0] == POLL_INTERVAL_SECONDS
-        assert sleep_calls[1] == POLL_INTERVAL_SECONDS * 2
+        with pytest.raises(PrimaryResourceError, match="poll failed"):
+            _poll_report(client, "run_123", DEFAULT_BASE_URL)
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
     def test_timeout_raises(self, mock_sleep):
@@ -386,13 +361,12 @@ class TestPollReport:
             _poll_report(client, "run_123", DEFAULT_BASE_URL)
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_non_429_error_raised(self, mock_sleep):
-        """Non-429 HTTP errors are re-raised."""
+    def test_http_error_classified(self, mock_sleep):
+        """HTTP errors raised at the call are classified by status."""
         client = self._client()
-        resp = _mock_response(status_code=500, raise_for_status_error=True)
-        client.get = MagicMock(return_value=resp)
-
-        with pytest.raises(req.HTTPError):
+        resp_500 = _mock_response(status_code=500, raise_for_status_error=True)
+        client.get = MagicMock(side_effect=resp_500.raise_for_status.side_effect)
+        with pytest.raises(PrimaryResourceError, match="poll failed"):
             _poll_report(client, "run_123", DEFAULT_BASE_URL)
 
 
@@ -442,7 +416,7 @@ class TestGetPaginated:
         """403 response skips and returns no data."""
         client = self._client()
         resp = _mock_response(status_code=403, raise_for_status_error=True)
-        client.get = MagicMock(return_value=resp)
+        client.get = MagicMock(side_effect=resp.raise_for_status.side_effect)
 
         results = list(_get_paginated(client, "https://example.com/data"))
         assert results == []
@@ -452,38 +426,34 @@ class TestGetPaginated:
         """404 response skips and returns no data."""
         client = self._client()
         resp = _mock_response(status_code=404, raise_for_status_error=True)
-        client.get = MagicMock(return_value=resp)
+        client.get = MagicMock(side_effect=resp.raise_for_status.side_effect)
 
         results = list(_get_paginated(client, "https://example.com/data"))
         assert results == []
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_429_retry_then_success(self, mock_sleep):
-        """429 triggers retry, then succeeds."""
-        client = self._client()
-        err_resp = _mock_response(
-            status_code=429,
-            headers={"Retry-After": "3"},
-            raise_for_status_error=True,
-        )
-        ok_resp = _mock_response(json_data={"data": [{"id": "1"}], "paging": {}})
-        client.get = MagicMock(side_effect=[err_resp, ok_resp])
-
-        results = list(_get_paginated(client, "https://example.com/data"))
-        assert results == [{"id": "1"}]
-        mock_sleep.assert_any_call(3)
-
-    @patch("dlt_community_sources.meta_ads.source.time.sleep")
-    def test_429_max_retries_exceeded(self, mock_sleep):
-        """429 exceeding max_retries raises HTTPError."""
+    def test_429_exhausted_raises_on_auxiliary(self, mock_sleep):
+        """429 exhausted inside the dlt client propagates on auxiliary paths."""
         client = self._client()
         err_resp = _mock_response(status_code=429, raise_for_status_error=True)
-        client.get = MagicMock(return_value=err_resp)
+        client.get = MagicMock(side_effect=err_resp.raise_for_status.side_effect)
 
         with pytest.raises(req.HTTPError):
-            list(_get_paginated(client, "https://example.com/data", max_retries=2))
-        # 1 initial + 2 retries = 3 calls
-        assert client.get.call_count == 3
+            list(_get_paginated(client, "https://example.com/data"))
+
+    @patch("dlt_community_sources.meta_ads.source.time.sleep")
+    def test_429_exhausted_classifies_transient_on_primary(self, mock_sleep):
+        """429 exhausted classifies as transient on primary paths."""
+        client = self._client()
+        err_resp = _mock_response(status_code=429, raise_for_status_error=True)
+        client.get = MagicMock(side_effect=err_resp.raise_for_status.side_effect)
+
+        with pytest.raises(PrimaryResourceError, match="request failed"):
+            list(
+                _get_paginated(
+                    client, "https://example.com/data", skip_client_errors=False
+                )
+            )
 
     @patch("dlt_community_sources.meta_ads.source.time.sleep")
     def test_empty_response(self, mock_sleep):
@@ -500,7 +470,7 @@ class TestGetPaginated:
         """Non-retryable errors are raised immediately."""
         client = self._client()
         resp = _mock_response(status_code=500, raise_for_status_error=True)
-        client.get = MagicMock(return_value=resp)
+        client.get = MagicMock(side_effect=resp.raise_for_status.side_effect)
 
         with pytest.raises(req.HTTPError):
             list(_get_paginated(client, "https://example.com/data"))
@@ -850,7 +820,7 @@ class TestDiscoverAccounts:
         client = MagicMock()
         mock_make_client.return_value = client
         resp = _mock_response(status_code=400, raise_for_status_error=True)
-        client.get = MagicMock(return_value=resp)
+        client.get = MagicMock(side_effect=resp.raise_for_status.side_effect)
 
         with pytest.raises(PrimaryResourceError, match="request failed"):
             discover_accounts("fake_token")
