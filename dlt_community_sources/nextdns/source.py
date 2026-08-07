@@ -11,7 +11,7 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import EndpointResource, RESTAPIConfig
 
-from dlt_community_sources._utils import primary_error_from_http, skip_or_raise
+from dlt_community_sources._utils import primary_error_from_request, skip_or_raise
 
 logger = logging.getLogger(__name__)
 
@@ -197,8 +197,8 @@ def nextdns_source(
         try:
             for p in _get_paginated(client, "profiles", base_url=url):
                 profile_ids.append(p["id"])
-        except req.HTTPError as e:
-            raise primary_error_from_http(e, "profile discovery failed") from e
+        except req.RequestException as e:
+            raise primary_error_from_request(e, "profile discovery failed") from e
 
     # Custom resources (can't be done via rest_api)
     custom_resources = [

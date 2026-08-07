@@ -20,7 +20,7 @@ from dlt.sources.helpers import requests as req
 from dlt_community_sources._utils import (
     PrimaryResourceTerminalError,
     PrimaryResourceTransientError,
-    primary_error_from_http,
+    primary_error_from_request,
     skip_or_raise,
 )
 
@@ -235,10 +235,10 @@ def discover_accounts(
         url = f"{base_url}/AccountService/get"
         try:
             data = post_rpc(client, url, body)
-        except req.HTTPError as e:
+        except req.RequestException as e:
             # e.g. 401 when the API user is not linked to this MCC — without
             # the response body this is undiagnosable from logs.
-            raise primary_error_from_http(e, "account discovery failed") from e
+            raise primary_error_from_request(e, "account discovery failed") from e
         rval = data.get("rval", {})
         total = rval.get("totalNumEntries", 0)
         values = rval.get("values", [])
@@ -411,8 +411,8 @@ def submit_report(
     url = f"{base_url}/ReportDefinitionService/add"
     try:
         data = post_rpc(client, url, body)
-    except req.HTTPError as e:
-        raise primary_error_from_http(
+    except req.RequestException as e:
+        raise primary_error_from_request(
             e, f"report submit failed for account {account_id}"
         ) from e
     values = data.get("rval", {}).get("values", [])
@@ -455,8 +455,8 @@ def poll_report(
         url = f"{base_url}/ReportDefinitionService/get"
         try:
             data = post_rpc(client, url, body)
-        except req.HTTPError as e:
-            raise primary_error_from_http(
+        except req.RequestException as e:
+            raise primary_error_from_request(
                 e, f"report {report_job_id} poll failed"
             ) from e
         values = data.get("rval", {}).get("values", [])
@@ -505,8 +505,8 @@ def download_report(
             f"{base_url}/ReportDefinitionService/download",
             json=body,
         )
-    except req.HTTPError as e:
-        raise primary_error_from_http(
+    except req.RequestException as e:
+        raise primary_error_from_request(
             e, f"report {report_job_id} download failed for account {account_id}"
         ) from e
     text = response.text

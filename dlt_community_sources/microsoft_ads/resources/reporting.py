@@ -19,7 +19,7 @@ from dlt.sources.helpers import requests as req
 from dlt_community_sources._utils import (
     PrimaryResourceTerminalError,
     PrimaryResourceTransientError,
-    primary_error_from_http,
+    primary_error_from_request,
 )
 
 from .helpers import (
@@ -210,8 +210,8 @@ def _submit_report(
     url = f"{base_url}/GenerateReport/Submit"
     try:
         data = post_rpc(client, url, body, skip_client_errors=False)
-    except req.HTTPError as e:
-        raise primary_error_from_http(
+    except req.RequestException as e:
+        raise primary_error_from_request(
             e, f"report submit failed for account {account_id}"
         ) from e
     request_id = data.get("ReportRequestId")
@@ -244,8 +244,10 @@ def _poll_report(
                 {"ReportRequestId": request_id},
                 skip_client_errors=False,
             )
-        except req.HTTPError as e:
-            raise primary_error_from_http(e, f"report {request_id} poll failed") from e
+        except req.RequestException as e:
+            raise primary_error_from_request(
+                e, f"report {request_id} poll failed"
+            ) from e
         status_obj = data.get("ReportRequestStatus", {})
         status = status_obj.get("Status")
         logger.info("Report %s: status=%s", request_id, status)

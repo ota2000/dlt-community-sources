@@ -123,3 +123,30 @@ class TestContainsTerminalException:
         from dlt_community_sources._utils import contains_terminal_exception
 
         assert not contains_terminal_exception(RuntimeError("x"))
+
+
+class TestPrimaryErrorFromRequest:
+    def test_http_error_classifies_by_status(self):
+        from dlt_community_sources._utils import primary_error_from_request
+
+        err = primary_error_from_request(_http_error(403, "denied"), "ctx")
+        assert isinstance(err, PrimaryResourceTerminalError)
+
+    def test_connection_error_is_transient(self):
+        from dlt.sources.helpers.requests import ConnectionError as ReqConnectionError
+
+        from dlt_community_sources._utils import primary_error_from_request
+
+        err = primary_error_from_request(
+            ReqConnectionError("[Errno 113] No route to host"), "ctx"
+        )
+        assert isinstance(err, PrimaryResourceTransientError)
+        assert "No route to host" in str(err)
+
+    def test_timeout_is_transient(self):
+        from dlt.sources.helpers.requests import Timeout
+
+        from dlt_community_sources._utils import primary_error_from_request
+
+        err = primary_error_from_request(Timeout("timed out"), "ctx")
+        assert isinstance(err, PrimaryResourceTransientError)

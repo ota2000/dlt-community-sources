@@ -17,7 +17,7 @@ from dlt.sources.rest_api.typing import RESTAPIConfig
 from dlt_community_sources._utils import (
     PrimaryResourceTerminalError,
     PrimaryResourceTransientError,
-    primary_error_from_http,
+    primary_error_from_request,
     response_snippet,
 )
 
@@ -805,13 +805,15 @@ def _get_paginated(
                 response = client.get(url)
                 response.raise_for_status()
                 break  # success
-            except req.HTTPError as e:
+            except req.RequestException as e:
                 is_rate_limited = (
                     e.response is not None and e.response.status_code == 429
                 )
                 if not skip_client_errors and not is_rate_limited:
                     # Primary data: classify every failure, not just 400/403/404
-                    raise primary_error_from_http(e, f"request failed for {url}") from e
+                    raise primary_error_from_request(
+                        e, f"request failed for {url}"
+                    ) from e
                 if e.response is not None and e.response.status_code in (
                     400,
                     403,
@@ -953,8 +955,10 @@ def insights(
             f"{base_url}/{act_id}/insights",
             data=request_data,
         )
-    except req.HTTPError as e:
-        raise primary_error_from_http(e, f"insights submit failed for {act_id}") from e
+    except req.RequestException as e:
+        raise primary_error_from_request(
+            e, f"insights submit failed for {act_id}"
+        ) from e
     report_run_id = response.json().get("report_run_id")
 
     if not report_run_id:

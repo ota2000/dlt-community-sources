@@ -17,7 +17,7 @@ Error-handling policy (see also the Error Handling section in .ai/rules.md):
 import logging
 
 from dlt.common.exceptions import TerminalException, TransientException
-from dlt.sources.helpers.requests import HTTPError, Response
+from dlt.sources.helpers.requests import HTTPError, RequestException, Response
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,22 @@ def primary_error_from_http(e: HTTPError, message: str) -> PrimaryResourceError:
     if status is not None and 400 <= status < 500 and status not in (408, 429):
         return PrimaryResourceTerminalError(detail)
     return PrimaryResourceTransientError(detail)
+
+
+def primary_error_from_request(
+    e: RequestException, message: str
+) -> PrimaryResourceError:
+    """Classify any requests exception on a primary-data path.
+
+    HTTP errors classify by status via ``primary_error_from_http``.
+    Everything else (connection errors and timeouts that survived the
+    client's built-in retries — e.g. ``[Errno 113] No route to host``)
+    is transient: the request never reached the API, so retrying later
+    can succeed.
+    """
+    if isinstance(e, HTTPError):
+        return primary_error_from_http(e, message)
+    return PrimaryResourceTransientError(f"{message}: {type(e).__name__}: {e}")
 
 
 def contains_terminal_exception(exc: BaseException) -> bool:
