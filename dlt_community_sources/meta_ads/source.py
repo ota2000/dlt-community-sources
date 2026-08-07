@@ -948,18 +948,10 @@ def insights(
         data=request_data,
     )
     if response.status_code != 200:
-        error_body = (
-            response.json()
-            if response.headers.get("content-type", "").startswith("application/json")
-            else response.text
+        raise PrimaryResourceError(
+            f"insights submit failed for {act_id}: "
+            f"HTTP {response.status_code} body={response_snippet(response)}"
         )
-        logger.warning(
-            "insights submit failed: %d %s for %s",
-            response.status_code,
-            error_body,
-            act_id,
-        )
-        response.raise_for_status()
     report_run_id = response.json().get("report_run_id")
 
     if not report_run_id:

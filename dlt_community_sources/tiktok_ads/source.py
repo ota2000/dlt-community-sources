@@ -705,7 +705,8 @@ def report(
                     report_metrics = [m for m in report_metrics if m not in invalid]
                     metrics_validated = True
                     continue  # retry with cleaned metrics
-                break
+                # Unparseable 40002 message: fall through to _check_response,
+                # which raises PrimaryResourceError with code and message.
             metrics_validated = True
 
             if not _check_response(

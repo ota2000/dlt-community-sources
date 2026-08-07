@@ -17,7 +17,7 @@ from typing import Optional
 
 from dlt.sources.helpers import requests as req
 
-from dlt_community_sources._utils import PrimaryResourceError
+from dlt_community_sources._utils import PrimaryResourceError, response_snippet
 
 logger = logging.getLogger(__name__)
 
@@ -403,7 +403,15 @@ def submit_report(
             }
         ],
     }
-    data = post_rpc(client, f"{base_url}/ReportDefinitionService/add", body)
+    url = f"{base_url}/ReportDefinitionService/add"
+    try:
+        data = post_rpc(client, url, body)
+    except req.HTTPError as e:
+        status = e.response.status_code if e.response is not None else "?"
+        raise PrimaryResourceError(
+            f"report submit failed for account {account_id}: "
+            f"HTTP {status} body={response_snippet(e.response)}"
+        ) from e
     values = data.get("rval", {}).get("values", [])
     if not values:
         raise PrimaryResourceError(
@@ -417,7 +425,7 @@ def submit_report(
         )
     report_def = entry.get("reportDefinition") or {}
     report_job_id = report_def.get("reportJobId")
-    if not report_job_id:
+    if report_job_id is None:
         raise PrimaryResourceError(
             f"report submit for account {account_id} returned no reportJobId: {entry}"
         )
@@ -441,12 +449,24 @@ def poll_report(
             "accountId": int(account_id),
             "reportJobIds": [report_job_id],
         }
-        data = post_rpc(client, f"{base_url}/ReportDefinitionService/get", body)
+        url = f"{base_url}/ReportDefinitionService/get"
+        try:
+            data = post_rpc(client, url, body)
+        except req.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            raise PrimaryResourceError(
+                f"report {report_job_id} poll failed: "
+                f"HTTP {status} body={response_snippet(e.response)}"
+            ) from e
         values = data.get("rval", {}).get("values", [])
         if not values:
-            raise PrimaryResourceError(
-                f"report {report_job_id} poll returned no values: {data}"
-            )
+            # The get right after submit can be transiently empty due to
+            # eventual consistency. Keep polling within the window; the
+            # timeout below fails the run if it never appears.
+            logger.info("Report %s: no values yet", report_job_id)
+            time.sleep(POLL_INTERVAL_SECONDS)
+            elapsed += POLL_INTERVAL_SECONDS
+            continue
         report_def = values[0].get("reportDefinition", {})
         status = report_def.get("reportJobStatus")
         logger.info("Report %s: status=%s", report_job_id, status)

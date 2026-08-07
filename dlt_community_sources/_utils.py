@@ -75,7 +75,15 @@ def wrap_resources_safe(
     Resources named in *critical* are returned unwrapped: they carry the
     primary data of the source, so even client errors must propagate and
     fail the pipeline instead of producing a silent partial load.
+
+    Raises ValueError when a *critical* name matches no resource: a typo or
+    a renamed resource would otherwise silently re-enable the skip behavior
+    for the primary data.
     """
+    names = {r.name for r in resources}
+    missing = set(critical) - names
+    if missing:
+        raise ValueError(f"critical resource(s) not found in source: {sorted(missing)}")
     for r in resources:
         if r.name in critical:
             continue

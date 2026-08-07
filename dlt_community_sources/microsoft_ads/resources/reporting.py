@@ -235,12 +235,19 @@ def _poll_report(
     """
     elapsed = 0
     while elapsed < POLL_MAX_WAIT_SECONDS:
-        data = post_rpc(
-            client,
-            f"{base_url}/GenerateReport/Poll",
-            {"ReportRequestId": request_id},
-            skip_client_errors=False,
-        )
+        try:
+            data = post_rpc(
+                client,
+                f"{base_url}/GenerateReport/Poll",
+                {"ReportRequestId": request_id},
+                skip_client_errors=False,
+            )
+        except req.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            raise PrimaryResourceError(
+                f"report {request_id} poll failed: "
+                f"HTTP {status} body={response_snippet(e.response)}"
+            ) from e
         status_obj = data.get("ReportRequestStatus", {})
         status = status_obj.get("Status")
         logger.info("Report %s: status=%s", request_id, status)
