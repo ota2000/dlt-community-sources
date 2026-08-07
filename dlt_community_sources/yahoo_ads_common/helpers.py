@@ -17,7 +17,11 @@ from typing import Optional
 
 from dlt.sources.helpers import requests as req
 
-from dlt_community_sources._utils import PrimaryResourceError, response_snippet
+from dlt_community_sources._utils import (
+    PrimaryResourceTerminalError,
+    PrimaryResourceTransientError,
+    primary_error_from_http,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -407,26 +411,24 @@ def submit_report(
     try:
         data = post_rpc(client, url, body)
     except req.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "?"
-        raise PrimaryResourceError(
-            f"report submit failed for account {account_id}: "
-            f"HTTP {status} body={response_snippet(e.response)}"
+        raise primary_error_from_http(
+            e, f"report submit failed for account {account_id}"
         ) from e
     values = data.get("rval", {}).get("values", [])
     if not values:
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"report submit for account {account_id} returned no values: {data}"
         )
     entry = values[0]
     if not entry.get("operationSucceeded"):
         errors = entry.get("errors", [])
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"report submit failed for account {account_id}: {errors}"
         )
     report_def = entry.get("reportDefinition") or {}
     report_job_id = report_def.get("reportJobId")
     if report_job_id is None:
-        raise PrimaryResourceError(
+        raise PrimaryResourceTerminalError(
             f"report submit for account {account_id} returned no reportJobId: {entry}"
         )
     return report_job_id
@@ -453,10 +455,8 @@ def poll_report(
         try:
             data = post_rpc(client, url, body)
         except req.HTTPError as e:
-            status = e.response.status_code if e.response is not None else "?"
-            raise PrimaryResourceError(
-                f"report {report_job_id} poll failed: "
-                f"HTTP {status} body={response_snippet(e.response)}"
+            raise primary_error_from_http(
+                e, f"report {report_job_id} poll failed"
             ) from e
         values = data.get("rval", {}).get("values", [])
         if not values:
@@ -473,12 +473,12 @@ def poll_report(
         if status == "COMPLETED":
             return status
         if status in ("FAILED", "UNKNOWN"):
-            raise PrimaryResourceError(
+            raise PrimaryResourceTransientError(
                 f"report {report_job_id} failed with status {status}"
             )
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
-    raise PrimaryResourceError(
+    raise PrimaryResourceTransientError(
         f"report {report_job_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
     )
 
@@ -503,7 +503,12 @@ def download_report(
         f"{base_url}/ReportDefinitionService/download",
         json=body,
     )
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except req.HTTPError as e:
+        raise primary_error_from_http(
+            e, f"report {report_job_id} download failed for account {account_id}"
+        ) from e
     text = response.text
     reader = csv.DictReader(io.StringIO(text))
     for row in reader:

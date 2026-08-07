@@ -14,10 +14,9 @@ from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
 from dlt_community_sources._utils import (
-    PrimaryResourceError,
-    response_snippet,
+    PrimaryResourceTerminalError,
+    primary_error_from_http,
     skip_or_raise,
-    wrap_resources_safe,
 )
 
 logger = logging.getLogger(__name__)
@@ -688,10 +687,8 @@ def report(
             except req.HTTPError as e:
                 # report carries the primary fact data: a failed fetch must
                 # fail the pipeline instead of silently truncating the load.
-                status = e.response.status_code if e.response is not None else "?"
-                raise PrimaryResourceError(
-                    f"report fetch failed for advertiser {advertiser_id}: "
-                    f"HTTP {status} body={response_snippet(e.response)}"
+                raise primary_error_from_http(
+                    e, f"report fetch failed for advertiser {advertiser_id}"
                 ) from e
             data = response.json()
 
@@ -715,7 +712,7 @@ def report(
                 # TikTok reports errors as HTTP 200 + code != 0. For the
                 # primary report data, silently stopping here would produce
                 # a partial load that looks successful downstream.
-                raise PrimaryResourceError(
+                raise PrimaryResourceTerminalError(
                     f"report fetch failed for advertiser {advertiser_id}: "
                     f"code={data.get('code')} message={data.get('message')}"
                 )
@@ -825,10 +822,6 @@ def tiktok_ads_source(
             report_resource,
         ]
     )
-
-    # report carries the primary fact data: its errors must fail the
-    # pipeline instead of being skipped like auxiliary metadata resources.
-    all_resources = wrap_resources_safe(all_resources, critical=("report",))
 
     if resources:
         return [r for r in all_resources if r.name in resources]

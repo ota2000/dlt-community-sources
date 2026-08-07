@@ -11,7 +11,7 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import EndpointResource, RESTAPIConfig
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import skip_or_raise
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +230,6 @@ def nextdns_source(
 
     all_resources: list[DltResource] = rest_resources + custom_resources
 
-    all_resources = wrap_resources_safe(all_resources)
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
@@ -299,7 +298,11 @@ def _flatten_series(
 
     url = f"{base_url}/{path}"
     response = client.get(url, params=params)
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except req.HTTPError as e:
+        skip_or_raise(e, path)
+        return
     data = response.json()
 
     times = data.get("meta", {}).get("series", {}).get("times", [])

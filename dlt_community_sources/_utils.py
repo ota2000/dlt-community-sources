@@ -1,8 +1,21 @@
-"""Shared utilities for dlt-community-sources."""
+"""Shared utilities for dlt-community-sources.
+
+Error-handling policy (see also the Error Handling section in .ai/rules.md):
+
+- Auxiliary resources (metadata: campaigns, ads, audiences, ...) declare
+  expected client errors (400/403/404) at each call site with
+  ``skip_or_raise`` — mirroring the ``response_actions`` "ignore" pattern of
+  dlt's declarative rest_api sources. Everything else propagates.
+- Primary resources (the fact data a source exists for: ``report``,
+  ``insights``) never skip: failures raise ``PrimaryResourceError``
+  subclasses, which integrate with dlt's terminal/transient exception
+  taxonomy so ``dlt.pipeline.helpers.retry_load`` can make correct retry
+  decisions.
+"""
 
 import logging
 
-from dlt.sources import DltResource
+from dlt.common.exceptions import TerminalException, TransientException
 from dlt.sources.helpers.requests import HTTPError, Response
 
 logger = logging.getLogger(__name__)
@@ -23,8 +36,26 @@ class PrimaryResourceError(Exception):
     the load "succeeds" with missing data, which downstream consumers cannot
     detect.
 
-    Deliberately not a subclass of ``HTTPError`` so that it propagates
-    through ``wrap_resources_safe`` untouched.
+    Deliberately not a subclass of ``HTTPError`` so that per-endpoint skip
+    helpers never swallow it. Raise one of the concrete subclasses so dlt's
+    retry helpers can classify the failure.
+    """
+
+
+class PrimaryResourceTerminalError(PrimaryResourceError, TerminalException):
+    """Primary data fetch failed in a way that retrying will not fix.
+
+    Examples: the API rejected the request (4xx), or returned a
+    well-formed response without the expected payload. dlt's
+    ``retry_load`` will not retry these.
+    """
+
+
+class PrimaryResourceTransientError(PrimaryResourceError, TransientException):
+    """Primary data fetch failed in a way that may succeed on retry.
+
+    Examples: report job timed out, the provider reported a server-side
+    job failure, or the API returned 5xx after built-in retries.
     """
 
 
@@ -42,13 +73,28 @@ def response_snippet(response: "Response | None") -> str:
         return ""
 
 
+def primary_error_from_http(e: HTTPError, message: str) -> PrimaryResourceError:
+    """Build the right PrimaryResourceError subclass for an HTTP failure.
+
+    Client errors (4xx) are terminal — the request itself is rejected and
+    repeating it changes nothing. Anything else (5xx after built-in
+    retries, connection resets surfaced as HTTPError) is transient.
+    The response body is appended for diagnosability.
+    """
+    status = e.response.status_code if e.response is not None else None
+    detail = f"{message}: HTTP {status or '?'} body={response_snippet(e.response)}"
+    if status is not None and 400 <= status < 500:
+        return PrimaryResourceTerminalError(detail)
+    return PrimaryResourceTransientError(detail)
+
+
 def skip_or_raise(e: HTTPError, context: str) -> None:
     """Log-and-skip 400/403/404 client errors; re-raise everything else.
 
     Shared helper for auxiliary-resource fetchers: some APIs return 4xx for
     valid requests on accounts without certain features, which should not
     stop the pipeline. The response body is logged so the cause remains
-    diagnosable.
+    diagnosable. Never use this on primary resources.
     """
     if e.response is not None and e.response.status_code in _SKIP_STATUS_CODES:
         logger.warning(
@@ -59,46 +105,3 @@ def skip_or_raise(e: HTTPError, context: str) -> None:
         )
         return
     raise e
-
-
-def wrap_resources_safe(
-    resources: list[DltResource],
-    critical: tuple[str, ...] = (),
-) -> list[DltResource]:
-    """Wrap each resource's generator to catch and log expected errors.
-
-    Only skips resources that fail with HTTP 400/403/404 (no data, no
-    permission, not found). All other errors (429 after retries, 5xx,
-    connection errors) are raised to stop the pipeline, since they
-    indicate a real problem that should be investigated.
-
-    Resources named in *critical* are returned unwrapped: they carry the
-    primary data of the source, so even client errors must propagate and
-    fail the pipeline instead of producing a silent partial load.
-
-    Raises ValueError when a *critical* name matches no resource: a typo or
-    a renamed resource would otherwise silently re-enable the skip behavior
-    for the primary data.
-    """
-    names = {r.name for r in resources}
-    missing = set(critical) - names
-    if missing:
-        raise ValueError(f"critical resource(s) not found in source: {sorted(missing)}")
-    for r in resources:
-        if r.name in critical:
-            continue
-        gen = r._pipe.gen
-        if callable(gen):
-            resource_name = r.name
-
-            def _make_wrapper(gen_fn, name):
-                def wrapper(*args, **kwargs):
-                    try:
-                        yield from gen_fn(*args, **kwargs)
-                    except HTTPError as e:
-                        skip_or_raise(e, name)
-
-                return wrapper
-
-            r._pipe.replace_gen(_make_wrapper(gen, resource_name))
-    return resources
