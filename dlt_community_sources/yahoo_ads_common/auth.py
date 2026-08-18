@@ -6,7 +6,7 @@ Token endpoint: https://biz-oauth.yahoo.co.jp/oauth/v1/token
 
 import logging
 
-import requests
+from dlt.sources.helpers import requests as req
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,10 @@ def refresh_access_token(
     Returns:
         Dict with 'access_token', 'token_type', 'expires_in', etc.
     """
-    response = requests.post(
+    # dlt の requests クライアント経由にすることで、接続断・5xx・429 の
+    # リトライ（RUNTIME__REQUEST_* で調整可能）が効く。ジョブ起動直後の
+    # この1リクエストが素の requests だと、瞬断でジョブ全体が即死する。
+    response = req.post(
         YAHOO_TOKEN_URL,
         data={
             "grant_type": "refresh_token",
@@ -36,5 +39,4 @@ def refresh_access_token(
         },
         timeout=30,
     )
-    response.raise_for_status()
     return response.json()

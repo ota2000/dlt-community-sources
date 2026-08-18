@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 from dlt_community_sources.nextdns.source import _get_paginated, _make_client
@@ -45,13 +46,21 @@ def test_get_paginated_multiple_pages():
 
 
 def test_get_paginated_403_skip():
+    # dlt クライアントは .get() 内部で raise する
     session = MagicMock()
     error_resp = MagicMock()
     error_resp.status_code = 403
-    error_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
-        response=error_resp
-    )
-    session.get.return_value = error_resp
+    session.get.side_effect = requests.exceptions.HTTPError(response=error_resp)
 
     result = list(_get_paginated(session, "profiles/abc/logs"))
     assert result == []
+
+
+def test_get_paginated_403_raises_when_skip_disabled():
+    session = MagicMock()
+    error_resp = MagicMock()
+    error_resp.status_code = 403
+    session.get.side_effect = requests.exceptions.HTTPError(response=error_resp)
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        list(_get_paginated(session, "profiles", skip_client_errors=False))

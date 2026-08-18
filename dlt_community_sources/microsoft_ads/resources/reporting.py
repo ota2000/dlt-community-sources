@@ -16,6 +16,12 @@ import dlt
 import requests
 from dlt.sources.helpers import requests as req
 
+from dlt_community_sources._utils import (
+    PrimaryResourceTerminalError,
+    PrimaryResourceTransientError,
+    primary_error_from_request,
+)
+
 from .helpers import (
     POLL_INTERVAL_SECONDS,
     POLL_MAX_WAIT_SECONDS,
@@ -165,8 +171,13 @@ def _submit_report(
     end_date: str,
     aggregation: str = "Daily",
     base_url: str = REPORTING_URL,
-) -> Optional[str]:
-    """Submit a report request. Returns ReportRequestId or None."""
+) -> str:
+    """Submit a report request and return the ReportRequestId.
+
+    Raises PrimaryResourceError when the request fails or no request ID is
+    returned: the report is the primary data of this source, so a failed
+    submit must fail the pipeline instead of being skipped.
+    """
     start = date.fromisoformat(start_date)
     end_d = date.fromisoformat(end_date)
     body = {
@@ -196,8 +207,20 @@ def _submit_report(
             },
         }
     }
-    data = post_rpc(client, f"{base_url}/GenerateReport/Submit", body)
-    return data.get("ReportRequestId")
+    url = f"{base_url}/GenerateReport/Submit"
+    try:
+        data = post_rpc(client, url, body, skip_client_errors=False)
+    except req.RequestException as e:
+        raise primary_error_from_request(
+            e, f"report submit failed for account {account_id}"
+        ) from e
+    request_id = data.get("ReportRequestId")
+    if not request_id:
+        raise PrimaryResourceTerminalError(
+            f"report submit for account {account_id} returned no "
+            f"ReportRequestId: {data}"
+        )
+    return request_id
 
 
 def _poll_report(
@@ -205,24 +228,40 @@ def _poll_report(
     request_id: str,
     base_url: str = REPORTING_URL,
 ) -> Optional[str]:
-    """Poll report until completion. Returns download URL or None."""
+    """Poll report until completion. Returns the download URL.
+
+    Returns None only when the report completed successfully with no data
+    (the API then omits ReportDownloadUrl). Failure and timeout raise
+    PrimaryResourceError so the pipeline fails instead of silently
+    loading nothing.
+    """
     elapsed = 0
     while elapsed < POLL_MAX_WAIT_SECONDS:
-        data = post_rpc(
-            client, f"{base_url}/GenerateReport/Poll", {"ReportRequestId": request_id}
-        )
+        try:
+            data = post_rpc(
+                client,
+                f"{base_url}/GenerateReport/Poll",
+                {"ReportRequestId": request_id},
+                skip_client_errors=False,
+            )
+        except req.RequestException as e:
+            raise primary_error_from_request(
+                e, f"report {request_id} poll failed"
+            ) from e
         status_obj = data.get("ReportRequestStatus", {})
         status = status_obj.get("Status")
         logger.info("Report %s: status=%s", request_id, status)
         if status == "Success":
             return status_obj.get("ReportDownloadUrl")
         if status == "Error":
-            logger.warning("Report %s failed", request_id)
-            return None
+            raise PrimaryResourceTransientError(
+                f"report {request_id} failed: {status_obj}"
+            )
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
-    logger.warning("Report %s timed out", request_id)
-    return None
+    raise PrimaryResourceTransientError(
+        f"report {request_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
+    )
 
 
 def _download_csv_report(client: req.Client, url: str) -> Generator[dict, None, None]:
@@ -293,12 +332,11 @@ def report(
         aggregation,
         base_url,
     )
-    if not request_id:
-        logger.warning("report: no request ID returned")
-        return
 
     download_url = _poll_report(client, request_id, base_url)
     if not download_url:
+        # Success status without a download URL: report completed with no data
+        logger.info("report %s: completed with no data", request_id)
         return
 
     yield from _download_csv_report(client, download_url)

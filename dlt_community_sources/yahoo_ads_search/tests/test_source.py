@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from dlt_community_sources._utils import PrimaryResourceError
 from dlt_community_sources.yahoo_ads_common.auth import (
     YAHOO_TOKEN_URL,
     refresh_access_token,
@@ -45,7 +46,7 @@ def _mock_response(json_data, status_code=200):
 
 
 class TestRefreshAccessToken:
-    @patch("dlt_community_sources.yahoo_ads_common.auth.requests.post")
+    @patch("dlt_community_sources.yahoo_ads_common.auth.req.post")
     def test_success(self, mock_post):
         mock_post.return_value = _mock_response(
             {"access_token": "new_at", "token_type": "Bearer", "expires_in": 3600}
@@ -56,11 +57,10 @@ class TestRefreshAccessToken:
         assert call_kwargs[1]["data"]["grant_type"] == "refresh_token"
         assert call_kwargs[1]["data"]["client_id"] == "cid"
 
-    @patch("dlt_community_sources.yahoo_ads_common.auth.requests.post")
+    @patch("dlt_community_sources.yahoo_ads_common.auth.req.post")
     def test_error_raises(self, mock_post):
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status.side_effect = Exception("HTTP 400")
-        mock_post.return_value = mock_resp
+        # dlt クライアントは呼び出し内部で raise する
+        mock_post.side_effect = Exception("HTTP 400")
         with pytest.raises(Exception, match="HTTP 400"):
             refresh_access_token("cid", "cs", "bad_rt")
 
@@ -340,19 +340,19 @@ class TestSubmitReport:
         # Date format: YYYYMMDD (hyphens removed)
         assert call_body["operand"][0]["dateRange"]["startDate"] == "20260101"
 
-    def test_returns_none_on_empty(self):
+    def test_raises_on_empty(self):
         client = MagicMock()
         client.post.return_value = _mock_response({"rval": {"values": []}})
-        job_id = submit_report(
-            client,
-            "https://api",
-            "123",
-            "CAMPAIGN",
-            ["DAY"],
-            "2026-01-01",
-            "2026-01-31",
-        )
-        assert job_id is None
+        with pytest.raises(PrimaryResourceError, match="no values"):
+            submit_report(
+                client,
+                "https://api",
+                "123",
+                "CAMPAIGN",
+                ["DAY"],
+                "2026-01-01",
+                "2026-01-31",
+            )
 
 
 class TestPollReport:
@@ -375,7 +375,7 @@ class TestPollReport:
         status = poll_report(client, "https://api", "12345", 123)
         assert status == "COMPLETED"
 
-    def test_failed_returns_none(self):
+    def test_failed_raises(self):
         client = MagicMock()
         client.post.return_value = _mock_response(
             {
@@ -391,8 +391,8 @@ class TestPollReport:
                 }
             }
         )
-        status = poll_report(client, "https://api", "12345", 123)
-        assert status is None
+        with pytest.raises(PrimaryResourceError, match="FAILED"):
+            poll_report(client, "https://api", "12345", 123)
 
     @patch("dlt_community_sources.yahoo_ads_common.helpers.time.sleep")
     @patch("dlt_community_sources.yahoo_ads_common.helpers.POLL_MAX_WAIT_SECONDS", 20)
@@ -413,8 +413,8 @@ class TestPollReport:
                 }
             }
         )
-        status = poll_report(client, "https://api", "12345", 123)
-        assert status is None
+        with pytest.raises(PrimaryResourceError, match="timed out"):
+            poll_report(client, "https://api", "12345", 123)
         # 2 poll sleeps + 2 post_rpc request delay sleeps = 4
         assert mock_sleep.call_count == 4
 
