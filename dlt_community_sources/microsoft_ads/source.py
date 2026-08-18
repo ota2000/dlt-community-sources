@@ -18,8 +18,9 @@ from typing import Optional, Sequence
 
 import dlt
 from dlt.sources import DltResource
+from dlt.sources.helpers import requests as req
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import primary_error_from_request
 
 from .resources.ad_insight import ALL_AD_INSIGHT_RESOURCES
 from .resources.campaign_management import ALL_CAMPAIGN_MGMT_RESOURCES
@@ -48,11 +49,17 @@ def discover_accounts(
     from .resources.helpers import make_client
 
     client = make_client(access_token, developer_token, customer_id, "")
-    data = post_rpc(
-        client,
-        f"{CUSTOMER_MGMT_URL}/AccountsInfo/Query",
-        {},
-    )
+    # skip_client_errors=False: a 4xx here means the whole account discovery
+    # failed — silently returning [] would make the job "succeed" doing nothing.
+    try:
+        data = post_rpc(
+            client,
+            f"{CUSTOMER_MGMT_URL}/AccountsInfo/Query",
+            {},
+            skip_client_errors=False,
+        )
+    except req.RequestException as e:
+        raise primary_error_from_request(e, "account discovery failed") from e
     accounts = data.get("AccountsInfo") or []
     return [
         {"id": str(a["Id"]), "name": a.get("Name", ""), "number": a.get("Number", "")}
@@ -136,8 +143,6 @@ def microsoft_ads_source(
         pk.append("KeywordId")
     report_resource.apply_hints(primary_key=pk)
     all_resources.append(report_resource)
-
-    all_resources = wrap_resources_safe(all_resources)
 
     if resources:
         return [r for r in all_resources if r.name in resources]

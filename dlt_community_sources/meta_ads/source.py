@@ -14,7 +14,12 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import (
+    PrimaryResourceTerminalError,
+    PrimaryResourceTransientError,
+    primary_error_from_request,
+    response_snippet,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -695,7 +700,9 @@ def discover_accounts(
     client = _make_client(access_token)
     accounts = []
     url = f"{base_url}/me/adaccounts?fields=id,account_status"
-    for account in _get_paginated(client, url):
+    # skip_client_errors=False: a 4xx here means the whole account discovery
+    # failed — silently returning [] would make the job "succeed" doing nothing.
+    for account in _get_paginated(client, url, skip_client_errors=False):
         if account.get("account_status") == 1:
             accounts.append(account["id"])
     return accounts
@@ -715,26 +722,21 @@ def _poll_report(
 ) -> bool:
     """Poll async report until completion. Returns True if completed.
 
-    Handles 429 rate limit responses with exponential backoff and
-    Retry-After header support.
+    Raises PrimaryResourceError on failure or timeout: insights is the
+    primary data of this source, so a failed report must fail the
+    pipeline instead of being skipped.
+    Transport-level retries (429 with Retry-After, 5xx, connection
+    errors) are handled inside the dlt requests client — no second
+    retry loop here.
     """
     elapsed = 0
-    backoff_wait = POLL_INTERVAL_SECONDS
     while elapsed < POLL_MAX_WAIT_SECONDS:
         try:
             response = client.get(f"{base_url}/{report_run_id}")
-            response.raise_for_status()
-        except req.HTTPError as e:
-            if e.response is not None and e.response.status_code == 429:
-                retry_after = e.response.headers.get("Retry-After")
-                wait = int(retry_after) if retry_after else backoff_wait
-                logger.warning("Rate limited during poll, waiting %ds", wait)
-                time.sleep(wait)
-                elapsed += wait
-                backoff_wait = min(backoff_wait * 2, POLL_MAX_WAIT_SECONDS)
-                continue
-            raise
-        backoff_wait = POLL_INTERVAL_SECONDS  # reset on success
+        except req.RequestException as e:
+            raise primary_error_from_request(
+                e, f"insights report {report_run_id} poll failed"
+            ) from e
         data = response.json()
 
         status = data.get("async_status")
@@ -744,16 +746,16 @@ def _poll_report(
         if status == "Job Completed":
             return True
         if status in ("Job Failed", "Job Skipped"):
-            logger.warning("Report %s failed with status: %s", report_run_id, status)
-            return False
+            raise PrimaryResourceTransientError(
+                f"insights report {report_run_id} failed with status: {status}"
+            )
 
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
 
-    logger.warning(
-        "Report %s timed out after %ds", report_run_id, POLL_MAX_WAIT_SECONDS
+    raise PrimaryResourceTransientError(
+        f"insights report {report_run_id} timed out after {POLL_MAX_WAIT_SECONDS}s"
     )
-    return False
 
 
 def _fetch_insights_pages(
@@ -761,60 +763,53 @@ def _fetch_insights_pages(
     report_run_id: str,
     base_url: str,
 ) -> Generator[dict, None, None]:
-    """Fetch all pages of insights results using cursor pagination."""
+    """Fetch all pages of insights results using cursor pagination.
+
+    Client errors are not skipped: a mid-pagination 4xx would otherwise
+    silently truncate the primary insights data.
+    """
     url = f"{base_url}/{report_run_id}/insights"
-    yield from _get_paginated(client, url)
+    yield from _get_paginated(client, url, skip_client_errors=False)
 
 
 def _get_paginated(
     client: req.Client,
     url: str,
-    max_retries: int = 5,
+    *,
+    skip_client_errors: bool = True,
 ) -> Generator[dict, None, None]:
     """Fetch all pages using cursor pagination.
 
-    Handles 429 rate limit responses with exponential backoff (up to
-    *max_retries* attempts per page) and Retry-After header support.
+    By default 400/403/404 end the iteration (logged with the response
+    body) so auxiliary resources survive accounts without a feature.
+    Pass ``skip_client_errors=False`` for primary data, where any
+    failure must fail the pipeline (classified via
+    ``primary_error_from_request``) instead of silently truncating the
+    load.
+    Transport-level retries (429 with Retry-After, 5xx, connection
+    errors) are handled inside the dlt requests client — no second
+    retry loop here.
     """
     while url:
-        backoff_wait = POLL_INTERVAL_SECONDS
-        retries = 0
-        while True:
-            try:
-                response = client.get(url)
-                response.raise_for_status()
-                break  # success
-            except req.HTTPError as e:
-                if e.response is not None and e.response.status_code in (
-                    400,
-                    403,
-                    404,
-                ):
-                    logger.warning(
-                        "Request failed (%d) for %s. Skipping.",
-                        e.response.status_code,
-                        url,
-                    )
-                    return
-                if (
-                    e.response is not None
-                    and e.response.status_code == 429
-                    and retries < max_retries
-                ):
-                    retry_after = e.response.headers.get("Retry-After")
-                    wait = int(retry_after) if retry_after else backoff_wait
-                    logger.warning(
-                        "Rate limited on %s, waiting %ds (retry %d/%d)",
-                        url,
-                        wait,
-                        retries + 1,
-                        max_retries,
-                    )
-                    time.sleep(wait)
-                    backoff_wait = min(backoff_wait * 2, POLL_MAX_WAIT_SECONDS)
-                    retries += 1
-                    continue
-                raise
+        try:
+            response = client.get(url)
+        except req.RequestException as e:
+            if not skip_client_errors:
+                # Primary data: classify every failure, not just 400/403/404
+                raise primary_error_from_request(e, f"request failed for {url}") from e
+            if (
+                isinstance(e, req.HTTPError)
+                and e.response is not None
+                and e.response.status_code in (400, 403, 404)
+            ):
+                logger.warning(
+                    "Request failed (%d) for %s. Skipping. body=%s",
+                    e.response.status_code,
+                    url,
+                    response_snippet(e.response),
+                )
+                return
+            raise
         data = response.json()
         yield from data.get("data", [])
         url = data.get("paging", {}).get("next")
@@ -918,32 +913,27 @@ def insights(
     if action_breakdowns:
         request_data["action_breakdowns"] = ",".join(action_breakdowns)
 
-    response = client.post(
-        f"{base_url}/{act_id}/insights",
-        data=request_data,
-    )
-    if response.status_code != 200:
-        error_body = (
-            response.json()
-            if response.headers.get("content-type", "").startswith("application/json")
-            else response.text
+    # dlt's Client raises inside .post() (raise_for_status=True default),
+    # so classify the HTTPError instead of branching on status_code.
+    try:
+        response = client.post(
+            f"{base_url}/{act_id}/insights",
+            data=request_data,
         )
-        logger.warning(
-            "insights submit failed: %d %s for %s",
-            response.status_code,
-            error_body,
-            act_id,
-        )
-        response.raise_for_status()
+    except req.RequestException as e:
+        raise primary_error_from_request(
+            e, f"insights submit failed for {act_id}"
+        ) from e
     report_run_id = response.json().get("report_run_id")
 
     if not report_run_id:
-        logger.warning("insights: no report_run_id returned")
-        return
+        raise PrimaryResourceTerminalError(
+            f"insights submit for {act_id} returned no report_run_id: "
+            f"{response_snippet(response)}"
+        )
 
-    # Poll until completion
-    if not _poll_report(client, report_run_id, base_url):
-        return
+    # Poll until completion (raises on failure/timeout)
+    _poll_report(client, report_run_id, base_url)
 
     # Fetch results with type conversion
     for row in _fetch_insights_pages(client, report_run_id, base_url):
@@ -1039,8 +1029,6 @@ def meta_ads_source(
         leads_resource,
         insights_resource,
     ]
-
-    all_resources = wrap_resources_safe(all_resources)
 
     if resources:
         return [r for r in all_resources if r.name in resources]

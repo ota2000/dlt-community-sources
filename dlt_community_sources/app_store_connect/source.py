@@ -15,7 +15,7 @@ from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import skip_or_raise
 
 from .auth import AppStoreConnectAuth
 
@@ -213,7 +213,6 @@ def app_store_connect_source(
 
     all_resources: list[DltResource] = rest_resources + report_resources
 
-    all_resources = wrap_resources_safe(all_resources)
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
@@ -237,14 +236,8 @@ def _download_tsv(
         response = client.get(url, params=params)
         response.raise_for_status()
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
-            logger.warning(
-                "Report not available (%d) for %s. Skipping.",
-                e.response.status_code,
-                url,
-            )
-            return []
-        raise
+        skip_or_raise(e, url)
+        return []
     content = response.content
     try:
         content = gzip.decompress(content)
@@ -259,10 +252,14 @@ def _download_gzip_tsv(client: req.Client, url: str) -> list[dict]:
     """Download a gzip-compressed TSV and parse it."""
     try:
         response = client.get(url)
-        response.raise_for_status()
+    except req.HTTPError as e:
+        # 400/403/404 skip with the body logged; 5xx and others propagate
+        skip_or_raise(e, url)
+        return []
+    try:
         text = gzip.decompress(response.content).decode("utf-8")
-    except (req.HTTPError, gzip.BadGzipFile, UnicodeDecodeError) as e:
-        logger.warning("Failed to download/decompress TSV from %s: %s", url, e)
+    except (gzip.BadGzipFile, UnicodeDecodeError) as e:
+        logger.warning("Failed to decompress TSV from %s: %s", url, e)
         return []
     reader = csv.DictReader(io.StringIO(text), delimiter="\t")
     return list(reader)
@@ -422,14 +419,8 @@ def analytics_reports(
                 response = client.get(url)
                 response.raise_for_status()
             except req.HTTPError as e:
-                if e.response is not None and e.response.status_code in (403, 404):
-                    logger.warning(
-                        "Request failed (%d) for %s. Skipping.",
-                        e.response.status_code,
-                        path,
-                    )
-                    return
-                raise
+                skip_or_raise(e, path)
+                return
             data = response.json()
             yield from data.get("data", [])
             url = data.get("links", {}).get("next")

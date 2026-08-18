@@ -114,3 +114,58 @@ def test_rfc2822_to_iso_sorts_correctly():
 def test_rfc2822_to_iso_fallback():
     assert mod._rfc2822_to_iso("not-a-date") == "not-a-date"
     assert mod._rfc2822_to_iso("") == ""
+
+
+class TestAccountsResourceErrorHandling:
+    """Resource-level skip/propagate behavior (dlt Client raises inside .get())."""
+
+    def _http_error(self, status_code: int):
+        from unittest.mock import MagicMock
+
+        from dlt.sources.helpers.requests import HTTPError
+
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.text = '{"error":"detail"}'
+        return HTTPError(f"{status_code} Error", response=resp)
+
+    @patch("dlt_community_sources.twilio.source._make_client")
+    def test_accounts_403_is_skipped(self, mock_make_client):
+        from unittest.mock import MagicMock
+
+        from dlt_community_sources.twilio.source import accounts_resource
+
+        client = MagicMock()
+        client.get.side_effect = self._http_error(403)
+        mock_make_client.return_value = client
+
+        rows = list(accounts_resource("AC_TEST", "user", "pass"))
+        assert rows == []
+
+    @patch("dlt_community_sources.twilio.source._make_client")
+    def test_accounts_500_raises(self, mock_make_client):
+        from unittest.mock import MagicMock
+
+        import pytest
+
+        from dlt_community_sources.twilio.source import accounts_resource
+
+        client = MagicMock()
+        client.get.side_effect = self._http_error(500)
+        mock_make_client.return_value = client
+
+        with pytest.raises(Exception, match="500"):
+            list(accounts_resource("AC_TEST", "user", "pass"))
+
+    @patch("dlt_community_sources.twilio.source._make_client")
+    def test_available_phone_numbers_404_is_skipped(self, mock_make_client):
+        from unittest.mock import MagicMock
+
+        from dlt_community_sources.twilio.source import available_phone_numbers
+
+        client = MagicMock()
+        client.get.side_effect = self._http_error(404)
+        mock_make_client.return_value = client
+
+        rows = list(available_phone_numbers("AC_TEST", "user", "pass"))
+        assert rows == []

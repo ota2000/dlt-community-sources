@@ -234,7 +234,8 @@ The refresh token is rotated on each API call. The caller is responsible for per
 ## Notes
 
 - **POST RPC style**: Microsoft Advertising API uses POST requests with JSON bodies (not REST). Each operation maps to a specific URL path.
-- **Permission errors**: Resources that return 403 or 404 are silently skipped via `safe_rpc`.
+- **Permission errors**: Auxiliary resources that return 400/403/404 are skipped via `safe_rpc`, with the response body logged.
+- **Primary data**: the `report` resource fails loudly — submit/poll failures, timeouts, and client errors raise `PrimaryResourceError` instead of being skipped.
 - **Report polling**: Reports are submitted asynchronously and polled until completion (max 10 minutes). The response is a ZIP-compressed CSV.
 - **Type conversion**: Report CSV values are automatically converted to int/float for numeric fields (Impressions, Clicks, Spend, etc.).
 - **Primary key**: Report primary key is dynamically set based on report type (e.g., CampaignPerformanceReportRequest includes CampaignId).

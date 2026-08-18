@@ -18,8 +18,19 @@ fi
 
 AGENTS=(claude cursor codex)
 
-if command -v uv > /dev/null 2>&1 && uv run dlt --version > /dev/null 2>&1; then
+# dlt 1.27.0 moved the `ai` command to the dlthub CLI (dlt[hub] extra) and
+# changed the toolkit syntax. Prefer dlthub, fall back to the legacy
+# `dlt ai` for older dlt versions.
+if command -v uv > /dev/null 2>&1 && uv run dlthub --version > /dev/null 2>&1; then
   echo "Syncing dltHub AI workbench..."
+  for agent in "${AGENTS[@]}"; do
+    uv run dlthub ai init --agent "$agent" --overwrite 2>&1 | sed 's/^/  /'
+    uv run dlthub ai toolkit install rest-api-pipeline --agent "$agent" --overwrite 2>&1 | sed 's/^/  /'
+  done
+  echo "✓ dltHub AI workbench synced"
+  echo ""
+elif command -v uv > /dev/null 2>&1 && uv run dlt ai --help > /dev/null 2>&1; then
+  echo "Syncing dltHub AI workbench (legacy dlt ai)..."
   for agent in "${AGENTS[@]}"; do
     uv run dlt ai init --agent "$agent" --overwrite 2>&1 | sed 's/^/  /'
     uv run dlt ai toolkit rest-api-pipeline install --agent "$agent" --overwrite 2>&1 | sed 's/^/  /'
@@ -27,7 +38,7 @@ if command -v uv > /dev/null 2>&1 && uv run dlt --version > /dev/null 2>&1; then
   echo "✓ dltHub AI workbench synced"
   echo ""
 else
-  echo "⚠ Skipping dltHub AI workbench sync (dlt not available)"
+  echo "⚠ Skipping dltHub AI workbench sync (dlthub/dlt ai not available)"
   echo ""
 fi
 
