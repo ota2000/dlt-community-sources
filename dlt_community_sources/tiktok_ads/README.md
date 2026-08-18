@@ -109,7 +109,7 @@ The API uses `Access-Token` header (not `Authorization: Bearer`).
 - Report dimensions/metrics response is nested (`{dimensions: {}, metrics: {}}`) and flattened automatically
 - Metrics are converted from strings to numeric types (int/Decimal)
 - Attribution window: re-fetches last 7 days by default (configurable)
-- TikTok API returns HTTP 200 for errors (`code != 0`) — handled gracefully
+- TikTok API returns HTTP 200 for errors (`code != 0`) — auxiliary resources skip these gracefully; the primary `report` resource raises `PrimaryResourceError` on API errors and HTTP client errors instead of being skipped
 - 429 rate limit retry handled by dlt's built-in HTTP client
 - Images: TikTok API has no list-all endpoint (`file/image/ad/info/` requires specific `image_ids`). Image metadata is available via ad creatives.
 - Catalogs: `catalog/get/` requires `bc_id` (Business Center ID), not `advertiser_id`. Not included in the default source.

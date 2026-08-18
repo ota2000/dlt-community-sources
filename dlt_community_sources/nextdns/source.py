@@ -9,17 +9,34 @@ import dlt
 from dlt.sources import DltResource
 from dlt.sources.helpers import requests as req
 from dlt.sources.rest_api import rest_api_resources
-from dlt.sources.rest_api.typing import RESTAPIConfig
+from dlt.sources.rest_api.typing import EndpointResource, RESTAPIConfig
 
-from dlt_community_sources._utils import wrap_resources_safe
+from dlt_community_sources._utils import primary_error_from_request, skip_or_raise
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://api.nextdns.io"
 
 
-def _rest_api_config(api_key: str, base_url: str) -> RESTAPIConfig:
-    """Build the REST API config for standard NextDNS endpoints."""
+def _rest_api_config(
+    api_key: str, base_url: str, profile_id: Optional[str] = None
+) -> RESTAPIConfig:
+    """Build the REST API config for standard NextDNS endpoints.
+
+    profile_id を指定した場合、profiles リソースをそのプロファイルのみに絞る。
+    analytics_* は {resources.profiles.id} で親 profiles を辿るため、ここで絞ると
+    すべての analytics リソースも同一プロファイルにスコープされる。
+    """
+    profiles_resource: EndpointResource = {
+        "name": "profiles",
+        "primary_key": "id",
+        "write_disposition": "merge",
+        "endpoint": {"path": "profiles"},
+    }
+    if profile_id:
+        profiles_resource["processing_steps"] = [
+            {"filter": lambda record: record.get("id") == profile_id}
+        ]
     return {
         "client": {
             "base_url": f"{base_url}/",
@@ -40,18 +57,14 @@ def _rest_api_config(api_key: str, base_url: str) -> RESTAPIConfig:
             "endpoint": {
                 "data_selector": "data",
                 "response_actions": [
+                    {"status_code": 400, "action": "ignore"},
                     {"status_code": 403, "action": "ignore"},
                     {"status_code": 404, "action": "ignore"},
                 ],
             },
         },
         "resources": [
-            {
-                "name": "profiles",
-                "primary_key": "id",
-                "write_disposition": "merge",
-                "endpoint": {"path": "profiles"},
-            },
+            profiles_resource,
             {
                 "name": "analytics_status",
                 "endpoint": {
@@ -170,7 +183,7 @@ def nextdns_source(
     log_start = start_date or "2020-01-01T00:00:00.000Z"
 
     # REST API resources (declarative)
-    config = _rest_api_config(api_key, url)
+    config = _rest_api_config(api_key, url, profile_id=profile_id)
     rest_resources = rest_api_resources(config)
 
     # Discover profile IDs for custom resources
@@ -179,8 +192,15 @@ def nextdns_source(
         profile_ids = [profile_id]
     else:
         client = _make_client(api_key)
-        for p in _get_paginated(client, "profiles", base_url=url):
-            profile_ids.append(p["id"])
+        # A discovery failure must not silently yield zero profiles — every
+        # per-profile resource would load nothing while the job "succeeds".
+        try:
+            for p in _get_paginated(
+                client, "profiles", base_url=url, skip_client_errors=False
+            ):
+                profile_ids.append(p["id"])
+        except req.RequestException as e:
+            raise primary_error_from_request(e, "profile discovery failed") from e
 
     # Custom resources (can't be done via rest_api)
     custom_resources = [
@@ -218,7 +238,6 @@ def nextdns_source(
 
     all_resources: list[DltResource] = rest_resources + custom_resources
 
-    all_resources = wrap_resources_safe(all_resources)
     if resources:
         return [r for r in all_resources if r.name in resources]
     return all_resources
@@ -239,24 +258,26 @@ def _get_paginated(
     path: str,
     params: Optional[dict] = None,
     base_url: str = DEFAULT_BASE_URL,
+    *,
+    skip_client_errors: bool = True,
 ) -> Generator[dict, None, None]:
-    """Fetch all pages using cursor-based pagination."""
+    """Fetch all pages using cursor-based pagination.
+
+    Pass ``skip_client_errors=False`` when a client error must propagate
+    to the caller (e.g. profile discovery, where a skipped 403 would
+    silently yield zero profiles and the job would "succeed" empty).
+    """
     if params is None:
         params = {}
     url = f"{base_url}/{path}"
     while True:
         try:
             response = client.get(url, params=params)
-            response.raise_for_status()
         except req.HTTPError as e:
-            if e.response is not None and e.response.status_code in (403, 404):
-                logger.warning(
-                    "Request failed (%d) for %s. Skipping.",
-                    e.response.status_code,
-                    path,
-                )
-                return
-            raise
+            if not skip_client_errors:
+                raise
+            skip_or_raise(e, path)
+            return
         data = response.json()
         yield from data.get("data", [])
         cursor = data.get("meta", {}).get("pagination", {}).get("cursor")
@@ -286,8 +307,13 @@ def _flatten_series(
     params.setdefault("from", series_period)
 
     url = f"{base_url}/{path}"
-    response = client.get(url, params=params)
-    response.raise_for_status()
+    # dlt's Client raises inside .get() (raise_for_status=True default),
+    # so the call itself must be inside the try block.
+    try:
+        response = client.get(url, params=params)
+    except req.HTTPError as e:
+        skip_or_raise(e, path)
+        return
     data = response.json()
 
     times = data.get("meta", {}).get("series", {}).get("times", [])

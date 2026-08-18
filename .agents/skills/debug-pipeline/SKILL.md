@@ -36,7 +36,7 @@ Always do this first before any pipeline debugging:
    ```
 
 This shows HTTP requests being made, data extracted, pagination steps, and normalize/load progress. Essential for diagnosing any issue.
-**Essential reading if problems PERSIST**: https://dlthub.com/docs/general-usage/http/rest-client.md
+**Essential reading if problems PERSIST**: https://dlthub.com/docs/dlt-ecosystem/verified-sources/rest_api/advanced.md
 
 ## Run the pipeline
 
@@ -61,7 +61,7 @@ Expected: a `ConfigFieldMissingException` or `401 Unauthorized` error confirming
 
 Tell the user what credentials to fill in and how to get them. If credentials are unknown, research the data source (web search for API docs, auth setup guides — similar to what `find-source` does).
 
-After any run (success or failure), use the dlt CLI for inspection:
+After any run (success or failure), use the dlthub CLI for inspection:
 
 ### Pipeline appears stuck / runs too long
 
@@ -72,18 +72,28 @@ A pipeline that runs for a long time is suspicious but MAY be normal (large data
 - `OffsetPaginator`/`PageNumberPaginator` without `stop_after_empty_page=True` require `total_path` or `maximum_offset`/`maximum_page`, otherwise they loop forever.
 - `JSONResponseCursorPaginator` with wrong `cursor_path` → cursor never advances → infinite loop.
 
-**Silent retries look like a hang** — the pipeline may be retrying failed HTTP requests:
-- Default: 5 retries with exponential backoff (up to 16s per attempt), 60s request timeout.
-- A single failing endpoint can stall for 60-80+ seconds before raising an error.
-- Override in `.dlt/config.toml` for faster failure during debugging:
+**Silent retries look like a hang / HTTP 429 rate limits** — the pipeline may be retrying failed HTTP requests:
+- dlt **automatically retries HTTP 429 (Too Many Requests)** and respects `Retry-After` response headers — no custom retry code needed.
+- Default retry config: 5 attempts, exponential backoff (factor=1, max delay=300s), 60s timeout.
+- A 429 with a long `Retry-After` header can stall the pipeline for minutes — this is normal behaviour.
+- If the pipeline keeps hitting 429 even after retries, the API has strict rate limits. Tune in `.dlt/config.toml`:
+  ```toml
+  [runtime]
+  request_max_attempts = 10    # more retries (default: 5)
+  request_backoff_factor = 1.5 # steeper backoff so waits grow longer (default: 1)
+  ```
+  Do NOT lower `request_max_retry_delay` for rate limits — longer delays let the rate-limit window reset.
+- For faster failure **during debugging**, reduce retries instead:
   ```toml
   [runtime]
   request_timeout = 15
   request_max_attempts = 2
   ```
-- Ref: https://dlthub.com/docs/general-usage/http/requests.md (timeouts and retries)
+- Ref: https://dlthub.com/docs/dlt-ecosystem/verified-sources/rest_api/advanced.md (timeouts and retries)
 
-**Working but slow** — each request returns new data and URL changes. Use `.add_limit(N)` to cap pages during development.
+### Pipeline runs slower than expected
+
+Each request returns new data and URL changes — this is a large dataset, not a hang. Use `.add_limit(N)` to cap pages during development. For rate-limit-induced slowdowns (429 + `Retry-After` stalls), see **Silent retries / HTTP 429 rate limits** above.
 
 **Can't tell which resource is stuck** in a multi-resource pipeline — switch to sequential extraction:
 ```toml
@@ -101,7 +111,7 @@ Likely a wrong or missing `data_selector`. dlt auto-detects the data array in th
 
 Inspect pipeline state to check the stored cursor value:
 ```
-dlt pipeline -v <pipeline_name> info
+uv run dlthub local pipeline info <pipeline_name> -v
 ```
 Look for `last_value` in the resource state — verify it updates between runs. Also check logs for `"Bind incremental on <resource_name>"` to confirm the incremental param was bound.
 Ref: https://dlthub.com/docs/general-usage/incremental/troubleshooting.md
@@ -111,21 +121,21 @@ Ref: https://dlthub.com/docs/general-usage/incremental/troubleshooting.md
 You can inspect last pipeline run:
 
 ```
-dlt pipeline -vv <pipeline_name> trace
+uv run dlthub local pipeline trace <pipeline_name> -vv
 ```
-Note: `-vv` goes BEFORE the pipeline name. Shows config/secret resolution, step timing, failures.
+Shows config/secret resolution, step timing, failures.
 
 ## Load packages
 Each pipeline run generated one or more load packages. Use trace tool to find their ids.
 
 ```
-dlt pipeline -v <pipeline_name> load-package          # most recent package
-dlt pipeline -v <pipeline_name> load-package <load_id> # specific package
+uv run dlthub local pipeline load-package <pipeline_name> -v           # most recent package
+uv run dlthub local pipeline load-package <pipeline_name> <load_id> -v # specific package
 ```
 Shows package state, per-job details (table, file type, size, timing), and **error messages for failed jobs**. With `-v` also shows schema updates applied.
 
 ```
-dlt pipeline <pipeline_name> failed-jobs
+uv run dlthub local pipeline failed-jobs <pipeline_name>
 ```
 Scans all packages for failed jobs and displays error messages from the destination.
 
@@ -159,6 +169,8 @@ Checklist:
 Do NOT remove settings the user had before you started debugging.
 
 ## Next steps
+
+*If a quick-start path is active, follow that path's sequence instead — this list is for standalone use.*
 
 - **Load successful** → use `validate-data` to inspect schema and data, or hand over to `explore-data` (data-exploration toolkit) to jump straight into charts and analysis
 - **Config/secrets missing** → check TOML sections, revisit `create-rest-api-pipeline` step 6b for credential setup

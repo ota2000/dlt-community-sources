@@ -5,6 +5,9 @@ import zipfile
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from dlt_community_sources._utils import PrimaryResourceError
 from dlt_community_sources.microsoft_ads.resources.ad_insight import (
     ALL_AD_INSIGHT_RESOURCES,
     auto_apply_opt_in_status,
@@ -228,6 +231,47 @@ class TestSubmitReport:
             "Year": 2026,
         }
 
+    def test_submit_400_raises_with_body(self):
+        """Regression: a 400 on GenerateReport/Submit must fail loudly.
+
+        Previously post_rpc swallowed the 400 (without logging the body),
+        _submit_report returned None, and the pipeline "succeeded" with no
+        report data at all.
+        """
+        from dlt.sources.helpers.requests import HTTPError
+
+        error_resp = MagicMock()
+        error_resp.status_code = 400
+        error_resp.text = '{"Errors":[{"Code":2004,"Message":"account on hold"}]}'
+        error_resp.raise_for_status.side_effect = HTTPError(response=error_resp)
+        mock_client = MagicMock()
+        mock_client.post.return_value = error_resp
+        with pytest.raises(PrimaryResourceError, match="account on hold"):
+            _submit_report(
+                mock_client,
+                "CampaignPerformanceReportRequest",
+                "12345",
+                ["TimePeriod"],
+                "2026-01-01",
+                "2026-01-31",
+            )
+
+    def test_submit_no_request_id_raises(self):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {}
+        mock_resp.raise_for_status.return_value = None
+        mock_client.post.return_value = mock_resp
+        with pytest.raises(PrimaryResourceError, match="no.*ReportRequestId"):
+            _submit_report(
+                mock_client,
+                "CampaignPerformanceReportRequest",
+                "12345",
+                ["TimePeriod"],
+                "2026-01-01",
+                "2026-01-31",
+            )
+
 
 class TestPollReport:
     def test_success(self):
@@ -244,14 +288,14 @@ class TestPollReport:
         result = _poll_report(mock_client, "req123")
         assert result == "https://download.example.com/report.zip"
 
-    def test_error_returns_none(self):
+    def test_error_raises(self):
         mock_client = MagicMock()
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"ReportRequestStatus": {"Status": "Error"}}
         mock_resp.raise_for_status.return_value = None
         mock_client.post.return_value = mock_resp
-        result = _poll_report(mock_client, "req123")
-        assert result is None
+        with pytest.raises(PrimaryResourceError, match="failed"):
+            _poll_report(mock_client, "req123")
 
     @patch("dlt_community_sources.microsoft_ads.resources.reporting.time.sleep")
     @patch(
@@ -262,14 +306,14 @@ class TestPollReport:
         "dlt_community_sources.microsoft_ads.resources.reporting.POLL_INTERVAL_SECONDS",
         10,
     )
-    def test_timeout_returns_none(self, mock_sleep):
+    def test_timeout_raises(self, mock_sleep):
         mock_client = MagicMock()
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"ReportRequestStatus": {"Status": "Pending"}}
         mock_resp.raise_for_status.return_value = None
         mock_client.post.return_value = mock_resp
-        result = _poll_report(mock_client, "req123")
-        assert result is None
+        with pytest.raises(PrimaryResourceError, match="timed out"):
+            _poll_report(mock_client, "req123")
         # 2 poll sleeps + 2 post_rpc request delay sleeps = 4
         assert mock_sleep.call_count == 4
 

@@ -1,18 +1,18 @@
 ---
 name: setup-secrets
-description: Safely manage dlt secrets in *.secrets.toml. Use when the user directly asks to set up, configure, or inspect credentials (API keys, database passwords, tokens). Also use when writing Python code that needs to read secrets via dlt.secrets without exposing values. Do NOT use for pipeline creation, source discovery, or debugging pipeline execution — those skills call setup-secrets when they need credentials configured.
+description: Safely manage dlthub secrets in *.secrets.toml. Use when the user directly asks to set up, configure, or inspect credentials (API keys, database passwords, tokens). Also use when writing Python code that needs to read secrets via dlt.secrets without exposing values. Do NOT use for pipeline creation, source discovery, or debugging pipeline execution — those skills call setup-secrets when they need credentials configured.
 argument-hint: "[source-name]"
 ---
 
-# Set up dlt secrets
+# Set up dlthub secrets
 
 **Essential Reading** Credentials & config resolution: `https://dlthub.com/docs/general-usage/credentials/setup.md` `https://dlthub.com/docs/general-usage/credentials/advanced`
 
-Configure credentials in `.dlt/secrets.toml`. **Never read secrets files directly** — use `dlt-workspace-mcp` tools or `dlt ai secrets` CLI commands.
+Configure credentials in `.dlt/secrets.toml`. **Never read secrets files directly** — use `dlt-workspace-mcp` tools or `dlthub ai secrets` CLI commands.
 
 **Prefer MCP** — use `secrets_list`, `secrets_view_redacted`, `secrets_update_fragment` tools from `dlt-workspace-mcp`.
 
-**CLI fallback**: If MCP is not connected, see [cli-reference.md](cli-reference.md) for equivalent `dlt ai secrets` commands.
+**CLI fallback**: If MCP is not connected, see [cli-reference.md](cli-reference.md) for equivalent `dlthub ai secrets` commands.
 
 **Read additional docs as needed:**
 - Connection string credentials (databases, warehouses): `https://dlthub.com/docs/general-usage/credentials/complex_types.md`

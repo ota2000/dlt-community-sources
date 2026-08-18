@@ -1,17 +1,17 @@
 ---
 name: create-rest-api-pipeline
 description: Create a dlt REST API pipeline. Use for the rest_api core source, or any generic REST/HTTP API source. Not for sql_database or filesystem sources.
-argument-hint: "[dlt-init-command]"
+argument-hint: "[dlthub-pipeline-init-command]"
 ---
 
 # Create a rest api dlt pipeline
 
 Create the simplest working dlt pipeline — single endpoint, no pagination or incremental loading — to get data flowing fast.
 
-**Requires a `dlt init` command as the argument** (e.g. `dlt init shopify_store duckdb`).
+**Requires a `dlthub pipeline init` command as the argument** (e.g. `dlthub pipeline init shopify_store duckdb`).
 If you don't have one yet, run `find-source` first to identify the right source.
 
-The argument is the full `dlt init` command to run (e.g. `dlt init shopify_store duckdb` or `dlt init sql_database postgres`).
+The argument is the full `dlthub pipeline init` command to run (e.g. `dlthub pipeline init shopify_store duckdb` or `dlthub pipeline init sql_database postgres`).
 
 ## Steps
 
@@ -19,16 +19,20 @@ The argument is the full `dlt init` command to run (e.g. `dlt init shopify_store
 
 Run `ls -la` to see the current state before scaffolding.
 
-### 2. Run dlt init
+### 2. Run dlthub pipeline init
 
-`dlt init` can be run multiple times in the same project — each run adds new files without overwriting existing pipeline scripts. It will update shared files (`.dlt/secrets.toml`, `.dlt/config.toml`, `requirements.txt`, `.gitignore`).
+`dlthub pipeline init` can be run multiple times in the same project — each run adds new files without overwriting existing pipeline scripts. It will update shared files (`.dlt/secrets.toml`, `.dlt/config.toml`, `requirements.txt`, `.gitignore`).
 
-Run the provided `dlt init` command with `--non-interactive` in the active venv. Depending on the source type, this creates:
+Run the provided `dlthub pipeline init` command with the global `--non-interactive` flag in the active venv (e.g. `uv run dlthub --non-interactive pipeline init rest_api duckdb`).
 
-**Core source** (`dlt init rest_api duckdb`):
+If the command fails with `invalid choice: 'pipeline'`, the dlthub workspace is not initialized. Run `uv run dlthub init` and follow its instructions — most importantly run `uv sync` to pull required dependencies — then retry.
+
+Depending on the source type, this creates:
+
+**Core source** (`dlthub pipeline init rest_api duckdb`):
 - `rest_api_pipeline.py` (or similar) — full working example with RESTAPIConfig, pagination, incremental loading
 
-**Generic fallback** (`dlt init <unknown_name> duckdb`):
+**Generic fallback** (`dlthub pipeline init <unknown_name> duckdb`):
 - `<name>_pipeline.py` — basic intro template (less useful, prefer core sources)
 
 **Shared files** (created on first init, updated on subsequent runs):
@@ -62,7 +66,7 @@ Do these in parallel:
 
 **Read additional docs as needed in later steps:**
 - How dlt works (extract → normalize → load): `https://dlthub.com/docs/reference/explainers/how-dlt-works.md`
-- CLI reference (trace, load-package, schema): `https://dlthub.com/docs/reference/command-line-interface.md`
+- CLI reference (trace, load-package, schema): `https://dlthub.com/docs/hub/command-line-interface.md`
 - File formats: `https://dlthub.com/docs/dlt-ecosystem/file-formats/`
 - Full docs index: `https://dlthub.com/docs/llms.txt`
 
@@ -137,7 +141,7 @@ base_url = "https://api.example.com/v1/"
 
 **Secrets** (API keys, tokens, passwords): **never** read or write `secrets.toml` directly.  **Never** run commands that output secret values (e.g. `gh auth token`, `env | grep KEY`).
 
-Use `secrets_view_redacted`, `secrets_list`, and `secrets_update_fragment` MCP tools (or equivalent `dlt ai secrets` CLI commands) — see `setup-secrets` skill for details.
+Use `secrets_view_redacted`, `secrets_list`, and `secrets_update_fragment` MCP tools (or equivalent `dlthub ai secrets` CLI commands) — see `setup-secrets` skill for details.
 
 Use `secrets_list` to pick the target file, then `secrets_update_fragment` with the TOML fragment:
 ```toml
@@ -148,6 +152,8 @@ access_token = "ak-*******-cae"
 - Use meaningful placeholders that hint at format (not generic `<configure me>`)
 
 For more complex credential setup (research where to get keys, multiple providers), use `setup-secrets` skill.
+
+**Rate limits**: dlt handles HTTP 429 and `Retry-After` automatically — no custom retry code needed. For strict rate-limited APIs, tune retry settings in `adjust-endpoint`.
 
 **ALWAYS Get Feedback** before you run the pipeline for a first time. Show summary of files that you changed or generated.
 

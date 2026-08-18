@@ -7,6 +7,8 @@ from decimal import Decimal
 
 from dlt.sources.helpers import requests as req
 
+from dlt_community_sources._utils import response_snippet, skip_or_raise
+
 logger = logging.getLogger(__name__)
 
 # Base URLs for Microsoft Advertising API v13
@@ -71,11 +73,19 @@ def make_client(
 _REQUEST_DELAY = 0.3  # seconds between requests to avoid API rate limiting
 
 
-def post_rpc(client: req.Client, url: str, body: dict) -> dict:
+def post_rpc(
+    client: req.Client,
+    url: str,
+    body: dict,
+    *,
+    skip_client_errors: bool = True,
+) -> dict:
     """Make a POST RPC call and return response JSON.
 
-    Returns empty dict on 400/403/404 to prevent pipeline crashes
-    from invalid request bodies or missing permissions.
+    By default returns an empty dict on 400/403/404 (logged with the
+    response body) so auxiliary resources survive accounts that lack a
+    feature. Pass ``skip_client_errors=False`` on the reporting path,
+    where a client error means real data loss and must propagate.
     Adds a small delay between requests to avoid rate limiting.
     dlt's req.Client handles 429/5xx/connection retries automatically.
     """
@@ -85,22 +95,22 @@ def post_rpc(client: req.Client, url: str, body: dict) -> dict:
         response.raise_for_status()
         return response.json()
     except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (400, 403, 404):
-            logger.warning("Skipping %s: %d", url, e.response.status_code)
-            return {}
-        raise
+        if not skip_client_errors:
+            logger.error(
+                "RPC failed %s: %s body=%s",
+                url,
+                e.response.status_code if e.response is not None else "?",
+                response_snippet(e.response),
+            )
+            raise
+        skip_or_raise(e, url)
+        return {}
 
 
 def safe_rpc(client: req.Client, url: str, body: dict, key: str) -> list:
-    """POST RPC with 403/404 graceful skip."""
-    try:
-        data = post_rpc(client, url, body)
-        return data.get(key) or []
-    except req.HTTPError as e:
-        if e.response is not None and e.response.status_code in (400, 403, 404):
-            logger.warning("Skipping %s: %d", url, e.response.status_code)
-            return []
-        raise
+    """POST RPC with 400/403/404 graceful skip."""
+    data = post_rpc(client, url, body)
+    return data.get(key) or []
 
 
 def get_entities_paginated(

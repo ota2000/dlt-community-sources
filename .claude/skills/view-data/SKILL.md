@@ -17,7 +17,7 @@ Parse `$ARGUMENTS`:
 Tell the user to run Workspace Dashboard **if no precise query or instructions were give**, this
 assumes user wants to just look at the data. Otherwise
 ```
-dlt pipeline <pipeline_name> show
+uv run dlthub local pipeline show <pipeline_name>
 ```
 This opens a browser with table schemas, row counts, and sample data.
 
@@ -25,7 +25,7 @@ This opens a browser with table schemas, row counts, and sample data.
 
 **Essential Reading:**
 - `https://dlthub.com/docs/general-usage/dataset-access/dataset.md`
-- `https://dlthub.com/docs/general-usage/dataset-access/ibis-backend.md`
+- `https://dlthub.com/docs/general-usage/dataset-access/dataset#ibis`
 
 Use `pipeline.dataset()` to access loaded data. This is **destination agnostic** — works the same on duckdb, postgres, bigquery, etc. NEVER import destination libraries (like `duckdb`) directly.
 
@@ -62,7 +62,7 @@ Ibis is lazy, composable, and destination agnostic. Key operations:
 - `table.mutate(new_col=table.col * 100)` — computed columns
 - `table.select("col1", "col2")` — column selection
 
-Read ibis docs: `https://ibis-project.org/reference/expression-collections`
+Read ibis docs: `https://ibis-project.org/reference/expression-tables`
 
 ### Joining parent/child tables
 
@@ -80,4 +80,4 @@ dataset("SELECT * FROM my_table WHERE amount > 100").df()
 
 ## Custom charts and insights
 
-If the user wants to create custom charts or generate insights from their data, install the **data-exploration** toolkit (`dlt ai toolkit data-exploration install`) and follow the workflow there.
+If the user wants to create custom charts or generate insights from their data, install the **data-exploration** toolkit (`dlthub ai toolkit install data-exploration`) and follow the workflow there.
