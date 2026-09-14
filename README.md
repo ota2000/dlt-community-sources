@@ -18,6 +18,7 @@ Community-maintained [dlt](https://dlthub.com/) sources for various APIs. Instal
 | [Microsoft Ads](dlt_community_sources/microsoft_ads/) | `microsoft-ads` | Microsoft Advertising (Bing Ads) with certificate auth support |
 | [TikTok Ads](dlt_community_sources/tiktok_ads/) | `tiktok-ads` | TikTok Marketing API (Business API) |
 | [Yahoo Ads Search](dlt_community_sources/yahoo_ads_search/) | `yahoo-ads-search` | Yahoo Japan Ads Search API (SS) with MCC support |
+| [Dialpad](dlt_community_sources/dialpad/) | `dialpad` | Dialpad calls, users, offices, departments, call centers |
 
 ## Installation
 

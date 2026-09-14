@@ -4,6 +4,7 @@ These tests require environment variables to be set:
 - ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_PATH
 - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
 - NEXTDNS_API_KEY
+- DIALPAD_API_KEY
 
 Run with: uv run pytest tests/test_integration.py -v
 Skip if env vars are not set.
@@ -156,6 +157,51 @@ def test_nextdns_analytics_status():
         pipeline_name="test_nextdns_analytics",
         destination="duckdb",
         dataset_name="test_nextdns",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids
+
+
+# --- Dialpad ---
+
+DIALPAD_API_KEY = os.environ.get("DIALPAD_API_KEY")
+
+dialpad_available = bool(DIALPAD_API_KEY)
+
+
+@pytest.mark.skipif(not dialpad_available, reason="Dialpad credentials not set")
+def test_dialpad_users():
+    from dlt_community_sources.dialpad import dialpad_source
+
+    source = dialpad_source(
+        api_key=DIALPAD_API_KEY,
+        resources=["users"],
+    )
+    pipeline = dlt.pipeline(
+        pipeline_name="test_dialpad_users",
+        destination="duckdb",
+        dataset_name="test_dialpad",
+    )
+    load_info = pipeline.run(source)
+    assert load_info.loads_ids
+
+
+@pytest.mark.skipif(not dialpad_available, reason="Dialpad credentials not set")
+def test_dialpad_calls():
+    """Requires a company admin key with the calls:list scope."""
+    from datetime import date, timedelta
+
+    from dlt_community_sources.dialpad import dialpad_source
+
+    source = dialpad_source(
+        api_key=DIALPAD_API_KEY,
+        resources=["calls"],
+        start_date=(date.today() - timedelta(days=7)).isoformat(),
+    )
+    pipeline = dlt.pipeline(
+        pipeline_name="test_dialpad_calls",
+        destination="duckdb",
+        dataset_name="test_dialpad",
     )
     load_info = pipeline.run(source)
     assert load_info.loads_ids
