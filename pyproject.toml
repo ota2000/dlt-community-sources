@@ -22,6 +22,7 @@ classifiers = [
 
 [project.optional-dependencies]
 app-store-connect = ["PyJWT[crypto]>=2.8.0"]
+dialpad = []  # no extra dependencies, requests is included in dlt
 meta-ads = []  # no extra dependencies, requests is included in dlt
 microsoft-ads = ["msal>=1.28.0"]  # includes certificate auth support
 nextdns = []  # no extra dependencies, requests is included in dlt
