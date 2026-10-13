@@ -52,6 +52,8 @@ testpaths = ["dlt_community_sources", "tests"]
 addopts = "--cov=dlt_community_sources --cov-report=term-missing --cov-fail-under=70"
 
 [tool.ruff]
+# Vendored by scripts/sync-ai-rules.sh; reformatting would break the sync check
+extend-exclude = [".agents", ".claude", ".cursor"]
 lint.extend-select = ["I"]
 
 [build-system]
