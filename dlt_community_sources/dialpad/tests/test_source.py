@@ -14,6 +14,7 @@ from dlt_community_sources._utils import (
 )
 from dlt_community_sources.dialpad import source as mod
 from dlt_community_sources.dialpad.source import (
+    _as_start_timestamp,
     _call_cursor,
     _get_paginated,
     _iso_to_unix_ms,
@@ -143,6 +144,47 @@ def test_iso_to_unix_ms_round_trip():
 
 def test_iso_to_unix_ms_treats_naive_timestamp_as_utc():
     assert _iso_to_unix_ms("2026-09-14") == _iso_to_unix_ms("2026-09-14T00:00:00+00:00")
+
+
+@pytest.mark.parametrize(
+    ("start_date", "expected"),
+    [
+        ("2026-09-01", "2026-09-01T00:00:00+00:00"),
+        ("2026-09-01T09:30:00+09:00", "2026-09-01T09:30:00+09:00"),
+    ],
+)
+def test_as_start_timestamp(start_date, expected):
+    assert _as_start_timestamp(start_date) == expected
+
+
+def test_date_only_start_date_still_applies_lag_in_seconds(tmp_path):
+    """A date-only initial value makes dlt treat ``lag`` as days, so the start never advances."""
+    start_values = []
+
+    # The pipeline stays active after the test, so a resource named "calls" would leak its state into other tests
+    @dlt.resource(name="lag_probe")
+    def fake_calls(cursor: dlt.sources.incremental[str]):
+        start_values.append(cursor.start_value)
+        yield {"_cursor": "2026-09-14T10:00:00+00:00"}
+
+    pipeline = dlt.pipeline(
+        pipeline_name="dialpad_start_date_lag",
+        pipelines_dir=str(tmp_path),
+        destination=dlt.destinations.duckdb(str(tmp_path / "db.duckdb")),
+        dataset_name="t",
+    )
+    for _ in range(2):
+        pipeline.run(
+            fake_calls(
+                dlt.sources.incremental(
+                    "_cursor",
+                    initial_value=_as_start_timestamp("2026-09-01"),
+                    lag=24 * 60 * 60,
+                )
+            )
+        )
+
+    assert start_values[1] == "2026-09-13T10:00:00+00:00"
 
 
 def test_cursor_sorts_correctly_as_string():

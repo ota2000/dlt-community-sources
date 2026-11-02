@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from typing import Optional, Sequence
 
 import dlt
@@ -115,7 +115,9 @@ def dialpad_source(
             api_key,
             last_started=dlt.sources.incremental(
                 "_cursor",
-                initial_value=start_date or DEFAULT_START_DATE,
+                initial_value=_as_start_timestamp(start_date)
+                if start_date
+                else DEFAULT_START_DATE,
                 lag=lookback_seconds,
             ),
             base_url=url,
@@ -166,6 +168,20 @@ def _get_paginated(
         if not cursor:
             break
         params["cursor"] = cursor
+
+
+def _as_start_timestamp(value: str) -> str:
+    """Return a ``start_date`` as an ISO 8601 timestamp (midnight UTC for a date).
+
+    dlt infers the cursor type from ``initial_value``. A date-only string makes
+    it a date cursor, so ``lag`` (given in seconds) is applied as days and the
+    incremental start never moves past ``initial_value``.
+    """
+    try:
+        start = date.fromisoformat(value)
+    except ValueError:
+        return value
+    return datetime.combine(start, time.min, tzinfo=timezone.utc).isoformat()
 
 
 def _iso_to_unix_ms(iso_timestamp: str) -> int:
